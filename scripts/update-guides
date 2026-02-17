@@ -1,0 +1,3 @@
+#!/bin/bash
+# Update guides wrapper - calls the template stub from ai-project-guide
+exec project-documents/ai-project-guide/scripts/template-stubs/update-guides.sh "$@"
