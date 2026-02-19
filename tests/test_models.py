@@ -8,11 +8,10 @@ import pytest
 from pydantic import ValidationError
 
 from orchestration.core.models import (
-    Agent,
+    AgentConfig,
     AgentState,
     Message,
     MessageType,
-    ProviderConfig,
     TopologyConfig,
     TopologyType,
 )
@@ -47,61 +46,86 @@ def test_topology_type_values() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Agent model tests
+# AgentConfig model tests
 # ---------------------------------------------------------------------------
 
 
-def test_agent_creation_with_required_fields() -> None:
-    agent = Agent(
-        name="test-bot",
-        instructions="You are a helpful assistant.",
+def test_agent_config_minimal_required_fields() -> None:
+    cfg = AgentConfig(name="test-bot", agent_type="sdk", provider="sdk")
+    assert cfg.name == "test-bot"
+    assert cfg.agent_type == "sdk"
+    assert cfg.provider == "sdk"
+
+
+def test_agent_config_optional_fields_default_none() -> None:
+    cfg = AgentConfig(name="a", agent_type="sdk", provider="sdk")
+    assert cfg.model is None
+    assert cfg.instructions is None
+    assert cfg.api_key is None
+    assert cfg.auth_token is None
+    assert cfg.base_url is None
+    assert cfg.cwd is None
+    assert cfg.setting_sources is None
+    assert cfg.allowed_tools is None
+    assert cfg.permission_mode is None
+
+
+def test_agent_config_credentials_default_empty_dict() -> None:
+    cfg = AgentConfig(name="a", agent_type="sdk", provider="sdk")
+    assert cfg.credentials == {}
+
+
+def test_agent_config_sdk_specific_fields() -> None:
+    cfg = AgentConfig(
+        name="reviewer",
+        agent_type="sdk",
+        provider="sdk",
+        cwd="/project",
+        setting_sources=["project"],
+        allowed_tools=["Read", "Grep", "Glob"],
+        permission_mode="bypassPermissions",
+    )
+    assert cfg.cwd == "/project"
+    assert cfg.setting_sources == ["project"]
+    assert cfg.allowed_tools == ["Read", "Grep", "Glob"]
+    assert cfg.permission_mode == "bypassPermissions"
+
+
+def test_agent_config_api_specific_fields() -> None:
+    cfg = AgentConfig(
+        name="chat-bot",
+        agent_type="api",
         provider="anthropic",
-        model="claude-3-sonnet",
+        model="claude-sonnet-4-20250514",
+        api_key="sk-test",
+        auth_token="bearer-test",
+        base_url="https://api.anthropic.com",
     )
-    assert agent.name == "test-bot"
-    assert agent.provider == "anthropic"
-    assert agent.model == "claude-3-sonnet"
+    assert cfg.model == "claude-sonnet-4-20250514"
+    assert cfg.api_key == "sk-test"
+    assert cfg.auth_token == "bearer-test"
+    assert cfg.base_url == "https://api.anthropic.com"
 
 
-def test_agent_id_auto_generated() -> None:
-    a1 = Agent(name="a", instructions="i", provider="p", model="m")
-    a2 = Agent(name="a", instructions="i", provider="p", model="m")
-    assert len(a1.id) == 36  # UUID format
-    assert a1.id != a2.id
+def test_agent_config_json_round_trip() -> None:
+    cfg = AgentConfig(
+        name="test",
+        agent_type="sdk",
+        provider="sdk",
+        cwd="/project",
+        credentials={"token": "abc"},
+    )
+    data = cfg.model_dump_json()
+    restored = AgentConfig.model_validate_json(data)
+    assert restored.name == cfg.name
+    assert restored.agent_type == cfg.agent_type
+    assert restored.cwd == cfg.cwd
+    assert restored.credentials == cfg.credentials
 
 
-def test_agent_default_state() -> None:
-    agent = Agent(name="a", instructions="i", provider="p", model="m")
-    assert agent.state == AgentState.idle
-
-
-def test_agent_default_created_at() -> None:
-    before = datetime.now(UTC)
-    agent = Agent(name="a", instructions="i", provider="p", model="m")
-    after = datetime.now(UTC)
-    assert before <= agent.created_at <= after
-
-
-def test_agent_rejects_invalid_state() -> None:
+def test_agent_config_rejects_missing_required() -> None:
     with pytest.raises(ValidationError):
-        Agent(
-            name="a",
-            instructions="i",
-            provider="p",
-            model="m",
-            state="invalid_state",  # type: ignore[arg-type]
-        )
-
-
-def test_agent_json_round_trip() -> None:
-    agent = Agent(
-        name="bot", instructions="sys", provider="anthropic", model="claude-3"
-    )
-    data = agent.model_dump_json()
-    restored = Agent.model_validate_json(data)
-    assert restored.id == agent.id
-    assert restored.name == agent.name
-    assert restored.state == agent.state
+        AgentConfig(name="a")  # type: ignore[call-arg]
 
 
 # ---------------------------------------------------------------------------
@@ -157,45 +181,6 @@ def test_message_json_round_trip() -> None:
     assert restored.id == msg.id
     assert restored.recipients == msg.recipients
     assert restored.message_type == msg.message_type
-
-
-# ---------------------------------------------------------------------------
-# ProviderConfig model tests
-# ---------------------------------------------------------------------------
-
-
-def test_provider_config_required_fields() -> None:
-    cfg = ProviderConfig(provider="anthropic", model="claude-3")
-    assert cfg.provider == "anthropic"
-    assert cfg.model == "claude-3"
-
-
-def test_provider_config_optional_defaults() -> None:
-    cfg = ProviderConfig(provider="anthropic", model="claude-3")
-    assert cfg.api_key is None
-    assert cfg.credential_path is None
-    assert cfg.extra == {}
-
-
-def test_provider_config_with_all_fields() -> None:
-    cfg = ProviderConfig(
-        provider="anthropic",
-        model="claude-3",
-        api_key="sk-test",
-        credential_path="/path/to/cred",
-        extra={"timeout": 30},
-    )
-    assert cfg.api_key == "sk-test"
-    assert cfg.credential_path == "/path/to/cred"
-    assert cfg.extra == {"timeout": 30}
-
-
-def test_provider_config_json_round_trip() -> None:
-    cfg = ProviderConfig(provider="anthropic", model="claude-3", api_key="key")
-    data = cfg.model_dump_json()
-    restored = ProviderConfig.model_validate_json(data)
-    assert restored.provider == cfg.provider
-    assert restored.api_key == cfg.api_key
 
 
 # ---------------------------------------------------------------------------
