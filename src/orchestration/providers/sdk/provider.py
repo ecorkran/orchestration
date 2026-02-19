@@ -1,3 +1,64 @@
 """SDKAgentProvider implementation. Creates and manages SDK-based agents."""
 
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from claude_agent_sdk import ClaudeAgentOptions
+
+from orchestration.core.models import AgentConfig
+from orchestration.logging import get_logger
+
+if TYPE_CHECKING:
+    from orchestration.providers.sdk.agent import SDKAgent
+
+_log = get_logger("orchestration.providers.sdk.provider")
+
+# Default permission mode for programmatic agents — interactive mode hangs.
+_DEFAULT_PERMISSION_MODE = "acceptEdits"
+
+
+class SDKAgentProvider:
+    """Creates SDK-based agents backed by claude-agent-sdk."""
+
+    @property
+    def provider_type(self) -> str:
+        return "sdk"
+
+    async def create_agent(self, config: AgentConfig) -> SDKAgent:
+        """Build ``ClaudeAgentOptions`` from *config* and return an ``SDKAgent``."""
+        kwargs: dict[str, object] = {}
+
+        if config.instructions is not None:
+            kwargs["system_prompt"] = config.instructions
+        if config.model is not None:
+            kwargs["model"] = config.model
+        if config.allowed_tools is not None:
+            kwargs["allowed_tools"] = config.allowed_tools
+        if config.cwd is not None:
+            kwargs["cwd"] = config.cwd
+        if config.setting_sources is not None:
+            kwargs["setting_sources"] = config.setting_sources
+
+        kwargs["permission_mode"] = (
+            config.permission_mode
+            if config.permission_mode is not None
+            else _DEFAULT_PERMISSION_MODE
+        )
+
+        options = ClaudeAgentOptions(**kwargs)  # type: ignore[arg-type]
+        mode = config.credentials.get("mode", "query")
+
+        # Deferred import to avoid circular / stub-state issues at module load.
+        from orchestration.providers.sdk.agent import SDKAgent
+
+        _log.debug("Creating SDK agent %r (mode=%s)", config.name, mode)
+        return SDKAgent(name=config.name, options=options, mode=mode)
+
+    async def validate_credentials(self) -> bool:
+        """Return ``True`` if ``claude_agent_sdk`` is importable."""
+        try:
+            import claude_agent_sdk  # noqa: F401
+        except ImportError:
+            return False
+        return True
