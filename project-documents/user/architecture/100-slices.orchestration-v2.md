@@ -25,7 +25,7 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 ## Foundation Work
 
-1. [ ] **Project Setup & Core Models** — `uv init`, pyproject.toml with dependencies (anthropic, typer, fastapi, pydantic, google-adk, mcp), src/orchestration/ package layout matching HLD structure, Pydantic models for Agent, Message, ProviderConfig, TopologyConfig. Pydantic Settings for application configuration (provider credentials, defaults). Basic logging setup. Effort: 2/5
+1. [x] **Project Setup & Core Models** — `uv init`, pyproject.toml with dependencies (anthropic, typer, fastapi, pydantic, google-adk, mcp), src/orchestration/ package layout matching HLD structure, Pydantic models for Agent, Message, ProviderConfig, TopologyConfig. Pydantic Settings for application configuration (provider credentials, defaults). Basic logging setup. Effort: 2/5
 
 ---
 
