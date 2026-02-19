@@ -19,12 +19,14 @@ class Settings(BaseSettings):
     )
 
     # Provider defaults
-    default_provider: str = "anthropic"
+    default_provider: str = "sdk"
     default_model: str = "claude-sonnet-4-20250514"
+    default_agent_type: str = "sdk"
 
     # Anthropic credentials
     anthropic_api_key: str | None = None
-    anthropic_credential_path: str | None = None
+    anthropic_auth_token: str | None = None
+    anthropic_base_url: str | None = None
 
     # Logging
     log_level: str = "INFO"
