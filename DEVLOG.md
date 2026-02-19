@@ -20,7 +20,7 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 - `user/slices/101-slice.anthropic-provider.md` — slice design
 
 **Key design decisions:**
-- **Dual auth strategy**: API key (primary, production-ready) + auth token (forward-compatible for Claude Max/OAuth). Resolution order checks config fields then Settings fields, fails explicitly if neither found.
+- **API key auth only**: The official Anthropic Python SDK supports `api_key` / `ANTHROPIC_API_KEY` exclusively. No native `auth_token` parameter exists. Claude Max / OAuth bearer token usage requires external gateways (e.g., LiteLLM) — out of scope for this slice but extensible via `ProviderConfig.extra["base_url"]` in future.
 - **Async-only client**: `AsyncAnthropic` exclusively — no sync path needed given async framework.
 - **SDK streaming helper**: Uses `client.messages.stream()` context manager (not raw `stream=True`) for typed text_stream iterator and automatic cleanup.
 - **Minimal error hierarchy**: `ProviderError` → `ProviderAuthError`, `ProviderAPIError`. SDK exceptions mapped to provider-level errors at boundaries.
@@ -30,12 +30,9 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 **Scope summary:**
 - `AnthropicProvider` class satisfying `LLMProvider` Protocol (send_message, stream_message, validate)
 - Message conversion: `orchestration.Message` → Anthropic dict format (role mapping, system extraction, consecutive role merging)
-- Settings extension: `anthropic_auth_token` field (`ORCH_ANTHROPIC_AUTH_TOKEN`)
+- API key resolution: `ProviderConfig.api_key` → `Settings.anthropic_api_key` → explicit error
 - Auto-registration in provider registry via `providers/__init__.py`
 - Full mock-based test suite (no real API calls)
-
-**Notable findings:**
-- Auth token support exists in SDK (`auth_token` param on `AsyncAnthropic`), but Claude Max OAuth/PKCE token acquisition flow is not yet production-documented. Design accounts for this by treating token as pre-obtained input.
 
 **Commits:**
 - `3c418e0` docs: add slice 101 design (Anthropic Provider)

@@ -7,14 +7,14 @@ dependencies: [foundation]
 interfaces: [agent-registry, cli-foundation, additional-llm-providers]
 status: not started
 dateCreated: 20260218
-dateUpdated: 20260218
+dateUpdated: 20260219
 ---
 
-# Slice Design: Anthropic Provider with Credential Auth
+# Slice Design: Anthropic Provider
 
 ## Overview
 
-Implement a concrete `AnthropicProvider` class that satisfies the `LLMProvider` Protocol established in the foundation slice. This is the first real provider — it connects the orchestration framework to the Anthropic Messages API, enabling agents to send and receive LLM completions. The provider supports two authentication strategies: API key (standard) and bearer token / auth token (for Claude Max / OAuth flows), with API key as the primary working path and auth token as a forward-compatible secondary path.
+Implement a concrete `AnthropicProvider` class that satisfies the `LLMProvider` Protocol established in the foundation slice. This is the first real provider — it connects the orchestration framework to the Anthropic Messages API, enabling agents to send and receive LLM completions. Authentication uses API keys (`ANTHROPIC_API_KEY`), the only method directly supported by the official Anthropic Python SDK.
 
 ## Value
 
@@ -25,20 +25,18 @@ Architectural enablement and direct M1 milestone dependency. Without a working L
 ### Included
 
 - `AnthropicProvider` class implementing the full `LLMProvider` Protocol
-- API key authentication via `ProviderConfig.api_key` or `ORCH_ANTHROPIC_API_KEY`
-- Auth token authentication via `ProviderConfig.extra["auth_token"]` or `ORCH_ANTHROPIC_AUTH_TOKEN`
+- API key authentication via `ProviderConfig.api_key` or `ORCH_ANTHROPIC_API_KEY` (Settings)
 - Non-streaming message send (`send_message`)
 - Streaming message send (`stream_message`) using the SDK's async streaming helper
 - Credential validation (`validate`) that makes a lightweight API call
 - Message format conversion: `orchestration.core.models.Message` to/from Anthropic SDK message dicts
 - Provider self-registration with the provider registry
-- Settings extension: add `anthropic_auth_token` field to `Settings`
 - Structured logging for API calls, auth events, and errors
 - Comprehensive test suite using mocked SDK calls
 
 ### Excluded
 
-- Claude Max OAuth/PKCE flow implementation (auth token assumed to be pre-obtained; the mechanism to acquire tokens is outside this slice's scope)
+- Claude Max / OAuth bearer token flows (the official Python SDK does not support `auth_token`; Max subscription token usage requires an external gateway/proxy layer such as LiteLLM, which is outside this slice's scope)
 - Other LLM providers (slice 110)
 - Agent lifecycle management (slice 102)
 - CLI commands (slice 104)
@@ -75,7 +73,7 @@ src/orchestration/
 │   ├── base.py              # Unchanged: LLMProvider Protocol
 │   ├── registry.py          # Unchanged: provider registry
 │   └── anthropic.py         # NEW: AnthropicProvider implementation
-├── config.py                # Updated: add anthropic_auth_token field
+├── config.py                # Unchanged (already has anthropic_api_key)
 ```
 
 The provider is a single module (`anthropic.py`) that:
@@ -92,7 +90,7 @@ Caller (Agent Registry / CLI / test)
     │       │
     │       └─ factory(config)               ← creates AnthropicProvider
     │               │
-    │               ├─ resolves auth method   (api_key or auth_token)
+    │               ├─ resolves api_key       (config → Settings → error)
     │               └─ creates AsyncAnthropic client
     │
     ├─ provider.validate()                   ← lightweight API call to verify credentials
@@ -134,20 +132,16 @@ Key rules:
 
 ### Authentication Strategy
 
-The Anthropic SDK supports two mutually exclusive auth mechanisms:
+The official Anthropic Python SDK supports one authentication method:
 
-1. **API Key** (`X-Api-Key` header): Standard method. Passed via `api_key` parameter to `AsyncAnthropic()`. Sourced from `ProviderConfig.api_key` falling back to `Settings.anthropic_api_key`.
+**API Key** (`X-Api-Key` header): Passed via `api_key` parameter to `AsyncAnthropic()`, or auto-loaded from the `ANTHROPIC_API_KEY` environment variable.
 
-2. **Auth Token** (`Authorization: Bearer` header): Used for OAuth/session-based flows. Passed via `auth_token` parameter to `AsyncAnthropic()`. Sourced from `ProviderConfig.extra["auth_token"]` falling back to `Settings.anthropic_auth_token`.
+**Resolution order** (fail explicitly if not available):
+1. Check `ProviderConfig.api_key` → use directly
+2. Check `Settings.anthropic_api_key` → use as fallback
+3. Raise `ValueError` with clear error message
 
-**Resolution order** (fail explicitly if neither is available):
-1. Check `ProviderConfig.api_key` → use API key auth
-2. Check `ProviderConfig.extra["auth_token"]` → use auth token auth
-3. Check `Settings.anthropic_api_key` → use API key auth
-4. Check `Settings.anthropic_auth_token` → use auth token auth
-5. Raise `ValueError` with clear message listing both options
-
-**Rationale**: API key is the proven, production-ready path. Auth token infrastructure exists in the SDK today and will support future Claude Max OAuth/PKCE flows when they mature. By supporting both from day one, we avoid a breaking change later.
+The SDK does not have a native `auth_token` parameter. Claude Max / OAuth bearer token usage requires an external gateway layer (e.g., LiteLLM) that forwards `Authorization: Bearer` headers on the caller's behalf — the SDK itself only speaks API keys. If gateway-based auth becomes relevant, it can be supported in a future slice by allowing a custom `base_url` in `ProviderConfig.extra` to point at the gateway, while still using `api_key` for the gateway's own auth.
 
 ### Async-Only Client
 
@@ -209,7 +203,7 @@ class AnthropicProvider:
     """Anthropic LLM provider using the official SDK."""
 
     def __init__(self, config: ProviderConfig) -> None:
-        # Resolve auth, create AsyncAnthropic client, store config
+        # Resolve API key, create AsyncAnthropic client, store config
 
     @property
     def name(self) -> str: ...       # "anthropic"
@@ -229,19 +223,8 @@ class AnthropicProvider:
 ```
 
 Internal helpers (private):
-- `_resolve_auth(config: ProviderConfig) -> dict`: Returns `{"api_key": ...}` or `{"auth_token": ...}` kwargs for client constructor
+- `_resolve_api_key(config: ProviderConfig) -> str`: Checks config then Settings, raises `ValueError` if not found.
 - `_convert_messages(messages: list[Message]) -> tuple[list[dict], str | None]`: Converts Message list to Anthropic format, extracting system messages. Returns `(messages_list, system_text)`.
-
-### Settings Extension
-
-Add one field to `Settings`:
-
-```python
-# In config.py
-anthropic_auth_token: str | None = None  # ORCH_ANTHROPIC_AUTH_TOKEN
-```
-
-This parallels the existing `anthropic_api_key` field and follows the same env-var pattern.
 
 ### Provider Registration
 
@@ -264,7 +247,7 @@ This runs at import time, so importing `orchestration.providers` automatically r
 All tests mock the Anthropic SDK — no real API calls.
 
 **Unit tests** (`tests/test_anthropic_provider.py`):
-- Constructor: resolves API key from config, resolves auth token from config, raises on missing credentials
+- Constructor: resolves API key from config, resolves API key from Settings fallback, raises on missing credentials
 - `send_message`: converts messages correctly, returns response text, handles system prompt
 - `stream_message`: yields text chunks, handles system prompt
 - `validate`: returns `True` on success, returns `False` on `AuthenticationError`
@@ -286,7 +269,6 @@ All tests mock the Anthropic SDK — no real API calls.
 | Working `AnthropicProvider` | Agent Registry (102), CLI (104) | `get_provider("anthropic", config)` |
 | `ProviderError` hierarchy | All consumers of provider | `from orchestration.providers.anthropic import ProviderError` |
 | Registered "anthropic" factory | Any code calling `get_provider` | Auto-registered on `import orchestration.providers` |
-| Auth token settings field | CLI and server startup | `Settings.anthropic_auth_token` |
 
 ### Consumes from Other Slices
 
@@ -302,8 +284,8 @@ All tests mock the Anthropic SDK — no real API calls.
 ### Functional Requirements
 
 - `AnthropicProvider` can be instantiated with a `ProviderConfig` containing an API key
-- `AnthropicProvider` can be instantiated with a `ProviderConfig` containing an auth token in `extra`
-- `AnthropicProvider` raises `ValueError` when neither API key nor auth token is available
+- `AnthropicProvider` falls back to `Settings.anthropic_api_key` when `ProviderConfig.api_key` is `None`
+- `AnthropicProvider` raises `ValueError` when no API key is available from either source
 - `send_message` returns complete response text for a list of `Message` objects
 - `stream_message` yields text chunks as an async iterator
 - `validate` returns `True` when credentials are valid, `False` when invalid
@@ -328,13 +310,13 @@ All tests mock the Anthropic SDK — no real API calls.
 
 ### Technical Risks
 
-**Auth token / Claude Max credential flow**: The Anthropic SDK supports `auth_token` as a parameter, but the end-to-end flow for Claude Max subscribers to obtain tokens programmatically (OAuth/PKCE) is not yet production-documented. This slice builds the `auth_token` plumbing but does not implement token acquisition.
+**Claude Max / OAuth gateway integration**: The official SDK only supports API key auth directly. Claude Max subscribers who want to use their subscription programmatically need an external gateway (e.g., LiteLLM) that handles OAuth token acquisition and forwards bearer tokens. This is outside the SDK's scope and outside this slice's scope.
 
 ### Mitigation
 
-- API key auth is fully functional and serves as the primary path — the framework works today with a standard API key
-- Auth token support is additive and isolated — it adds a code path but doesn't complicate the API key path
-- When the OAuth flow matures, a small follow-up slice can add token acquisition without changing `AnthropicProvider`
+- API key auth covers all standard use cases — the framework works today with a Console API key
+- The `ProviderConfig.extra` dict and `base_url` override provide extension points for future gateway integration without changing the provider class itself
+- A future slice can add gateway support (custom `base_url` + gateway auth) if Max subscription usage becomes a priority
 
 ## Implementation Notes
 
@@ -342,19 +324,18 @@ All tests mock the Anthropic SDK — no real API calls.
 
 Suggested implementation order:
 
-1. Add `anthropic_auth_token` to `Settings` — minimal change, extends config
-2. Define `ProviderError` / `ProviderAuthError` exceptions — used by provider
-3. Implement `_resolve_auth` helper — auth resolution logic, independently testable
-4. Implement `_convert_messages` helper — message conversion, independently testable
-5. Implement `AnthropicProvider.__init__` — client creation with resolved auth
-6. Implement `send_message` — core message send
-7. Implement `stream_message` — streaming variant
-8. Implement `validate` — credential check
-9. Wire registration in `providers/__init__.py`
-10. Write tests for each component above
+1. Define `ProviderError` / `ProviderAuthError` exceptions — used by provider
+2. Implement `_resolve_api_key` helper — API key resolution logic, independently testable
+3. Implement `_convert_messages` helper — message conversion, independently testable
+4. Implement `AnthropicProvider.__init__` — client creation with resolved API key
+5. Implement `send_message` — core message send
+6. Implement `stream_message` — streaming variant
+7. Implement `validate` — credential check
+8. Wire registration in `providers/__init__.py`
+9. Write tests for each component above
 
 ### Special Considerations
 
 - **`max_tokens` is required**: Every Anthropic API call must include `max_tokens`. Default to `4096` via `config.extra.get("max_tokens", 4096)`.
 - **Model passthrough**: The `config.model` field is passed directly to the SDK's `model` parameter. The framework does not validate model names — the API will reject invalid ones.
-- **Logging**: Log at DEBUG level for API call start/completion with token usage. Log at WARNING for auth fallback paths. Log at ERROR for credential resolution failure.
+- **Logging**: Log at DEBUG level for API call start/completion with token usage. Log at WARNING for Settings fallback (no API key in config). Log at ERROR for credential resolution failure.
