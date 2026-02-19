@@ -5,6 +5,7 @@ project: orchestration
 lld: user/slices/101-slice.sdk-agent-provider.md
 dependencies: [foundation]
 projectState: Foundation slice complete with migration applied. Agent/AgentProvider Protocols, AgentConfig model, Message model, AgentState enum, provider registry, ProviderError hierarchy, Settings, and logging are all in place. Provider subdirectory stubs exist at src/orchestration/providers/sdk/.
+status: in-progress
 dateCreated: 20260219
 dateUpdated: 20260219
 ---
@@ -96,8 +97,8 @@ SDK message types are dataclass-like objects with these key attributes:
 **Objective**: Create `src/orchestration/providers/sdk/translation.py` with a function that converts SDK message types to orchestration `Message` objects.
 
 **Steps**:
-- [ ] Create `src/orchestration/providers/sdk/translation.py`
-- [ ] Import SDK message types:
+- [x] Create `src/orchestration/providers/sdk/translation.py`
+- [x] Import SDK message types:
   ```python
   from claude_agent_sdk import (
       AssistantMessage,
@@ -107,11 +108,11 @@ SDK message types are dataclass-like objects with these key attributes:
       ResultMessage,
   )
   ```
-- [ ] Import orchestration types:
+- [x] Import orchestration types:
   ```python
   from orchestration.core.models import Message, MessageType
   ```
-- [ ] Implement `translate_sdk_message(sdk_msg: Any, sender: str) -> Message | None`
+- [x] Implement `translate_sdk_message(sdk_msg: Any, sender: str) -> Message | None`
   - The function examines the type of `sdk_msg` and extracts meaningful content
   - Type `sdk_msg` as `Any` to avoid tight coupling — we check with `isinstance`
   - Translation rules (each returns a `Message` or `None`):
@@ -123,10 +124,10 @@ SDK message types are dataclass-like objects with these key attributes:
   - All returned Messages should have: `sender=sender`, `recipients=["all"]`, auto-generated `id` and `timestamp` (Pydantic defaults handle this)
 
 **Success Criteria**:
-- [ ] `translate_sdk_message` handles all five SDK message types from the translation table
-- [ ] `AssistantMessage` with multiple content blocks produces multiple Messages
-- [ ] Unknown message types return `None` (or empty list)
-- [ ] All returned Messages are valid orchestration `Message` objects with correct `sender`, `recipients`, `message_type`, and `metadata`
+- [x] `translate_sdk_message` handles all five SDK message types from the translation table
+- [x] `AssistantMessage` with multiple content blocks produces multiple Messages
+- [x] Unknown message types return `None` (or empty list)
+- [x] All returned Messages are valid orchestration `Message` objects with correct `sender`, `recipients`, `message_type`, and `metadata`
 
 ---
 
