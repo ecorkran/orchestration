@@ -1,24 +1,20 @@
-"""Provider registry — maps provider names to factory callables."""
+"""Provider registry — maps provider type names to AgentProvider instances."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
+from orchestration.providers.base import AgentProvider
 
-from orchestration.core.models import ProviderConfig
-from orchestration.providers.base import LLMProvider
-
-# Module-level registry: provider name -> factory(config) -> LLMProvider
-_REGISTRY: dict[str, Callable[[ProviderConfig], LLMProvider]] = {}
+# Module-level registry: provider type name -> AgentProvider instance
+_REGISTRY: dict[str, AgentProvider] = {}
 
 
-def register_provider(name: str, factory: Callable[[ProviderConfig], Any]) -> None:
-    """Register a factory function under the given provider name."""
-    _REGISTRY[name] = factory
+def register_provider(name: str, provider: AgentProvider) -> None:
+    """Register an AgentProvider instance under the given provider type name."""
+    _REGISTRY[name] = provider
 
 
-def get_provider(name: str, config: ProviderConfig) -> LLMProvider:
-    """Look up and instantiate a provider by name.
+def get_provider(name: str) -> AgentProvider:
+    """Look up a registered AgentProvider by type name.
 
     Raises:
         KeyError: If no provider is registered under *name*.
@@ -28,9 +24,9 @@ def get_provider(name: str, config: ProviderConfig) -> LLMProvider:
         raise KeyError(
             f"Provider '{name}' is not registered. Available providers: {registered}"
         )
-    return _REGISTRY[name](config)
+    return _REGISTRY[name]
 
 
 def list_providers() -> list[str]:
-    """Return the names of all currently registered providers."""
+    """Return the type names of all currently registered providers."""
     return list(_REGISTRY.keys())
