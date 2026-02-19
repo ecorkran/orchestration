@@ -58,7 +58,7 @@ class SDKAgentProvider:
     async def validate_credentials(self) -> bool:
         """Return ``True`` if ``claude_agent_sdk`` is importable."""
         try:
-            import claude_agent_sdk  # noqa: F401
+            __import__("claude_agent_sdk")
         except ImportError:
             return False
         return True

@@ -37,10 +37,11 @@ class TestCreateAgent:
     async def test_minimal_config(self, provider: SDKAgentProvider) -> None:
         config = AgentConfig(name="basic", agent_type="sdk", provider="sdk")
         with patch(
-            _AGENT_PATCH, create=True,
+            _AGENT_PATCH,
+            create=True,
         ) as mock_cls:
             mock_cls.return_value = MagicMock()
-            agent = await provider.create_agent(config)
+            await provider.create_agent(config)
 
             mock_cls.assert_called_once()
             _, kwargs = mock_cls.call_args
@@ -64,7 +65,8 @@ class TestCreateAgent:
             permission_mode="bypassPermissions",
         )
         with patch(
-            _AGENT_PATCH, create=True,
+            _AGENT_PATCH,
+            create=True,
         ) as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
@@ -81,7 +83,8 @@ class TestCreateAgent:
     async def test_default_permission_mode(self, provider: SDKAgentProvider) -> None:
         config = AgentConfig(name="noperm", agent_type="sdk", provider="sdk")
         with patch(
-            _AGENT_PATCH, create=True,
+            _AGENT_PATCH,
+            create=True,
         ) as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
@@ -98,7 +101,8 @@ class TestCreateAgent:
             credentials={"mode": "client"},
         )
         with patch(
-            _AGENT_PATCH, create=True,
+            _AGENT_PATCH,
+            create=True,
         ) as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
@@ -116,10 +120,11 @@ class TestCreateAgent:
             base_url="https://api.example.com",
         )
         with patch(
-            _AGENT_PATCH, create=True,
+            _AGENT_PATCH,
+            create=True,
         ) as mock_cls:
             mock_cls.return_value = MagicMock()
-            agent = await provider.create_agent(config)
+            await provider.create_agent(config)
 
             # Should succeed without error — API fields silently ignored
             mock_cls.assert_called_once()

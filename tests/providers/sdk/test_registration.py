@@ -23,10 +23,10 @@ def _clean_registry() -> Generator[None]:  # pyright: ignore[reportUnusedFunctio
 def _import_sdk_package() -> None:
     """Force the SDK package import and its auto-registration side effect."""
     import orchestration.providers.sdk  # noqa: F401
+    from orchestration.providers.registry import register_provider
 
     # Re-register since the fixture clears the registry before each test.
     from orchestration.providers.sdk.provider import SDKAgentProvider
-    from orchestration.providers.registry import register_provider
 
     register_provider("sdk", SDKAgentProvider())
 

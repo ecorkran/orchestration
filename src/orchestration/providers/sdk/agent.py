@@ -5,13 +5,15 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 from claude_agent_sdk import (
-    CLIConnectionError,
-    CLIJSONDecodeError,
-    CLINotFoundError,
     ClaudeAgentOptions,
     ClaudeSDKClient,
     ClaudeSDKError,
+    CLIConnectionError,
+    CLIJSONDecodeError,
+    CLINotFoundError,
     ProcessError,
+)
+from claude_agent_sdk import (
     query as sdk_query,
 )
 
