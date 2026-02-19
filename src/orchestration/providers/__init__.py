@@ -1,7 +1,8 @@
-"""LLM provider implementations and registry."""
+"""Agent provider implementations and registry."""
 
 from __future__ import annotations
 
+from orchestration.providers.base import Agent, AgentProvider
 from orchestration.providers.errors import (
     ProviderAPIError,
     ProviderAuthError,
@@ -10,6 +11,8 @@ from orchestration.providers.errors import (
 )
 
 __all__ = [
+    "Agent",
+    "AgentProvider",
     "ProviderAPIError",
     "ProviderAuthError",
     "ProviderError",

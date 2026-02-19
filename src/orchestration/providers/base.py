@@ -1,43 +1,54 @@
-"""LLMProvider Protocol — contract for all LLM provider implementations."""
+"""Agent and AgentProvider Protocols — contracts for all provider implementations."""
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from typing import Protocol, runtime_checkable
 
-from orchestration.core.models import Message
+from orchestration.core.models import AgentConfig, AgentState, Message
 
 
 @runtime_checkable
-class LLMProvider(Protocol):
-    """Structural protocol that all LLM provider implementations must satisfy."""
+class Agent(Protocol):
+    """A participant that can receive and produce messages."""
 
     @property
     def name(self) -> str:
-        """Provider name (e.g. "anthropic", "openai")."""
+        """Agent display name."""
         ...
 
     @property
-    def model(self) -> str:
-        """Default model identifier for this provider."""
+    def agent_type(self) -> str:
+        """Execution model: "sdk" or "api"."""
         ...
 
-    async def send_message(
-        self,
-        messages: list[Message],
-        system: str | None = None,
-    ) -> str:
-        """Send messages and return the complete response text."""
+    @property
+    def state(self) -> AgentState:
+        """Current lifecycle state."""
         ...
 
-    async def stream_message(
-        self,
-        messages: list[Message],
-        system: str | None = None,
-    ) -> AsyncIterator[str]:
-        """Stream the response, yielding text chunks as they arrive."""
+    async def handle_message(self, message: Message) -> AsyncIterator[Message]:
+        """Process an incoming message and yield response messages."""
         ...
 
-    async def validate(self) -> bool:
-        """Validate that the provider is configured and reachable."""
+    async def shutdown(self) -> None:
+        """Gracefully shut down the agent."""
+        ...
+
+
+@runtime_checkable
+class AgentProvider(Protocol):
+    """Creates and manages agents of a specific type."""
+
+    @property
+    def provider_type(self) -> str:
+        """Provider identifier: "sdk", "anthropic", "openai", etc."""
+        ...
+
+    async def create_agent(self, config: AgentConfig) -> Agent:
+        """Create an agent from configuration."""
+        ...
+
+    async def validate_credentials(self) -> bool:
+        """Check that credentials are valid and the provider is reachable."""
         ...
