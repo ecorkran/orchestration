@@ -2,13 +2,59 @@
 docType: devlog
 project: orchestration
 dateCreated: 20260218
-dateUpdated: 20260218
+dateUpdated: 20260219
 ---
 
 # Development Log
 
 A lightweight, append-only record of development activity. Newest entries first.
 Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
+
+---
+
+## 20260219
+
+### Slice 100: Foundation Migration — Complete
+
+**Objective:** Migrate foundation from v1 (LLMProvider-based) to v2 (dual-provider Agent/AgentProvider architecture) per `100-arch.orchestration-v2.md`.
+
+**Commits:**
+| Hash | Description |
+|------|-------------|
+| `7200b4e` | feat: add claude-agent-sdk dependency |
+| `b6e1264` | feat: add SDK and Anthropic provider subdirectories with stubs |
+| `6a389a5` | feat: add shared provider error hierarchy |
+| `9700bed` | refactor: rename Agent to AgentConfig, remove ProviderConfig |
+| `5ebf6cb` | test: update model tests for AgentConfig migration |
+| `2433494` | refactor: replace LLMProvider with Agent and AgentProvider Protocols |
+| `0b4302e` | refactor: retype provider registry for AgentProvider instances |
+| `90dd38b` | test: update provider tests for AgentProvider instances and error hierarchy |
+| `cb1d56c` | refactor: update Settings for dual-provider architecture |
+| `0d3da45` | test: update config tests for new Settings fields |
+| `f944f02` | docs: update .env.example for dual-provider architecture |
+| `fd45a0d` | docs: update stub docstrings with correct slice numbers |
+| `f189dc2` | fix: type checking — zero pyright errors |
+| `5aaf718` | docs: mark foundation migration tasks and slice complete |
+
+**What works:**
+- 45 tests passing, ruff check clean, ruff format clean, pyright strict zero errors
+- `AgentConfig` model with SDK-specific fields (cwd, setting_sources, allowed_tools, permission_mode) and API fields (model, api_key, auth_token, base_url)
+- `Agent` and `AgentProvider` Protocols (runtime_checkable, structural typing)
+- Provider registry maps type names to `AgentProvider` instances
+- Shared error hierarchy: `ProviderError` → `ProviderAuthError`, `ProviderAPIError`, `ProviderTimeoutError`
+- Settings with `default_provider="sdk"`, `default_agent_type="sdk"`, auth token and base URL support
+- Provider subdirectories: `providers/sdk/` and `providers/anthropic/` with stubs
+- All stub docstrings updated to correct slice numbers per v2 plan
+
+**Key decisions:**
+- `handle_message` in Agent Protocol is a sync method signature (not `async def`) — implementations are async generators, callers use `async for` directly without `await`
+- `ProviderTimeoutError` chosen over `ProviderConfigError` — config errors caught at Pydantic validation time; timeout is the real operational concern
+- `sdk_default_cwd` kept off Settings (per-agent config via AgentConfig, not global)
+- `claude-agent-sdk` imports as `claude_agent_sdk` (module name differs from package name)
+
+**Issues logged:** None.
+
+**Next:** Slice 2 (SDK Agent Provider) or slice 101 (Anthropic Provider) — both can proceed in parallel as they only depend on foundation.
 
 ---
 
