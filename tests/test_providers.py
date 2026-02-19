@@ -1,12 +1,20 @@
-"""Tests for provider registry and LLMProvider Protocol."""
+"""Tests for provider registry, Agent/AgentProvider Protocols, and error hierarchy."""
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+
 import pytest
 
-from orchestration.core.models import ProviderConfig
+from orchestration.core.models import AgentConfig, AgentState, Message
 from orchestration.providers import registry as reg_module
-from orchestration.providers.base import LLMProvider
+from orchestration.providers.base import Agent, AgentProvider
+from orchestration.providers.errors import (
+    ProviderAPIError,
+    ProviderAuthError,
+    ProviderError,
+    ProviderTimeoutError,
+)
 from orchestration.providers.registry import (
     get_provider,
     list_providers,
@@ -18,33 +26,45 @@ from orchestration.providers.registry import (
 # ---------------------------------------------------------------------------
 
 
-class _FakeProvider:
-    """Minimal implementation satisfying LLMProvider structurally."""
+class _MockAgentProvider:
+    """Minimal implementation satisfying AgentProvider Protocol."""
 
-    def __init__(self, config: ProviderConfig) -> None:
-        self._name = config.provider
-        self._model = config.model
+    @property
+    def provider_type(self) -> str:
+        return "mock"
+
+    async def create_agent(self, config: AgentConfig) -> Agent:
+        return _MockAgent(config.name, config.agent_type)
+
+    async def validate_credentials(self) -> bool:
+        return True
+
+
+class _MockAgent:
+    """Minimal implementation satisfying Agent Protocol."""
+
+    def __init__(self, name: str, agent_type: str) -> None:
+        self._name = name
+        self._agent_type = agent_type
+        self._state = AgentState.idle
 
     @property
     def name(self) -> str:
         return self._name
 
     @property
-    def model(self) -> str:
-        return self._model
+    def agent_type(self) -> str:
+        return self._agent_type
 
-    async def send_message(self, messages, system=None):  # type: ignore[override]
-        return "response"
+    @property
+    def state(self) -> AgentState:
+        return self._state
 
-    async def stream_message(self, messages, system=None):  # type: ignore[override]
-        yield "chunk"
+    async def handle_message(self, message: Message) -> AsyncIterator[Message]:
+        yield Message(sender=self._name, recipients=[message.sender], content="reply")
 
-    async def validate(self) -> bool:
-        return True
-
-
-def _fake_factory(config: ProviderConfig) -> _FakeProvider:
-    return _FakeProvider(config)
+    async def shutdown(self) -> None:
+        self._state = AgentState.terminated
 
 
 @pytest.fixture(autouse=True)
@@ -58,39 +78,77 @@ def _clean_registry() -> None:  # type: ignore[return]
 
 
 # ---------------------------------------------------------------------------
-# Tests
+# Registry tests
 # ---------------------------------------------------------------------------
 
 
-def test_register_provider_adds_factory() -> None:
-    register_provider("fake", _fake_factory)
-    assert "fake" in list_providers()
+def test_register_provider_stores_instance() -> None:
+    provider = _MockAgentProvider()
+    register_provider("mock", provider)
+    assert "mock" in list_providers()
 
 
-def test_get_provider_invokes_factory() -> None:
-    register_provider("fake", _fake_factory)
-    config = ProviderConfig(provider="fake", model="fake-model")
-    provider = get_provider("fake", config)
-    assert provider.name == "fake"
-    assert provider.model == "fake-model"
+def test_get_provider_returns_registered_instance() -> None:
+    provider = _MockAgentProvider()
+    register_provider("mock", provider)
+    result = get_provider("mock")
+    assert result is provider
+    assert result.provider_type == "mock"
 
 
 def test_get_provider_raises_for_unregistered() -> None:
     with pytest.raises(KeyError, match="unregistered"):
-        config = ProviderConfig(provider="unregistered", model="m")
-        get_provider("unregistered", config)
+        get_provider("unregistered")
 
 
 def test_list_providers_returns_registered_names() -> None:
-    register_provider("provA", _fake_factory)
-    register_provider("provB", _fake_factory)
+    register_provider("provA", _MockAgentProvider())
+    register_provider("provB", _MockAgentProvider())
     names = list_providers()
     assert "provA" in names
     assert "provB" in names
 
 
-def test_llm_provider_protocol_structural() -> None:
-    """_FakeProvider satisfies LLMProvider Protocol at runtime."""
-    config = ProviderConfig(provider="fake", model="m")
-    provider = _FakeProvider(config)
-    assert isinstance(provider, LLMProvider)
+# ---------------------------------------------------------------------------
+# Protocol structural tests
+# ---------------------------------------------------------------------------
+
+
+def test_agent_provider_protocol_structural() -> None:
+    """_MockAgentProvider satisfies AgentProvider Protocol at runtime."""
+    provider = _MockAgentProvider()
+    assert isinstance(provider, AgentProvider)
+
+
+def test_agent_protocol_structural() -> None:
+    """_MockAgent satisfies Agent Protocol at runtime."""
+    agent = _MockAgent("test", "sdk")
+    assert isinstance(agent, Agent)
+
+
+# ---------------------------------------------------------------------------
+# Error hierarchy tests
+# ---------------------------------------------------------------------------
+
+
+def test_provider_auth_error_is_provider_error() -> None:
+    assert issubclass(ProviderAuthError, ProviderError)
+
+
+def test_provider_api_error_is_provider_error() -> None:
+    assert issubclass(ProviderAPIError, ProviderError)
+
+
+def test_provider_timeout_error_is_provider_error() -> None:
+    assert issubclass(ProviderTimeoutError, ProviderError)
+
+
+def test_provider_api_error_status_code() -> None:
+    err = ProviderAPIError("rate limited", status_code=429)
+    assert str(err) == "rate limited"
+    assert err.status_code == 429
+
+
+def test_provider_api_error_status_code_defaults_none() -> None:
+    err = ProviderAPIError("generic error")
+    assert err.status_code is None
