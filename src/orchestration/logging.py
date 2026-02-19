@@ -10,8 +10,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from orchestration.config import Settings
 
-_LOG_CONFIGURED = False
-
 
 class _JsonFormatter(logging.Formatter):
     """Formats log records as single-line JSON objects."""
@@ -33,8 +31,6 @@ def setup_logging(settings: Settings) -> None:
 
     Idempotent — calling it multiple times with the same settings is safe.
     """
-    global _LOG_CONFIGURED  # noqa: PLW0603
-
     level = getattr(logging, settings.log_level.upper(), logging.INFO)
     root = logging.getLogger()
     root.setLevel(level)
@@ -53,7 +49,6 @@ def setup_logging(settings: Settings) -> None:
         )
 
     root.addHandler(handler)
-    _LOG_CONFIGURED = True
 
 
 def get_logger(name: str) -> logging.Logger:

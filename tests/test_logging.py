@@ -47,7 +47,9 @@ def test_json_formatter_produces_valid_json(capfd: pytest.CaptureFixture[str]) -
     assert "name" in data
 
 
-def test_text_format_produces_readable_output(capfd: pytest.CaptureFixture[str]) -> None:
+def test_text_format_produces_readable_output(
+    capfd: pytest.CaptureFixture[str],
+) -> None:
     settings = _make_settings(log_level="DEBUG", log_format="text")
     setup_logging(settings)
     logger = get_logger("test.text")

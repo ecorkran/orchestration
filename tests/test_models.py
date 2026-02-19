@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 
 import pytest
@@ -17,7 +16,6 @@ from orchestration.core.models import (
     TopologyConfig,
     TopologyType,
 )
-
 
 # ---------------------------------------------------------------------------
 # Enum tests
@@ -96,7 +94,9 @@ def test_agent_rejects_invalid_state() -> None:
 
 
 def test_agent_json_round_trip() -> None:
-    agent = Agent(name="bot", instructions="sys", provider="anthropic", model="claude-3")
+    agent = Agent(
+        name="bot", instructions="sys", provider="anthropic", model="claude-3"
+    )
     data = agent.model_dump_json()
     restored = Agent.model_validate_json(data)
     assert restored.id == agent.id
@@ -210,7 +210,9 @@ def test_topology_config_defaults() -> None:
 
 
 def test_topology_config_with_values() -> None:
-    tc = TopologyConfig(topology_type=TopologyType.hierarchical, config={"root": "agent1"})
+    tc = TopologyConfig(
+        topology_type=TopologyType.hierarchical, config={"root": "agent1"}
+    )
     assert tc.topology_type == TopologyType.hierarchical
     assert tc.config == {"root": "agent1"}
 

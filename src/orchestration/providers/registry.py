@@ -26,8 +26,7 @@ def get_provider(name: str, config: ProviderConfig) -> LLMProvider:
     if name not in _REGISTRY:
         registered = list(_REGISTRY.keys())
         raise KeyError(
-            f"Provider '{name}' is not registered. "
-            f"Available providers: {registered}"
+            f"Provider '{name}' is not registered. Available providers: {registered}"
         )
     return _REGISTRY[name](config)
 
