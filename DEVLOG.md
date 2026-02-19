@@ -14,6 +14,42 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260219
 
+### Slice 101: SDK Agent Provider — Complete
+
+**Objective:** Implement the first concrete provider — `SDKAgentProvider` and `SDKAgent` wrapping `claude-agent-sdk` for one-shot and multi-turn agent execution.
+
+**Commits:**
+| Hash | Description |
+|------|-------------|
+| `b44914a` | feat: implement SDK message translation module with tests |
+| `f7d15e0` | feat: implement SDKAgentProvider with options mapping and tests |
+| `3055fcf` | feat: implement SDKAgent with query and client modes |
+| `83611a5` | feat: auto-register SDK provider and add integration tests |
+| `8743255` | chore: fix linting, formatting, and type errors |
+
+**What works:**
+- 96 tests passing (51 new + 45 foundation), ruff clean, pyright strict zero errors
+- `translation.py`: Converts SDK message types (AssistantMessage, ToolUseBlock, ToolResultBlock, ResultMessage) to orchestration Messages
+- `SDKAgentProvider`: Maps `AgentConfig` to `ClaudeAgentOptions`, defaults `permission_mode` to `"acceptEdits"`, reads mode from `credentials` dict
+- `SDKAgent` query mode: One-shot via `sdk_query()`, translates and yields response messages
+- `SDKAgent` client mode: Multi-turn via `ClaudeSDKClient` (create once, reuse), `shutdown()` disconnects
+- Error mapping: All 5 SDK exception types → orchestration `ProviderError` hierarchy
+- Auto-registration: Importing `orchestration.providers.sdk` registers `"sdk"` in the provider registry
+- `validate_credentials()` returns bool without throwing
+
+**Key decisions:**
+- `translate_sdk_message` returns `list[Message]` (not `Message | None`) — `AssistantMessage` with multiple blocks produces multiple Messages, empty list for unknown types
+- Deferred import of `SDKAgent` in `provider.py` to avoid stub-state issues at module load
+- ruff requires `query as sdk_query` alias in a separate import block from other `claude_agent_sdk` imports (isort rule)
+- Used `__import__("claude_agent_sdk")` in `validate_credentials` to satisfy pyright's `reportUnusedImport`
+- Real SDK dataclasses used for test fixtures (no MagicMock — `TextBlock`, `AssistantMessage`, etc. are simple dataclasses)
+
+**Issues logged:** None.
+
+**Next:** Slice 3 (Agent Registry & Lifecycle) or slice 4 (CLI Foundation).
+
+---
+
 ### Slice 100: Foundation Migration — Complete
 
 **Objective:** Migrate foundation from v1 (LLMProvider-based) to v2 (dual-provider Agent/AgentProvider architecture) per `100-arch.orchestration-v2.md`.

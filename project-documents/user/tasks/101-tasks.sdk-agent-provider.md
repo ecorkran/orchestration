@@ -5,7 +5,7 @@ project: orchestration
 lld: user/slices/101-slice.sdk-agent-provider.md
 dependencies: [foundation]
 projectState: Foundation slice complete with migration applied. Agent/AgentProvider Protocols, AgentConfig model, Message model, AgentState enum, provider registry, ProviderError hierarchy, Settings, and logging are all in place. Provider subdirectory stubs exist at src/orchestration/providers/sdk/.
-status: in-progress
+status: complete
 dateCreated: 20260219
 dateUpdated: 20260219
 ---
@@ -501,27 +501,27 @@ SDK message types are dataclass-like objects with these key attributes:
 **Objective**: Run the complete quality gate and verify the slice is complete.
 
 **Steps**:
-- [ ] Run `uv run pytest` — all tests pass (including foundation tests — no regressions)
-- [ ] Run `uv run ruff check src/ tests/` — no linting errors
-- [ ] Run `uv run ruff format --check src/ tests/` — formatting consistent
-- [ ] Run type checker — zero errors. Specifically verify:
+- [x] Run `uv run pytest` — all tests pass (including foundation tests — no regressions)
+- [x] Run `uv run ruff check src/ tests/` — no linting errors
+- [x] Run `uv run ruff format --check src/ tests/` — formatting consistent
+- [x] Run type checker — zero errors. Specifically verify:
   - `SDKAgentProvider` structurally satisfies `AgentProvider` Protocol
   - `SDKAgent` structurally satisfies `Agent` Protocol
-- [ ] Verify import paths:
+- [x] Verify import paths:
   - `from orchestration.providers.sdk import SDKAgentProvider, SDKAgent`
   - `from orchestration.providers.sdk.translation import translate_sdk_message`
   - `from orchestration.providers.sdk.provider import SDKAgentProvider`
   - `from orchestration.providers.sdk.agent import SDKAgent`
-- [ ] Verify that after importing `orchestration.providers.sdk`:
+- [x] Verify that after importing `orchestration.providers.sdk`:
   - `get_provider("sdk")` works
   - `get_provider("sdk").create_agent(AgentConfig(name="test", agent_type="sdk", provider="sdk"))` returns an `SDKAgent`
-- [ ] Verify no regressions in foundation tests (`tests/test_models.py`, `tests/test_providers.py`, `tests/test_config.py`, `tests/test_logging.py`)
+- [x] Verify no regressions in foundation tests (`tests/test_models.py`, `tests/test_providers.py`, `tests/test_config.py`, `tests/test_logging.py`)
 
 **Success Criteria**:
-- [ ] All tests pass (new and existing)
-- [ ] `ruff check` passes
-- [ ] `ruff format --check` passes
-- [ ] Type checking passes with zero errors
-- [ ] Both Protocols are structurally satisfied
-- [ ] Provider is auto-registered and functional
-- [ ] Project is ready for slice 3 (Agent Registry & Lifecycle) to begin
+- [x] All tests pass (new and existing)
+- [x] `ruff check` passes
+- [x] `ruff format --check` passes
+- [x] Type checking passes with zero errors
+- [x] Both Protocols are structurally satisfied
+- [x] Provider is auto-registered and functional
+- [x] Project is ready for slice 3 (Agent Registry & Lifecycle) to begin
