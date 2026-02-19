@@ -27,7 +27,7 @@ class Agent(Protocol):
         """Current lifecycle state."""
         ...
 
-    async def handle_message(self, message: Message) -> AsyncIterator[Message]:
+    def handle_message(self, message: Message) -> AsyncIterator[Message]:
         """Process an incoming message and yield response messages."""
         ...
 

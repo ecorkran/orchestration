@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Generator
 
 import pytest
 
@@ -33,7 +33,7 @@ class _MockAgentProvider:
     def provider_type(self) -> str:
         return "mock"
 
-    async def create_agent(self, config: AgentConfig) -> Agent:
+    async def create_agent(self, config: AgentConfig) -> _MockAgent:
         return _MockAgent(config.name, config.agent_type)
 
     async def validate_credentials(self) -> bool:
@@ -68,13 +68,13 @@ class _MockAgent:
 
 
 @pytest.fixture(autouse=True)
-def _clean_registry() -> None:  # type: ignore[return]
+def _clean_registry() -> Generator[None]:  # pyright: ignore[reportUnusedFunction]
     """Isolate registry state between tests."""
-    original = dict(reg_module._REGISTRY)
-    reg_module._REGISTRY.clear()
+    original = dict(reg_module._REGISTRY)  # pyright: ignore[reportPrivateUsage]
+    reg_module._REGISTRY.clear()  # pyright: ignore[reportPrivateUsage]
     yield
-    reg_module._REGISTRY.clear()
-    reg_module._REGISTRY.update(original)
+    reg_module._REGISTRY.clear()  # pyright: ignore[reportPrivateUsage]
+    reg_module._REGISTRY.update(original)  # pyright: ignore[reportPrivateUsage]
 
 
 # ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Generator
 
 import pytest
 
@@ -16,7 +17,7 @@ def _make_settings(**overrides: object) -> Settings:
 
 
 @pytest.fixture(autouse=True)
-def _reset_root_logger() -> None:  # type: ignore[return]
+def _reset_root_logger() -> Generator[None]:  # pyright: ignore[reportUnusedFunction]
     """Restore root logger state between tests."""
     root = logging.getLogger()
     original_handlers = list(root.handlers)
