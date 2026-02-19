@@ -37,16 +37,22 @@ class TopologyType(StrEnum):
     custom = "custom"
 
 
-class Agent(BaseModel):
-    """Represents a managed LLM agent instance."""
+class AgentConfig(BaseModel):
+    """Configuration for creating an agent instance."""
 
-    id: str = Field(default_factory=lambda: str(uuid4()))
     name: str
-    instructions: str
-    provider: str
-    model: str
-    state: AgentState = AgentState.idle
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    agent_type: str  # "sdk" or "api"
+    provider: str  # "sdk", "anthropic", "openai", etc.
+    model: str | None = None  # None for SDK agents (uses Claude Code default)
+    instructions: str | None = None  # system prompt, optional
+    api_key: str | None = None
+    auth_token: str | None = None
+    base_url: str | None = None
+    cwd: str | None = None  # SDK agents: working directory
+    setting_sources: list[str] | None = None  # SDK agents: e.g. ["project"]
+    allowed_tools: list[str] | None = None  # SDK agents: tool whitelist
+    permission_mode: str | None = None  # SDK agents: permission handling
+    credentials: dict[str, Any] = Field(default_factory=dict)
 
 
 class Message(BaseModel):
@@ -59,16 +65,6 @@ class Message(BaseModel):
     message_type: MessageType = MessageType.chat
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class ProviderConfig(BaseModel):
-    """Configuration for an LLM provider."""
-
-    provider: str
-    model: str
-    api_key: str | None = None
-    credential_path: str | None = None
-    extra: dict[str, Any] = Field(default_factory=dict)
 
 
 class TopologyConfig(BaseModel):
