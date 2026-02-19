@@ -14,10 +14,12 @@ def _settings(**overrides: object) -> Settings:
 
 def test_settings_default_values() -> None:
     s = _settings()
-    assert s.default_provider == "anthropic"
+    assert s.default_provider == "sdk"
+    assert s.default_agent_type == "sdk"
     assert s.default_model == "claude-sonnet-4-20250514"
     assert s.anthropic_api_key is None
-    assert s.anthropic_credential_path is None
+    assert s.anthropic_auth_token is None
+    assert s.anthropic_base_url is None
     assert s.log_level == "INFO"
     assert s.log_format == "json"
     assert s.host == "127.0.0.1"
@@ -47,3 +49,21 @@ def test_settings_port_parsed_as_int(monkeypatch: pytest.MonkeyPatch) -> None:
     s = Settings(_env_file=None)  # type: ignore[call-arg]
     assert s.port == 9090
     assert isinstance(s.port, int)
+
+
+def test_settings_anthropic_auth_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ORCH_ANTHROPIC_AUTH_TOKEN", "bearer-test")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.anthropic_auth_token == "bearer-test"
+
+
+def test_settings_anthropic_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ORCH_ANTHROPIC_BASE_URL", "http://localhost:4000")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.anthropic_base_url == "http://localhost:4000"
+
+
+def test_settings_default_agent_type_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ORCH_DEFAULT_AGENT_TYPE", "api")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.default_agent_type == "api"
