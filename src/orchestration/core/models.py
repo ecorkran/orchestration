@@ -67,6 +67,22 @@ class Message(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class AgentInfo(BaseModel):
+    """Read model for agent enumeration — lightweight summary without Protocol access."""
+
+    name: str
+    agent_type: str
+    provider: str
+    state: AgentState
+
+
+class ShutdownReport(BaseModel):
+    """Result of a bulk shutdown operation."""
+
+    succeeded: list[str] = Field(default_factory=list)
+    failed: dict[str, str] = Field(default_factory=dict)  # name → error message
+
+
 class TopologyConfig(BaseModel):
     """Configuration for the agent communication topology."""
 

@@ -9,9 +9,11 @@ from pydantic import ValidationError
 
 from orchestration.core.models import (
     AgentConfig,
+    AgentInfo,
     AgentState,
     Message,
     MessageType,
+    ShutdownReport,
     TopologyConfig,
     TopologyType,
 )
@@ -181,6 +183,64 @@ def test_message_json_round_trip() -> None:
     assert restored.id == msg.id
     assert restored.recipients == msg.recipients
     assert restored.message_type == msg.message_type
+
+
+# ---------------------------------------------------------------------------
+# TopologyConfig model tests
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# AgentInfo model tests
+# ---------------------------------------------------------------------------
+
+
+def test_agent_info_construction() -> None:
+    info = AgentInfo(
+        name="bot1", agent_type="sdk", provider="sdk", state=AgentState.idle
+    )
+    assert info.name == "bot1"
+    assert info.agent_type == "sdk"
+    assert info.provider == "sdk"
+    assert info.state == AgentState.idle
+
+
+def test_agent_info_validates_state_as_enum() -> None:
+    info = AgentInfo(
+        name="bot2", agent_type="api", provider="anthropic", state=AgentState.processing
+    )
+    assert isinstance(info.state, AgentState)
+    assert info.state == AgentState.processing
+
+
+def test_agent_info_rejects_invalid_state() -> None:
+    with pytest.raises(ValidationError):
+        AgentInfo(
+            name="bot3",
+            agent_type="sdk",
+            provider="sdk",
+            state="not_a_state",  # type: ignore[arg-type]
+        )
+
+
+# ---------------------------------------------------------------------------
+# ShutdownReport model tests
+# ---------------------------------------------------------------------------
+
+
+def test_shutdown_report_empty_defaults() -> None:
+    report = ShutdownReport()
+    assert report.succeeded == []
+    assert report.failed == {}
+
+
+def test_shutdown_report_with_populated_fields() -> None:
+    report = ShutdownReport(
+        succeeded=["agent1", "agent2"],
+        failed={"agent3": "timeout", "agent4": "connection refused"},
+    )
+    assert report.succeeded == ["agent1", "agent2"]
+    assert report.failed == {"agent3": "timeout", "agent4": "connection refused"}
 
 
 # ---------------------------------------------------------------------------
