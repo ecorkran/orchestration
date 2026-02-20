@@ -2,13 +2,47 @@
 docType: devlog
 project: orchestration
 dateCreated: 20260218
-dateUpdated: 20260219
+dateUpdated: 20260220
 ---
 
 # Development Log
 
 A lightweight, append-only record of development activity. Newest entries first.
 Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
+
+---
+
+## 20260220
+
+### Slice 103: CLI Foundation & SDK Agent Tasks — Implementation Complete
+
+**Commits:**
+| Hash | Description |
+|------|-------------|
+| `8e76a6d` | feat: add Typer app scaffolding and pyproject.toml entry point |
+| `4a4a478` | feat: implement CLI commands (spawn, list, task, shutdown) and test infra |
+| `faaa5cc` | feat: refactor CLI commands to plain functions + add command tests |
+| `b58d539` | feat: add integration smoke test + fix lint/type issues |
+
+**What works:**
+- 150 tests passing (22 new + 128 existing), ruff clean, pyright zero errors on src/ and tests/cli/
+- `orchestration spawn --name NAME [--type sdk] [--provider P] [--cwd PATH] [--system-prompt TEXT] [--permission-mode MODE]`
+- `orchestration list [--state STATE] [--provider P]` — rich table with color-coded state
+- `orchestration task AGENT PROMPT` — `handle_message` async bridge, displays text and tool-use summaries
+- `orchestration shutdown AGENT` / `orchestration shutdown --all` — individual and bulk with `ShutdownReport`
+- `pyproject.toml` entry point registered; `orchestration --help` works
+- All commands use `asyncio.run()` bridge pattern (sync Typer → async registry/agent)
+- Unit tests: mocked registry via `patch_registry` fixture; integration smoke test: real registry + mock provider
+
+**Key decisions:**
+- Commands registered as plain functions via `app.command("name")(fn)` — not sub-typers. Sub-typers created nested groups (`spawn spawn --name`) rather than flat commands (`spawn --name`).
+- `task` command uses `agent.handle_message(message)` (the actual Agent Protocol method), not a hypothetical `query()` method referenced in the task design
+- `asyncio.run()` per command invocation — no persistent event loop, clean for CLI use
+- Integration test patches the provider registry (not the agent registry) to use a mock SDK provider
+
+**Issues logged:** None.
+
+**Next:** Slice 5 (SDK Client Warm Pool).
 
 ---
 

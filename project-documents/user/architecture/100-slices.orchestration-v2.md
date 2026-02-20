@@ -3,7 +3,7 @@ docType: slice-plan
 parent: 100-arch.orchestration-v2.md
 project: orchestration
 dateCreated: 20260217
-dateUpdated: 20260219
+dateUpdated: 20260220
 ---
 
 # Slice Plan: Orchestration (Python Reboot)
@@ -37,7 +37,7 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 3. [x] **Agent Registry & Lifecycle** — Agent registry: spawn agent by name, type (sdk/api), and provider config. Track agent state (idle, processing, terminated). Graceful shutdown of individual agents and all-agents. In-process async agent execution. Uses AgentProvider Protocol to create agent instances — registry is provider-agnostic. Dependencies: [SDK Agent Provider]. Risk: Low. Effort: 2/5
 
-4. [ ] **CLI Foundation & SDK Agent Tasks** — Typer app with commands: `spawn` (create agent with --type, --provider, --cwd), `list` (show agents with type and state), `task` (send a one-shot task to a named agent, display streaming output), `shutdown` (stop agent). Wire the full path: CLI → Agent Registry → SDK Agent Provider → claude-agent-sdk → response displayed. Dependencies: [Agent Registry]. Risk: Low. Effort: 2/5
+4. [x] **CLI Foundation & SDK Agent Tasks** — Typer app with commands: `spawn` (create agent with --type, --provider, --cwd), `list` (show agents with type and state), `task` (send a one-shot task to a named agent, display streaming output), `shutdown` (stop agent). Wire the full path: CLI → Agent Registry → SDK Agent Provider → claude-agent-sdk → response displayed. Dependencies: [Agent Registry]. Risk: Low. Effort: 2/5
 
 5. [ ] **SDK Client Warm Pool** — Pre-initialize and manage a pool of `ClaudeSDKClient` instances to eliminate the ~20-30s cold-start penalty on task execution. Configurable pool size (default 1 for single-agent use). Pool integrated with agent registry — spawning an SDK agent in client mode checks out a warm instance instead of creating one from scratch. Idle client health checks and recycling. CLI `pool` command to show pool status and pre-warm instances. **Completes M1.** Dependencies: [CLI Foundation]. Risk: Medium (client lifecycle edge cases — disconnect/reconnect, stale sessions). Effort: 3/5
 

@@ -6,7 +6,7 @@ lld: user/slices/103-slice.cli-foundation.md
 dependencies: [foundation, sdk-agent-provider, agent-registry]
 projectState: Foundation complete with migration applied. SDK Agent Provider (slice 2) complete — SDKAgentProvider and SDKAgent implemented, auto-registered as "sdk". Agent Registry (slice 3) complete — AgentRegistry with spawn/get/list_agents/shutdown_agent/shutdown_all, get_registry() singleton, AgentInfo and ShutdownReport models, registry error types. The stub file cli/__init__.py exists. The cli/commands/ directory does not yet exist.
 dateCreated: 20260219
-dateUpdated: 20260219
+dateUpdated: 20260220
 ---
 
 ## Context Summary
@@ -50,24 +50,24 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
 **Objective**: Create the Typer app definition and wire the `pyproject.toml` script entry point so `orchestration --help` works.
 
 **Steps**:
-- [ ] Create `src/orchestration/cli/app.py`:
+- [x] Create `src/orchestration/cli/app.py`:
   - Import `typer`
-  - Create `app = typer.Typer(name="orchestration", help="Multi-agent orchestration CLI")` 
+  - Create `app = typer.Typer(name="orchestration", help="Multi-agent orchestration CLI")`
   - Add a placeholder callback or empty state so the app is importable
-- [ ] Update `src/orchestration/cli/__init__.py` to export `app`
-- [ ] Create `src/orchestration/cli/commands/__init__.py` (empty)
-- [ ] Add script entry point to `pyproject.toml`:
+- [x] Update `src/orchestration/cli/__init__.py` to export `app`
+- [x] Create `src/orchestration/cli/commands/__init__.py` (empty)
+- [x] Add script entry point to `pyproject.toml`:
   ```toml
   [project.scripts]
   orchestration = "orchestration.cli.app:app"
   ```
-- [ ] Run `uv sync` to install the entry point
-- [ ] Verify `orchestration --help` runs and shows the app help text
+- [x] Run `uv sync` to install the entry point
+- [x] Verify `orchestration --help` runs and shows the app help text
 
 **Success Criteria**:
-- [ ] `orchestration --help` executes without error and shows help text
-- [ ] `src/orchestration/cli/app.py` exists with a Typer app instance
-- [ ] `cli/commands/` directory exists with `__init__.py`
+- [x] `orchestration --help` executes without error and shows help text
+- [x] `src/orchestration/cli/app.py` exists with a Typer app instance
+- [x] `cli/commands/` directory exists with `__init__.py`
 
 ---
 
@@ -78,18 +78,18 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
 **Objective**: Set up shared test fixtures for CLI testing with Typer's `CliRunner` and mock registry.
 
 **Steps**:
-- [ ] Create `tests/cli/__init__.py`
-- [ ] Create `tests/cli/conftest.py` with fixtures:
+- [x] Create `tests/cli/__init__.py`
+- [x] Create `tests/cli/conftest.py` with fixtures:
   - `cli_runner` — returns a `typer.testing.CliRunner` instance
   - `mock_registry` — returns a `MagicMock` spec'd to `AgentRegistry`, with async methods patched as `AsyncMock`
   - `patch_registry` — patches `get_registry()` to return `mock_registry`. Use `unittest.mock.patch` targeting `orchestration.cli.commands.<module>.get_registry` (each command module imports it). Alternatively, if commands import from a shared location, patch that single import.
-- [ ] Create a mock `AgentInfo` factory fixture that builds `AgentInfo` instances with configurable fields for use across test files
-- [ ] Verify fixtures work by writing a trivial test that invokes `orchestration --help` via `CliRunner` and asserts exit code 0
+- [x] Create a mock `AgentInfo` factory fixture that builds `AgentInfo` instances with configurable fields for use across test files
+- [x] Verify fixtures work by writing a trivial test that invokes `orchestration --help` via `CliRunner` and asserts exit code 0
 
 **Success Criteria**:
-- [ ] `tests/cli/conftest.py` provides `cli_runner`, `mock_registry`, and `patch_registry` fixtures
-- [ ] Trivial `--help` test passes via `CliRunner`
-- [ ] `pytest tests/cli/` runs without errors
+- [x] `tests/cli/conftest.py` provides `cli_runner`, `mock_registry`, and `patch_registry` fixtures
+- [x] Trivial `--help` test passes via `CliRunner`
+- [x] `pytest tests/cli/` runs without errors
 
 ---
 
@@ -100,7 +100,7 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
 **Objective**: Implement the `spawn` command that creates an agent via the registry.
 
 **Steps**:
-- [ ] Create `src/orchestration/cli/commands/spawn.py`:
+- [x] Create `src/orchestration/cli/commands/spawn.py`:
   - Define a sync Typer command function `spawn()` with parameters:
     - `name: str` (required)
     - `type: str` (default `"sdk"`, option `--type`)
@@ -113,13 +113,13 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
   - On success: print confirmation with agent name, type, and provider using `rich.print`
   - Error handling: catch `AgentAlreadyExistsError`, `ProviderError`, `ProviderAuthError`, `KeyError` (unknown provider) and display user-friendly messages per the error table in the slice design
   - On error: raise `typer.Exit(code=1)`
-- [ ] Register the command with the app: in `app.py`, import and add the spawn command via `app.command()` or `app.add_typer()`
+- [x] Register the command with the app: in `app.py`, import and add the spawn command via `app.command()` or `app.add_typer()`
 
 **Success Criteria**:
-- [ ] `orchestration spawn --name test --type sdk` is a valid command (visible in `--help`)
-- [ ] Command constructs `AgentConfig` correctly from CLI arguments
-- [ ] `--provider` defaults to value of `--type` when not specified
-- [ ] Error cases produce styled messages (not stack traces) and exit code 1
+- [x] `orchestration spawn --name test --type sdk` is a valid command (visible in `--help`)
+- [x] Command constructs `AgentConfig` correctly from CLI arguments
+- [x] `--provider` defaults to value of `--type` when not specified
+- [x] Error cases produce styled messages (not stack traces) and exit code 1
 
 ---
 
@@ -130,7 +130,7 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
 **Objective**: Test the `spawn` command via `CliRunner` with mocked registry.
 
 **Steps**:
-- [ ] Create `tests/cli/test_spawn.py` with test cases:
+- [x] Create `tests/cli/test_spawn.py` with test cases:
   1. Successful spawn with minimal args (`--name test`) — verify exit code 0, success message displayed, `registry.spawn()` called with correct `AgentConfig`
   2. Spawn with all options (`--name test --type sdk --provider sdk --cwd /tmp --system-prompt "Be helpful" --permission-mode acceptEdits`) — verify all fields passed to `AgentConfig`
   3. `--provider` defaults to `--type` value when omitted
@@ -139,9 +139,9 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
   6. Unknown provider — mock raises `KeyError` — verify error message and exit code 1
 
 **Success Criteria**:
-- [ ] All spawn tests pass
-- [ ] Both success and error paths verified
-- [ ] `AgentConfig` construction verified via mock assertions
+- [x] All spawn tests pass
+- [x] Both success and error paths verified
+- [x] `AgentConfig` construction verified via mock assertions
 
 ---
 
@@ -152,7 +152,7 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
 **Objective**: Implement the `list` command that displays a rich table of active agents.
 
 **Steps**:
-- [ ] Create `src/orchestration/cli/commands/list.py`:
+- [x] Create `src/orchestration/cli/commands/list.py`:
   - Define `list_agents()` command (note: use a name that doesn't shadow the built-in `list`) with optional filters:
     - `state: str | None` (optional, option `--state`)
     - `provider: str | None` (optional, option `--provider`)
@@ -161,12 +161,12 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
   - Otherwise: build a `rich.table.Table` with columns: Name, Type, Provider, State
   - Color-code the State column: idle=green, processing=yellow, terminated=red
   - Print the table via `rich.console.Console().print(table)`
-- [ ] Register the command with the app in `app.py`
+- [x] Register the command with the app in `app.py`
 
 **Success Criteria**:
-- [ ] `orchestration list` displays a formatted table of agents
-- [ ] `--state` and `--provider` filters are passed through to `list_agents()`
-- [ ] Empty registry displays `"No agents running."` instead of empty table
+- [x] `orchestration list` displays a formatted table of agents
+- [x] `--state` and `--provider` filters are passed through to `list_agents()`
+- [x] Empty registry displays `"No agents running."` instead of empty table
 
 ---
 
@@ -177,7 +177,7 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
 **Objective**: Test the `list` command via `CliRunner` with mocked registry.
 
 **Steps**:
-- [ ] Create `tests/cli/test_list.py` with test cases:
+- [x] Create `tests/cli/test_list.py` with test cases:
   1. Empty registry — output contains "No agents running", exit code 0
   2. Two agents — output contains both agent names, types, providers, and states
   3. Filter by state — verify `list_agents()` called with `state` parameter
@@ -185,9 +185,9 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
   5. State values display correctly (check that "idle", "processing" text appears in output)
 
 **Success Criteria**:
-- [ ] All list tests pass
-- [ ] Empty and populated cases verified
-- [ ] Filter parameters passed through correctly
+- [x] All list tests pass
+- [x] Empty and populated cases verified
+- [x] Filter parameters passed through correctly
 
 ---
 
@@ -198,7 +198,7 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
 **Objective**: Implement the `task` command that sends a prompt to a named agent and displays the response. This is the core M1 deliverable.
 
 **Steps**:
-- [ ] Create `src/orchestration/cli/commands/task.py`:
+- [x] Create `src/orchestration/cli/commands/task.py`:
   - Define `task()` command with parameters:
     - `agent_name: str` (positional, required)
     - `prompt: str` (positional, required)
@@ -210,13 +210,13 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
       - For tool use blocks: print compact summary (tool name + truncated input) — don't dump raw JSON
       - Use a subtle role/type prefix if multiple messages (e.g., `[assistant]`)
   - Error handling: catch `AgentNotFoundError` with user-friendly message suggesting `orchestration list`
-- [ ] Register the command with the app in `app.py`
+- [x] Register the command with the app in `app.py`
 
 **Success Criteria**:
-- [ ] `orchestration task myagent "do something"` sends the prompt and displays the response
-- [ ] Text content is displayed cleanly
-- [ ] Tool use blocks get a compact summary rather than raw JSON
-- [ ] Agent not found produces a helpful error message and exit code 1
+- [x] `orchestration task myagent "do something"` sends the prompt and displays the response
+- [x] Text content is displayed cleanly
+- [x] Tool use blocks get a compact summary rather than raw JSON
+- [x] Agent not found produces a helpful error message and exit code 1
 
 ---
 
@@ -227,16 +227,16 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
 **Objective**: Test the `task` command via `CliRunner` with mocked registry and agent.
 
 **Steps**:
-- [ ] Create `tests/cli/test_task.py` with test cases:
+- [x] Create `tests/cli/test_task.py` with test cases:
   1. Successful task — mock agent's `query()` returns a list with one text `Message` — verify the text content appears in output, exit code 0
   2. Multiple messages returned — verify all message contents appear
   3. Agent not found — mock `registry.get()` raises `AgentNotFoundError` — verify error message and exit code 1
   4. Verify `agent.query()` is called with the correct prompt string
 
 **Success Criteria**:
-- [ ] All task tests pass
-- [ ] Response content display verified
-- [ ] Error path verified
+- [x] All task tests pass
+- [x] Response content display verified
+- [x] Error path verified
 
 ---
 
@@ -247,7 +247,7 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
 **Objective**: Implement the `shutdown` command for both individual and bulk agent shutdown.
 
 **Steps**:
-- [ ] Create `src/orchestration/cli/commands/shutdown.py`:
+- [x] Create `src/orchestration/cli/commands/shutdown.py`:
   - Define `shutdown()` command with parameters:
     - `agent_name: str | None` (positional, optional)
     - `all_agents: bool` (option `--all`, default False)
@@ -260,14 +260,14 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
     - `asyncio.run(registry.shutdown_all())` → `ShutdownReport`
     - Print summary: `"Shut down N agents. X succeeded, Y failed."`
     - If any failed, list failed agent names with error messages
-- [ ] Register the command with the app in `app.py`
+- [x] Register the command with the app in `app.py`
 
 **Success Criteria**:
-- [ ] `orchestration shutdown myagent` shuts down one agent with confirmation
-- [ ] `orchestration shutdown --all` shuts down all agents with summary report
-- [ ] Providing neither name nor `--all` produces an error
-- [ ] Agent not found produces a helpful error message and exit code 1
-- [ ] Failed shutdowns in bulk mode display error details
+- [x] `orchestration shutdown myagent` shuts down one agent with confirmation
+- [x] `orchestration shutdown --all` shuts down all agents with summary report
+- [x] Providing neither name nor `--all` produces an error
+- [x] Agent not found produces a helpful error message and exit code 1
+- [x] Failed shutdowns in bulk mode display error details
 
 ---
 
@@ -278,7 +278,7 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
 **Objective**: Test the `shutdown` command via `CliRunner` with mocked registry.
 
 **Steps**:
-- [ ] Create `tests/cli/test_shutdown.py` with test cases:
+- [x] Create `tests/cli/test_shutdown.py` with test cases:
   1. Individual shutdown success — verify `shutdown_agent()` called, confirmation displayed, exit code 0
   2. Individual shutdown agent not found — verify error message, exit code 1
   3. Bulk shutdown success — mock `shutdown_all()` returns `ShutdownReport(succeeded=["a","b"], failed={})` — verify summary displayed
@@ -286,9 +286,9 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
   5. Neither name nor `--all` provided — verify error message
 
 **Success Criteria**:
-- [ ] All shutdown tests pass
-- [ ] Individual and bulk paths both verified
-- [ ] Argument validation verified
+- [x] All shutdown tests pass
+- [x] Individual and bulk paths both verified
+- [x] Argument validation verified
 
 ---
 
@@ -299,7 +299,7 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
 **Objective**: Write a single integration test that exercises spawn → list → task → shutdown sequentially against a real `AgentRegistry` with a mock provider, verifying the commands compose correctly end-to-end.
 
 **Steps**:
-- [ ] Create `tests/cli/test_integration.py`:
+- [x] Create `tests/cli/test_integration.py`:
   - Set up a mock `AgentProvider` that returns a mock `Agent` (satisfying the Protocol with `query()` returning test messages, `shutdown()` succeeding, `state` returning `AgentState.idle`)
   - Register the mock provider in the provider registry as `"sdk"`
   - Use a real `AgentRegistry` (via `reset_registry()` + `get_registry()`)
@@ -312,7 +312,7 @@ All commands use the same pattern: sync Typer handler calls `asyncio.run(_async_
   - Clean up: call `reset_registry()` in teardown
 
 **Success Criteria**:
-- [ ] All five commands execute successfully in sequence
-- [ ] Each command's output reflects the state changes from prior commands
-- [ ] No real SDK or Claude calls — only mock provider and agent
-- [ ] Registry is cleaned up after the test
+- [x] All five commands execute successfully in sequence
+- [x] Each command's output reflects the state changes from prior commands
+- [x] No real SDK or Claude calls — only mock provider and agent
+- [x] Registry is cleaned up after the test
