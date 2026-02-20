@@ -74,3 +74,60 @@ class AgentRegistry:
         if name not in self._agents:
             raise AgentNotFoundError(f"Agent '{name}' not found in the registry")
         return self._agents[name]
+
+    def list_agents(
+        self,
+        state: AgentState | None = None,
+        provider: str | None = None,
+    ) -> list[AgentInfo]:
+        """Return AgentInfo summaries for all tracked agents, optionally filtered.
+
+        Args:
+            state: If given, include only agents in this state.
+            provider: If given, include only agents from this provider.
+        """
+        result: list[AgentInfo] = []
+        for name, agent in self._agents.items():
+            agent_provider = self._configs[name].provider
+            if state is not None and agent.state != state:
+                continue
+            if provider is not None and agent_provider != provider:
+                continue
+            result.append(
+                AgentInfo(
+                    name=agent.name,
+                    agent_type=agent.agent_type,
+                    provider=agent_provider,
+                    state=agent.state,
+                )
+            )
+        return result
+
+    async def shutdown_agent(self, name: str) -> None:
+        """Shut down the agent registered under *name* and remove it.
+
+        The agent is always removed from the registry, even if ``agent.shutdown()``
+        raises — an agent in an indeterminate state should not remain tracked.
+
+        Raises:
+            AgentNotFoundError: If no agent with *name* exists.
+        """
+        if name not in self._agents:
+            raise AgentNotFoundError(f"Agent '{name}' not found in the registry")
+
+        agent = self._agents[name]
+        try:
+            await agent.shutdown()
+        except Exception:
+            logger.warning(
+                "agent.shutdown_failed: name=%s error=%s",
+                name,
+                str(agent),
+                exc_info=True,
+            )
+            raise
+        finally:
+            del self._agents[name]
+            del self._configs[name]
+
+        logger.info("agent.shutdown: name=%s", name)

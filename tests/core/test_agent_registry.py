@@ -160,3 +160,138 @@ class TestSpawn:
         self, registry: AgentRegistry
     ) -> None:
         assert not registry.has("nonexistent")
+
+
+# ---------------------------------------------------------------------------
+# list_agents tests (Tasks 6-7)
+# ---------------------------------------------------------------------------
+
+
+class TestListAgents:
+    async def test_empty_registry_returns_empty_list(
+        self, registry: AgentRegistry
+    ) -> None:
+        assert registry.list_agents() == []
+
+    async def test_returns_agent_info_for_all_spawned(
+        self, registry: AgentRegistry
+    ) -> None:
+        await registry.spawn(_config("a"))
+        await registry.spawn(_config("b"))
+        infos = registry.list_agents()
+        assert len(infos) == 2
+        names = {info.name for info in infos}
+        assert names == {"a", "b"}
+        for info in infos:
+            assert info.agent_type == "sdk"
+            assert info.provider == "mock"
+            assert info.state == AgentState.idle
+
+    async def test_filter_by_state(
+        self, registry: AgentRegistry, mock_provider: MockProvider
+    ) -> None:
+        await registry.spawn(_config("idle-agent"))
+        await registry.spawn(_config("busy-agent"))
+        # Mutate one mock agent's state to processing
+        mock_provider.created_agents[1]._state = AgentState.processing
+
+        idle_only = registry.list_agents(state=AgentState.idle)
+        assert len(idle_only) == 1
+        assert idle_only[0].name == "idle-agent"
+
+        processing_only = registry.list_agents(state=AgentState.processing)
+        assert len(processing_only) == 1
+        assert processing_only[0].name == "busy-agent"
+
+    async def test_filter_by_provider(self, registry: AgentRegistry) -> None:
+        other_provider = MockProvider(provider_type="other")
+        register_provider("other", other_provider)
+        try:
+            await registry.spawn(_config("mock-agent", provider="mock"))
+            await registry.spawn(_config("other-agent", provider="other"))
+
+            mock_only = registry.list_agents(provider="mock")
+            assert len(mock_only) == 1
+            assert mock_only[0].name == "mock-agent"
+
+            other_only = registry.list_agents(provider="other")
+            assert len(other_only) == 1
+            assert other_only[0].name == "other-agent"
+        finally:
+            _PROVIDER_REGISTRY.pop("other", None)
+
+    async def test_combined_filters(
+        self, registry: AgentRegistry, mock_provider: MockProvider
+    ) -> None:
+        other_provider = MockProvider(provider_type="other")
+        register_provider("other", other_provider)
+        try:
+            await registry.spawn(_config("m1", provider="mock"))
+            await registry.spawn(_config("m2", provider="mock"))
+            await registry.spawn(_config("o1", provider="other"))
+            # Set m2 to processing
+            mock_provider.created_agents[1]._state = AgentState.processing
+
+            result = registry.list_agents(
+                state=AgentState.idle, provider="mock"
+            )
+            assert len(result) == 1
+            assert result[0].name == "m1"
+        finally:
+            _PROVIDER_REGISTRY.pop("other", None)
+
+    async def test_filter_with_no_matches_returns_empty(
+        self, registry: AgentRegistry
+    ) -> None:
+        await registry.spawn(_config("agent"))
+        assert registry.list_agents(state=AgentState.failed) == []
+        assert registry.list_agents(provider="nonexistent") == []
+
+
+# ---------------------------------------------------------------------------
+# Individual shutdown tests (Tasks 8-9)
+# ---------------------------------------------------------------------------
+
+
+class TestShutdownAgent:
+    async def test_shutdown_calls_agent_and_removes_it(
+        self, registry: AgentRegistry, mock_provider: MockProvider
+    ) -> None:
+        await registry.spawn(_config("bot"))
+        await registry.shutdown_agent("bot")
+        assert mock_provider.created_agents[0].shutdown_called
+        assert not registry.has("bot")
+
+    async def test_after_shutdown_get_raises(
+        self, registry: AgentRegistry
+    ) -> None:
+        await registry.spawn(_config("bot"))
+        await registry.shutdown_agent("bot")
+        with pytest.raises(AgentNotFoundError):
+            registry.get("bot")
+
+    async def test_shutdown_unknown_name_raises(
+        self, registry: AgentRegistry
+    ) -> None:
+        with pytest.raises(AgentNotFoundError, match="ghost"):
+            await registry.shutdown_agent("ghost")
+
+    async def test_shutdown_error_still_removes_agent(
+        self, registry: AgentRegistry, mock_provider: MockProvider
+    ) -> None:
+        await registry.spawn(_config("flaky"))
+        mock_provider.created_agents[0].shutdown_error = RuntimeError("oops")
+        with pytest.raises(RuntimeError, match="oops"):
+            await registry.shutdown_agent("flaky")
+        assert not registry.has("flaky")
+
+    async def test_shutdown_error_has_returns_false(
+        self, registry: AgentRegistry, mock_provider: MockProvider
+    ) -> None:
+        await registry.spawn(_config("flaky"))
+        mock_provider.created_agents[0].shutdown_error = RuntimeError("oops")
+        with pytest.raises(RuntimeError):
+            await registry.shutdown_agent("flaky")
+        assert not registry.has("flaky")
+        with pytest.raises(AgentNotFoundError):
+            registry.get("flaky")
