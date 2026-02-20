@@ -10,6 +10,8 @@ from orchestration.core.agent_registry import (
     AgentAlreadyExistsError,
     AgentNotFoundError,
     AgentRegistry,
+    get_registry,
+    reset_registry,
 )
 from orchestration.core.models import AgentConfig, AgentState, Message
 from orchestration.providers.errors import ProviderError
@@ -295,3 +297,88 @@ class TestShutdownAgent:
         assert not registry.has("flaky")
         with pytest.raises(AgentNotFoundError):
             registry.get("flaky")
+
+
+# ---------------------------------------------------------------------------
+# Bulk shutdown tests (Tasks 10-11)
+# ---------------------------------------------------------------------------
+
+
+class TestShutdownAll:
+    async def test_empty_registry(self, registry: AgentRegistry) -> None:
+        report = await registry.shutdown_all()
+        assert report.succeeded == []
+        assert report.failed == {}
+
+    async def test_two_agents_both_succeed(
+        self, registry: AgentRegistry, mock_provider: MockProvider
+    ) -> None:
+        await registry.spawn(_config("a"))
+        await registry.spawn(_config("b"))
+        report = await registry.shutdown_all()
+        assert set(report.succeeded) == {"a", "b"}
+        assert report.failed == {}
+        assert registry.list_agents() == []
+
+    async def test_two_agents_one_fails(
+        self, registry: AgentRegistry, mock_provider: MockProvider
+    ) -> None:
+        await registry.spawn(_config("good"))
+        await registry.spawn(_config("bad"))
+        mock_provider.created_agents[1].shutdown_error = RuntimeError("crash")
+
+        report = await registry.shutdown_all()
+        assert "good" in report.succeeded
+        assert "bad" in report.failed
+        assert "crash" in report.failed["bad"]
+        assert registry.list_agents() == []
+
+    async def test_three_agents_all_fail(
+        self, registry: AgentRegistry, mock_provider: MockProvider
+    ) -> None:
+        for name in ("x", "y", "z"):
+            await registry.spawn(_config(name))
+        for agent in mock_provider.created_agents:
+            agent.shutdown_error = RuntimeError("fail")
+
+        report = await registry.shutdown_all()
+        assert report.succeeded == []
+        assert set(report.failed.keys()) == {"x", "y", "z"}
+        assert registry.list_agents() == []
+
+    async def test_registry_empty_after_shutdown_all(
+        self, registry: AgentRegistry
+    ) -> None:
+        await registry.spawn(_config("a"))
+        await registry.spawn(_config("b"))
+        await registry.shutdown_all()
+        assert registry.list_agents() == []
+        assert not registry.has("a")
+        assert not registry.has("b")
+
+
+# ---------------------------------------------------------------------------
+# Singleton tests (Tasks 12-13)
+# ---------------------------------------------------------------------------
+
+
+class TestSingleton:
+    @pytest.fixture(autouse=True)
+    def _cleanup(self) -> None:  # type: ignore[return]
+        yield
+        reset_registry()
+
+    def test_get_registry_returns_agent_registry(self) -> None:
+        reg = get_registry()
+        assert isinstance(reg, AgentRegistry)
+
+    def test_get_registry_returns_same_instance(self) -> None:
+        reg1 = get_registry()
+        reg2 = get_registry()
+        assert reg1 is reg2
+
+    def test_reset_creates_new_instance(self) -> None:
+        reg1 = get_registry()
+        reset_registry()
+        reg2 = get_registry()
+        assert reg1 is not reg2

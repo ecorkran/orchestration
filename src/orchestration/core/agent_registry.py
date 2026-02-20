@@ -131,3 +131,53 @@ class AgentRegistry:
             del self._configs[name]
 
         logger.info("agent.shutdown: name=%s", name)
+
+    async def shutdown_all(self) -> ShutdownReport:
+        """Shut down every registered agent and clear the registry.
+
+        Each agent's ``shutdown()`` is called individually. Failures are
+        collected rather than aborting — this is a best-effort operation for
+        clean teardown.
+        """
+        report = ShutdownReport()
+        names = list(self._agents.keys())
+
+        for name in names:
+            agent = self._agents[name]
+            try:
+                await agent.shutdown()
+                report.succeeded.append(name)
+            except Exception as exc:
+                report.failed[name] = str(exc)
+
+        self._agents.clear()
+        self._configs.clear()
+
+        logger.info(
+            "registry.shutdown_all: count=%d succeeded=%d failed=%d",
+            len(names),
+            len(report.succeeded),
+            len(report.failed),
+        )
+        return report
+
+
+# ---------------------------------------------------------------------------
+# Module-level singleton
+# ---------------------------------------------------------------------------
+
+_registry: AgentRegistry | None = None
+
+
+def get_registry() -> AgentRegistry:
+    """Return the shared AgentRegistry singleton, creating it on first call."""
+    global _registry  # noqa: PLW0603
+    if _registry is None:
+        _registry = AgentRegistry()
+    return _registry
+
+
+def reset_registry() -> None:
+    """Reset the singleton. Intended for test cleanup only."""
+    global _registry  # noqa: PLW0603
+    _registry = None
