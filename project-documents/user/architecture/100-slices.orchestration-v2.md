@@ -37,7 +37,7 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 3. [x] **Agent Registry & Lifecycle** — Agent registry: spawn agent by name, type (sdk/api), and provider config. Track agent state (idle, processing, terminated). Graceful shutdown of individual agents and all-agents. In-process async agent execution. Uses AgentProvider Protocol to create agent instances — registry is provider-agnostic. Dependencies: [SDK Agent Provider]. Risk: Low. Effort: 2/5
 
-4. [x] **CLI Foundation & SDK Agent Tasks** — Typer app with commands: `spawn` (create agent with --type, --provider, --cwd), `list` (show agents with type and state), `task` (send a one-shot task to a named agent, display streaming output), `shutdown` (stop agent). Wire the full path: CLI → Agent Registry → SDK Agent Provider → claude-agent-sdk → response displayed. Dependencies: [Agent Registry]. Risk: Low. Effort: 2/5
+4. [ ] **CLI Foundation & SDK Agent Tasks** — Typer app with commands: `spawn` (create agent with --type, --provider, --cwd), `list` (show agents with type and state), `task` (send a one-shot task to a named agent, display streaming output), `shutdown` (stop agent). Wire the full path: CLI → Agent Registry → SDK Agent Provider → claude-agent-sdk → response displayed. Dependencies: [Agent Registry]. Risk: Low. Effort: 2/5
 
 5. [ ] **SDK Client Warm Pool** — Pre-initialize and manage a pool of `ClaudeSDKClient` instances to eliminate the ~20-30s cold-start penalty on task execution. Configurable pool size (default 1 for single-agent use). Pool integrated with agent registry — spawning an SDK agent in client mode checks out a warm instance instead of creating one from scratch. Idle client health checks and recycling. CLI `pool` command to show pool status and pre-warm instances. **Completes M1.** Dependencies: [CLI Foundation]. Risk: Medium (client lifecycle edge cases — disconnect/reconnect, stale sessions). Effort: 3/5
 
@@ -51,7 +51,7 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 ### → Milestone 3: Human + Agents
 
-9. [ ] **Human-in-the-Loop Participation** — Human becomes a first-class participant on the message bus (not just a CLI command issuer). In multi-agent mode, human messages are broadcast to all agents alongside agent-to-agent messages. CLI interactive mode: human sees all agent messages and can interject at any point. Agents see human messages in their conversation context. Turn-taking options: free-form (anyone can speak), moderated (human approves each round), or prompted (agents wait for human input between rounds). **Completes M3.** Dependencies: [Multi-Agent Message Routing]. Risk: Low. Effort: 2/5
+9. [ ] **Human-in-the-Loop Participation** — Human becomes a first-class participant on the message bus (not just a CLI command issuer). In multi-agent mode, human messages are broadcast to all agents alongside agent-to-agent messages. CLI interactive mode: human sees all agent messages and can interject at any point. Agents see human messages in their conversation context. Turn-taking options: free-form (anyone can speak), moderated (human approves each round), or prompted (agents wait for human input between rounds). Also retrofits streaming output to the CLI task command (deferred from slice 4 — see 103-slice.cli-foundation.md Tracked Enhancements). Completes M3. Dependencies: [Multi-Agent Message Routing]. Risk: Low. Effort: 2/5
 
 ### Post-Milestone Feature Work
 
