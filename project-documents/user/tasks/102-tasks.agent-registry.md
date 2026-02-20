@@ -7,6 +7,7 @@ dependencies: [foundation, sdk-agent-provider]
 projectState: Foundation complete with migration applied. SDK Agent Provider (slice 2) complete — SDKAgentProvider and SDKAgent implemented, auto-registered as "sdk", translation module working, all tests passing. The stub file core/agent_registry.py exists with a placeholder docstring. AgentConfig, AgentState, Message models in core/models.py. Agent/AgentProvider Protocols in providers/base.py. Provider registry in providers/registry.py. ProviderError hierarchy in providers/errors.py.
 dateCreated: 20260219
 dateUpdated: 20260219
+status: complete
 ---
 
 ## Context Summary
@@ -48,7 +49,7 @@ dateUpdated: 20260219
 **Objective**: Add `AgentInfo` and `ShutdownReport` Pydantic models to `src/orchestration/core/models.py`. These are read models used by the registry for agent enumeration and shutdown reporting.
 
 **Steps**:
-- [ ] Add to `src/orchestration/core/models.py`:
+- [x] Add to `src/orchestration/core/models.py`:
   ```python
   class AgentInfo(BaseModel):
       """Read model for agent enumeration — lightweight summary without Protocol access."""
@@ -62,13 +63,13 @@ dateUpdated: 20260219
       succeeded: list[str] = Field(default_factory=list)
       failed: dict[str, str] = Field(default_factory=dict)  # name → error message
   ```
-- [ ] Verify both models are importable: `from orchestration.core.models import AgentInfo, ShutdownReport`
+- [x] Verify both models are importable: `from orchestration.core.models import AgentInfo, ShutdownReport`
 
 **Success Criteria**:
-- [ ] `AgentInfo(name="a", agent_type="sdk", provider="sdk", state=AgentState.idle)` validates
-- [ ] `ShutdownReport()` produces empty defaults
-- [ ] `ShutdownReport(succeeded=["a"], failed={"b": "timeout"})` validates
-- [ ] Existing model imports and tests are unaffected
+- [x] `AgentInfo(name="a", agent_type="sdk", provider="sdk", state=AgentState.idle)` validates
+- [x] `ShutdownReport()` produces empty defaults
+- [x] `ShutdownReport(succeeded=["a"], failed={"b": "timeout"})` validates
+- [x] Existing model imports and tests are unaffected
 
 ---
 
@@ -79,17 +80,17 @@ dateUpdated: 20260219
 **Objective**: Add tests for the new models to the existing model test file.
 
 **Steps**:
-- [ ] Add to `tests/test_models.py` (or `tests/core/test_models.py` — use whichever location the existing model tests are in):
+- [x] Add to `tests/test_models.py` (or `tests/core/test_models.py` — use whichever location the existing model tests are in):
   1. Test `AgentInfo` construction with all fields
   2. Test `AgentInfo` validates `state` as `AgentState` enum
   3. Test `ShutdownReport` empty defaults
   4. Test `ShutdownReport` with populated succeeded and failed fields
-- [ ] Run `uv run pytest tests/test_models.py` — all tests pass (new and existing)
+- [x] Run `uv run pytest tests/test_models.py` — all tests pass (new and existing)
 
 **Success Criteria**:
-- [ ] All model tests pass
-- [ ] New models have construction and validation coverage
-- [ ] No regressions in existing model tests
+- [x] All model tests pass
+- [x] New models have construction and validation coverage
+- [x] No regressions in existing model tests
 
 ---
 
@@ -100,7 +101,7 @@ dateUpdated: 20260219
 **Objective**: Add registry-specific error classes to `src/orchestration/core/agent_registry.py`. These are co-located with the registry since they're only 3 small classes.
 
 **Steps**:
-- [ ] Replace the stub content in `src/orchestration/core/agent_registry.py` with the error classes (keep the module docstring, update it):
+- [x] Replace the stub content in `src/orchestration/core/agent_registry.py` with the error classes (keep the module docstring, update it):
   ```python
   """Agent registry: spawn, track, and manage agent lifecycle."""
 
@@ -113,12 +114,12 @@ dateUpdated: 20260219
   class AgentAlreadyExistsError(AgentRegistryError):
       """Raised when spawning with a duplicate name."""
   ```
-- [ ] Verify imports: `from orchestration.core.agent_registry import AgentRegistryError, AgentNotFoundError, AgentAlreadyExistsError`
+- [x] Verify imports: `from orchestration.core.agent_registry import AgentRegistryError, AgentNotFoundError, AgentAlreadyExistsError`
 
 **Success Criteria**:
-- [ ] All three errors are importable
-- [ ] `AgentNotFoundError` and `AgentAlreadyExistsError` are subclasses of `AgentRegistryError`
-- [ ] `AgentRegistryError` is a subclass of `Exception`
+- [x] All three errors are importable
+- [x] `AgentNotFoundError` and `AgentAlreadyExistsError` are subclasses of `AgentRegistryError`
+- [x] `AgentRegistryError` is a subclass of `Exception`
 
 ---
 
@@ -129,35 +130,35 @@ dateUpdated: 20260219
 **Objective**: Implement the `AgentRegistry` class with the `spawn()` method and internal storage. This is the central method — it resolves a provider via the provider registry, creates an agent, and tracks it by name.
 
 **Steps**:
-- [ ] Add to `src/orchestration/core/agent_registry.py`, below the error classes:
-- [ ] Import required types:
+- [x] Add to `src/orchestration/core/agent_registry.py`, below the error classes:
+- [x] Import required types:
   ```python
   from orchestration.core.models import AgentConfig, AgentInfo, AgentState, ShutdownReport
   from orchestration.providers.base import Agent
   from orchestration.providers.registry import get_provider
   from orchestration.logging import get_logger
   ```
-- [ ] Implement `AgentRegistry` class:
-  - `__init__`: initialize `self._agents: dict[str, Agent] = {}` and `self._configs: dict[str, AgentConfig] = {}` and logger
-  - `async def spawn(self, config: AgentConfig) -> Agent`:
+- [x] Implement `AgentRegistry` class:
+  - [x] `__init__`: initialize `self._agents: dict[str, Agent] = {}` and `self._configs: dict[str, AgentConfig] = {}` and logger
+  - [x] `async def spawn(self, config: AgentConfig) -> Agent`:
     1. Check `config.name` not in `self._agents` — raise `AgentAlreadyExistsError` if duplicate
     2. Call `provider = get_provider(config.provider)` — `KeyError` propagates if provider unknown
     3. Call `agent = await provider.create_agent(config)` — `ProviderError` subtypes propagate
     4. Store `self._agents[config.name] = agent` and `self._configs[config.name] = config`
     5. Log `agent.spawned` at INFO level with name, agent_type, provider
     6. Return agent
-- [ ] Add `has(self, name: str) -> bool` — checks if name is in `self._agents`
-- [ ] Add `get(self, name: str) -> Agent`:
-  - Raise `AgentNotFoundError` if name not in `self._agents`
-  - Return the `Agent` instance
+  - [x] Add `has(self, name: str) -> bool` — checks if name is in `self._agents`
+  - [x] Add `get(self, name: str) -> Agent`:
+    - Raise `AgentNotFoundError` if name not in `self._agents`
+    - Return the `Agent` instance
 
 **Success Criteria**:
-- [ ] `spawn()` creates an agent via the correct provider and stores it
-- [ ] `spawn()` with duplicate name raises `AgentAlreadyExistsError`
-- [ ] `spawn()` with unknown provider raises `KeyError` (from provider registry)
-- [ ] `get()` returns a stored agent
-- [ ] `get()` with unknown name raises `AgentNotFoundError`
-- [ ] `has()` returns `True` for spawned agents, `False` otherwise
+- [x] `spawn()` creates an agent via the correct provider and stores it
+- [x] `spawn()` with duplicate name raises `AgentAlreadyExistsError`
+- [x] `spawn()` with unknown provider raises `KeyError` (from provider registry)
+- [x] `get()` returns a stored agent
+- [x] `get()` with unknown name raises `AgentNotFoundError`
+- [x] `has()` returns `True` for spawned agents, `False` otherwise
 
 ---
 
@@ -168,13 +169,13 @@ dateUpdated: 20260219
 **Objective**: Create `tests/core/test_agent_registry.py` with tests for spawn, get, and has operations using mock providers and agents.
 
 **Steps**:
-- [ ] Create `tests/core/` directory and `tests/core/__init__.py` if they don't exist
-- [ ] Create `tests/core/test_agent_registry.py`
-- [ ] Create test fixtures:
-  - A `MockAgent` class satisfying the `Agent` Protocol (properties: `name`, `agent_type`, `state`; async methods: `handle_message`, `shutdown`)
-  - A `MockProvider` class satisfying the `AgentProvider` Protocol (`provider_type` property, `create_agent` returns a `MockAgent`, `validate_credentials` returns True)
-  - A fixture that creates a fresh `AgentRegistry` and registers a mock provider via `register_provider("mock", MockProvider())` — clean up after test (remove from registry)
-- [ ] Test cases:
+- [x] Create `tests/core/` directory and `tests/core/__init__.py` if they don't exist
+- [x] Create `tests/core/test_agent_registry.py`
+- [x] Create test fixtures:
+  - [x] A `MockAgent` class satisfying the `Agent` Protocol (properties: `name`, `agent_type`, `state`; async methods: `handle_message`, `shutdown`)
+  - [x] A `MockProvider` class satisfying the `AgentProvider` Protocol (`provider_type` property, `create_agent` returns a `MockAgent`, `validate_credentials` returns True)
+  - [x] A fixture that creates a fresh `AgentRegistry` and registers a mock provider via `register_provider("mock", MockProvider())` — clean up after test (remove from registry)
+- [x] Test cases:
   1. Spawn agent — verify it's returned, `has()` returns True, `get()` returns same instance
   2. Spawn stores config — verify agent is retrievable with correct name
   3. Spawn with duplicate name — raises `AgentAlreadyExistsError`
@@ -182,12 +183,12 @@ dateUpdated: 20260219
   5. Spawn when `create_agent` raises `ProviderError` — error propagates, agent is NOT stored
   6. Get with unknown name — raises `AgentNotFoundError`
   7. Has returns False for unknown name
-- [ ] Run `uv run pytest tests/core/test_agent_registry.py`
+- [x] Run `uv run pytest tests/core/test_agent_registry.py`
 
 **Success Criteria**:
-- [ ] All spawn and lookup tests pass
-- [ ] Mock provider and agent satisfy their respective Protocols
-- [ ] Error cases are verified (duplicate, unknown provider, provider failure, not found)
+- [x] All spawn and lookup tests pass
+- [x] Mock provider and agent satisfy their respective Protocols
+- [x] Error cases are verified (duplicate, unknown provider, provider failure, not found)
 
 ---
 
@@ -198,7 +199,7 @@ dateUpdated: 20260219
 **Objective**: Add `list_agents()` method to `AgentRegistry` that returns `AgentInfo` summaries with optional filtering by state and provider.
 
 **Steps**:
-- [ ] Add to `AgentRegistry`:
+- [x] Add to `AgentRegistry`:
   ```python
   def list_agents(
       self,
@@ -206,18 +207,18 @@ dateUpdated: 20260219
       provider: str | None = None,
   ) -> list[AgentInfo]:
   ```
-  - Iterate `self._agents` items
-  - For each agent, build `AgentInfo` from `agent.name`, `agent.agent_type`, `agent.state`, and `self._configs[name].provider`
-  - Apply filters: if `state` is not None, include only agents with matching state; if `provider` is not None, include only agents with matching provider
-  - Return the filtered list
+  - [x] Iterate `self._agents` items
+  - [x] For each agent, build `AgentInfo` from `agent.name`, `agent.agent_type`, `agent.state`, and `self._configs[name].provider`
+  - [x] Apply filters: if `state` is not None, include only agents with matching state; if `provider` is not None, include only agents with matching provider
+  - [x] Return the filtered list
 
 **Success Criteria**:
-- [ ] Empty registry returns empty list
-- [ ] Returns correct `AgentInfo` for all spawned agents
-- [ ] Filtering by state works (include matching, exclude non-matching)
-- [ ] Filtering by provider works
-- [ ] Both filters can be combined
-- [ ] `AgentInfo.provider` comes from stored config, not from agent object
+- [x] Empty registry returns empty list
+- [x] Returns correct `AgentInfo` for all spawned agents
+- [x] Filtering by state works (include matching, exclude non-matching)
+- [x] Filtering by provider works
+- [x] Both filters can be combined
+- [x] `AgentInfo.provider` comes from stored config, not from agent object
 
 ---
 
@@ -228,7 +229,7 @@ dateUpdated: 20260219
 **Objective**: Add tests for `list_agents` to `tests/core/test_agent_registry.py`.
 
 **Steps**:
-- [ ] Test cases (build on the mock fixtures from Task 5):
+- [x] Test cases (build on the mock fixtures from Task 5):
   1. Empty registry — `list_agents()` returns `[]`
   2. Two agents spawned — `list_agents()` returns two `AgentInfo` objects with correct fields
   3. Filter by state — spawn agents, set one mock agent's state to `AgentState.processing`, filter returns only matching
@@ -237,8 +238,8 @@ dateUpdated: 20260219
   6. Filter with no matches — returns empty list
 
 **Success Criteria**:
-- [ ] All list_agents tests pass
-- [ ] Filtering logic verified for state, provider, and combination
+- [x] All list_agents tests pass
+- [x] Filtering logic verified for state, provider, and combination
 
 ---
 
@@ -249,22 +250,22 @@ dateUpdated: 20260219
 **Objective**: Add `shutdown_agent()` method that shuts down a named agent and removes it from the registry.
 
 **Steps**:
-- [ ] Add to `AgentRegistry`:
+- [x] Add to `AgentRegistry`:
   ```python
   async def shutdown_agent(self, name: str) -> None:
   ```
-  - Look up agent by name — raise `AgentNotFoundError` if not found
-  - Call `await agent.shutdown()`
-  - Remove from `self._agents` and `self._configs` **regardless of whether shutdown raised** (an agent in an indeterminate state should not remain tracked)
-  - Log `agent.shutdown` at INFO level
-  - If `agent.shutdown()` raised, log `agent.shutdown_failed` at WARNING with error details, then re-raise the exception after removal
+  - [x] Look up agent by name — raise `AgentNotFoundError` if not found
+  - [x] Call `await agent.shutdown()`
+  - [x] Remove from `self._agents` and `self._configs` **regardless of whether shutdown raised** (an agent in an indeterminate state should not remain tracked)
+  - [x] Log `agent.shutdown` at INFO level
+  - [x] If `agent.shutdown()` raised, log `agent.shutdown_failed` at WARNING with error details, then re-raise the exception after removal
 
 **Success Criteria**:
-- [ ] Shutdown calls `agent.shutdown()` and removes agent from registry
-- [ ] After shutdown, `has(name)` returns False and `get(name)` raises `AgentNotFoundError`
-- [ ] Shutdown with unknown name raises `AgentNotFoundError`
-- [ ] If `agent.shutdown()` raises, agent is still removed from registry
-- [ ] If `agent.shutdown()` raises, the exception propagates to the caller
+- [x] Shutdown calls `agent.shutdown()` and removes agent from registry
+- [x] After shutdown, `has(name)` returns False and `get(name)` raises `AgentNotFoundError`
+- [x] Shutdown with unknown name raises `AgentNotFoundError`
+- [x] If `agent.shutdown()` raises, agent is still removed from registry
+- [x] If `agent.shutdown()` raises, the exception propagates to the caller
 
 ---
 
@@ -275,7 +276,7 @@ dateUpdated: 20260219
 **Objective**: Add shutdown tests to `tests/core/test_agent_registry.py`.
 
 **Steps**:
-- [ ] Test cases:
+- [x] Test cases:
   1. Shutdown existing agent — `agent.shutdown()` called, agent removed from registry
   2. After shutdown, `has()` returns False and `get()` raises `AgentNotFoundError`
   3. Shutdown unknown name — raises `AgentNotFoundError`
@@ -283,8 +284,8 @@ dateUpdated: 20260219
   5. Shutdown when `agent.shutdown()` raises — verify `has()` returns False after error
 
 **Success Criteria**:
-- [ ] All individual shutdown tests pass
-- [ ] Both happy-path and error-path removal verified
+- [x] All individual shutdown tests pass
+- [x] Both happy-path and error-path removal verified
 
 ---
 
@@ -295,25 +296,25 @@ dateUpdated: 20260219
 **Objective**: Add `shutdown_all()` method that shuts down every registered agent, collects errors, clears the registry, and returns a `ShutdownReport`.
 
 **Steps**:
-- [ ] Add to `AgentRegistry`:
+- [x] Add to `AgentRegistry`:
   ```python
   async def shutdown_all(self) -> ShutdownReport:
   ```
-  - Create a `ShutdownReport`
-  - Iterate a snapshot of agent names (copy keys — avoid mutating dict during iteration)
-  - For each agent: call `await agent.shutdown()` in a try/except
+  - [x] Create a `ShutdownReport`
+  - [x] Iterate a snapshot of agent names (copy keys — avoid mutating dict during iteration)
+  - [x] For each agent: call `await agent.shutdown()` in a try/except
     - Success: add name to `report.succeeded`
     - Failure: add `name → str(error)` to `report.failed`
-  - Clear `self._agents` and `self._configs`
-  - Log `registry.shutdown_all` at INFO with count, succeeded, failed
-  - Return the report
+  - [x] Clear `self._agents` and `self._configs`
+  - [x] Log `registry.shutdown_all` at INFO with count, succeeded, failed
+  - [x] Return the report
 
 **Success Criteria**:
-- [ ] All agents are shut down (each `shutdown()` is called)
-- [ ] Registry is empty after `shutdown_all()`
-- [ ] Successful shutdowns listed in `report.succeeded`
-- [ ] Failed shutdowns listed in `report.failed` with error messages
-- [ ] One agent's failure does not prevent other agents from being shut down
+- [x] All agents are shut down (each `shutdown()` is called)
+- [x] Registry is empty after `shutdown_all()`
+- [x] Successful shutdowns listed in `report.succeeded`
+- [x] Failed shutdowns listed in `report.failed` with error messages
+- [x] One agent's failure does not prevent other agents from being shut down
 
 ---
 
@@ -324,7 +325,7 @@ dateUpdated: 20260219
 **Objective**: Add bulk shutdown tests to `tests/core/test_agent_registry.py`.
 
 **Steps**:
-- [ ] Test cases:
+- [x] Test cases:
   1. Empty registry — `shutdown_all()` returns report with empty succeeded and failed
   2. Two agents, both succeed — both in `report.succeeded`, registry empty
   3. Two agents, one raises — succeeded has one name, failed has one name with error message, registry still empty
@@ -332,9 +333,9 @@ dateUpdated: 20260219
   5. After `shutdown_all()`, `list_agents()` returns `[]`
 
 **Success Criteria**:
-- [ ] All bulk shutdown tests pass
-- [ ] Error collection verified — failures don't abort remaining shutdowns
-- [ ] Registry is always cleared regardless of individual failures
+- [x] All bulk shutdown tests pass
+- [x] Error collection verified — failures don't abort remaining shutdowns
+- [x] Registry is always cleared regardless of individual failures
 
 ---
 
@@ -345,7 +346,7 @@ dateUpdated: 20260219
 **Objective**: Add module-level `get_registry()` function that returns a lazily-created singleton `AgentRegistry` instance, plus a `reset_registry()` for test cleanup.
 
 **Steps**:
-- [ ] Add at module level in `src/orchestration/core/agent_registry.py`:
+- [x] Add at module level in `src/orchestration/core/agent_registry.py`:
   ```python
   _registry: AgentRegistry | None = None
 
@@ -361,12 +362,12 @@ dateUpdated: 20260219
       global _registry
       _registry = None
   ```
-- [ ] Export from module: ensure `get_registry`, `reset_registry` are importable from `orchestration.core.agent_registry`
+- [x] Export from module: ensure `get_registry`, `reset_registry` are importable from `orchestration.core.agent_registry`
 
 **Success Criteria**:
-- [ ] `get_registry()` returns same instance on repeated calls
-- [ ] `reset_registry()` causes next `get_registry()` to create a new instance
-- [ ] Both functions are importable
+- [x] `get_registry()` returns same instance on repeated calls
+- [x] `reset_registry()` causes next `get_registry()` to create a new instance
+- [x] Both functions are importable
 
 ---
 
@@ -377,15 +378,15 @@ dateUpdated: 20260219
 **Objective**: Add tests for the singleton accessor.
 
 **Steps**:
-- [ ] Test cases (use `reset_registry()` in fixture teardown):
+- [x] Test cases (use `reset_registry()` in fixture teardown):
   1. `get_registry()` returns an `AgentRegistry` instance
   2. Two calls to `get_registry()` return the same object (`is` identity)
   3. After `reset_registry()`, next call returns a new instance (different identity)
-- [ ] Ensure test cleanup calls `reset_registry()` to avoid polluting other tests
+- [x] Ensure test cleanup calls `reset_registry()` to avoid polluting other tests
 
 **Success Criteria**:
-- [ ] All singleton tests pass
-- [ ] Identity checks confirm same-instance and new-instance behavior
+- [x] All singleton tests pass
+- [x] Identity checks confirm same-instance and new-instance behavior
 
 ---
 
@@ -396,27 +397,27 @@ dateUpdated: 20260219
 **Objective**: Run the complete quality gate and verify the slice is complete.
 
 **Steps**:
-- [ ] Run `uv run pytest` — all tests pass (including foundation and SDK provider tests — no regressions)
-- [ ] Run `uv run ruff check src/ tests/` — no linting errors
-- [ ] Run `uv run ruff format --check src/ tests/` — formatting consistent
-- [ ] Run type checker — zero errors
-- [ ] Verify import paths:
-  - `from orchestration.core.agent_registry import AgentRegistry, get_registry, reset_registry`
-  - `from orchestration.core.agent_registry import AgentRegistryError, AgentNotFoundError, AgentAlreadyExistsError`
-  - `from orchestration.core.models import AgentInfo, ShutdownReport`
-- [ ] Verify functional flow (with mock provider):
-  - `get_registry()` returns instance
-  - `spawn(config)` creates and tracks agent
-  - `list_agents()` returns `AgentInfo` objects
-  - `shutdown_agent(name)` removes agent
-  - `shutdown_all()` returns `ShutdownReport`
-- [ ] Verify no regressions in existing test suites
-- [ ] Verify `core/agent_registry.py` docstring is updated (no longer says "Populated in slice 3")
+- [x] Run `uv run pytest` — all tests pass (including foundation and SDK provider tests — no regressions)
+- [x] Run `uv run ruff check src/ tests/` — no linting errors
+- [x] Run `uv run ruff format --check src/ tests/` — formatting consistent
+- [x] Run type checker — zero errors
+- [x] Verify import paths:
+  - [x] `from orchestration.core.agent_registry import AgentRegistry, get_registry, reset_registry`
+  - [x] `from orchestration.core.agent_registry import AgentRegistryError, AgentNotFoundError, AgentAlreadyExistsError`
+  - [x] `from orchestration.core.models import AgentInfo, ShutdownReport`
+- [x] Verify functional flow (with mock provider):
+  - [x] `get_registry()` returns instance
+  - [x] `spawn(config)` creates and tracks agent
+  - [x] `list_agents()` returns `AgentInfo` objects
+  - [x] `shutdown_agent(name)` removes agent
+  - [x] `shutdown_all()` returns `ShutdownReport`
+- [x] Verify no regressions in existing test suites
+- [x] Verify `core/agent_registry.py` docstring is updated (no longer says "Populated in slice 3")
 
 **Success Criteria**:
-- [ ] All tests pass (new and existing)
-- [ ] `ruff check` passes
-- [ ] `ruff format --check` passes
-- [ ] Type checking passes with zero errors
-- [ ] All registry operations verified functional
-- [ ] Project is ready for slice 4 (CLI Foundation & SDK Agent Tasks) to begin
+- [x] All tests pass (new and existing)
+- [x] `ruff check` passes
+- [x] `ruff format --check` passes
+- [x] Type checking passes with zero errors
+- [x] All registry operations verified functional
+- [x] Project is ready for slice 4 (CLI Foundation & SDK Agent Tasks) to begin
