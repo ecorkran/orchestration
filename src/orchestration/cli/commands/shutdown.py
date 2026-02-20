@@ -10,10 +10,7 @@ from rich import print as rprint
 from orchestration.core.agent_registry import AgentNotFoundError, get_registry
 from orchestration.core.models import ShutdownReport
 
-app = typer.Typer()
 
-
-@app.command()
 def shutdown(
     agent_name: str | None = typer.Argument(default=None, help="Agent to shut down"),
     all_agents: bool = typer.Option(False, "--all", help="Shut down all agents"),

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import typer
 
-from orchestration.cli.commands import list as list_cmd
-from orchestration.cli.commands import shutdown as shutdown_cmd
-from orchestration.cli.commands import spawn as spawn_cmd
-from orchestration.cli.commands import task as task_cmd
+from orchestration.cli.commands.list import list_agents
+from orchestration.cli.commands.shutdown import shutdown
+from orchestration.cli.commands.spawn import spawn
+from orchestration.cli.commands.task import task
 
 app = typer.Typer(
     name="orchestration",
@@ -15,7 +15,7 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-app.add_typer(spawn_cmd.app, name="spawn")
-app.add_typer(list_cmd.app, name="list")
-app.add_typer(task_cmd.app, name="task")
-app.add_typer(shutdown_cmd.app, name="shutdown")
+app.command("spawn")(spawn)
+app.command("list")(list_agents)
+app.command("task")(task)
+app.command("shutdown")(shutdown)

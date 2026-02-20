@@ -14,17 +14,16 @@ from orchestration.core.agent_registry import (
 from orchestration.core.models import AgentConfig
 from orchestration.providers.errors import ProviderAuthError, ProviderError
 
-app = typer.Typer()
 
-
-@app.command()
 def spawn(
     name: str = typer.Option(..., help="Unique agent name"),
     agent_type: str = typer.Option("sdk", "--type", help="Agent type (default: sdk)"),
     provider: str | None = typer.Option(
         None, "--provider", help="Provider name (defaults to --type)"
     ),
-    cwd: str | None = typer.Option(None, "--cwd", help="Working directory (SDK agents)"),
+    cwd: str | None = typer.Option(
+        None, "--cwd", help="Working directory (SDK agents)"
+    ),
     system_prompt: str | None = typer.Option(
         None, "--system-prompt", help="System prompt override"
     ),

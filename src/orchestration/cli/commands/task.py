@@ -11,12 +11,9 @@ from rich import print as rprint
 from orchestration.core.agent_registry import AgentNotFoundError, get_registry
 from orchestration.core.models import Message, MessageType
 
-app = typer.Typer()
-
 _TOOL_PREVIEW_LENGTH = 80
 
 
-@app.command()
 def task(
     agent_name: str = typer.Argument(help="Name of the agent to task"),
     prompt: str = typer.Argument(help="Task prompt to send"),
@@ -53,7 +50,6 @@ def _display_messages(messages: list[Message]) -> None:
     for msg in messages:
         if multi:
             rprint(f"[dim]\\[{msg.sender}][/dim]", end=" ")
-        # Detect tool use blocks encoded in metadata
         if msg.metadata.get("type") == "tool_use":
             tool_name = msg.metadata.get("tool_name", "tool")
             raw_input = msg.metadata.get("tool_input", {})

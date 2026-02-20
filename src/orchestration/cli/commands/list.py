@@ -11,8 +11,6 @@ from rich.table import Table
 from orchestration.core.agent_registry import get_registry
 from orchestration.core.models import AgentInfo, AgentState
 
-app = typer.Typer()
-
 _STATE_COLORS: dict[str, str] = {
     AgentState.idle: "green",
     AgentState.processing: "yellow",
@@ -22,7 +20,6 @@ _STATE_COLORS: dict[str, str] = {
 }
 
 
-@app.command("list")
 def list_agents(
     state: str | None = typer.Option(None, "--state", help="Filter by agent state"),
     provider: str | None = typer.Option(None, "--provider", help="Filter by provider"),
