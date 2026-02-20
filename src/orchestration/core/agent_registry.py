@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from orchestration.core.models import AgentConfig, AgentInfo, AgentState, ShutdownReport
+from orchestration.logging import get_logger
+from orchestration.providers.base import Agent
+from orchestration.providers.registry import get_provider
+
 
 class AgentRegistryError(Exception):
     """Base for registry-specific errors."""
@@ -14,11 +19,6 @@ class AgentNotFoundError(AgentRegistryError):
 class AgentAlreadyExistsError(AgentRegistryError):
     """Raised when spawning with a duplicate name."""
 
-
-from orchestration.core.models import AgentConfig, AgentInfo, AgentState, ShutdownReport
-from orchestration.logging import get_logger
-from orchestration.providers.base import Agent
-from orchestration.providers.registry import get_provider
 
 logger = get_logger(__name__)
 
@@ -38,8 +38,8 @@ class AgentRegistry:
         """Create an agent from *config* and track it by name.
 
         Raises:
-            AgentAlreadyExistsError: If an agent with *config.name* is already registered.
-            KeyError: If the provider specified in *config.provider* is not registered.
+            AgentAlreadyExistsError: If *config.name* is already registered.
+            KeyError: If *config.provider* is not registered.
             ProviderError: If the provider fails to create the agent.
         """
         if config.name in self._agents:
@@ -80,7 +80,7 @@ class AgentRegistry:
         state: AgentState | None = None,
         provider: str | None = None,
     ) -> list[AgentInfo]:
-        """Return AgentInfo summaries for all tracked agents, optionally filtered.
+        """Return AgentInfo summaries for tracked agents, optionally filtered.
 
         Args:
             state: If given, include only agents in this state.
@@ -106,8 +106,8 @@ class AgentRegistry:
     async def shutdown_agent(self, name: str) -> None:
         """Shut down the agent registered under *name* and remove it.
 
-        The agent is always removed from the registry, even if ``agent.shutdown()``
-        raises — an agent in an indeterminate state should not remain tracked.
+        The agent is always removed, even if ``agent.shutdown()`` raises —
+        an agent in an indeterminate state should not remain tracked.
 
         Raises:
             AgentNotFoundError: If no agent with *name* exists.
@@ -136,8 +136,7 @@ class AgentRegistry:
         """Shut down every registered agent and clear the registry.
 
         Each agent's ``shutdown()`` is called individually. Failures are
-        collected rather than aborting — this is a best-effort operation for
-        clean teardown.
+        collected rather than aborting — best-effort for clean teardown.
         """
         report = ShutdownReport()
         names = list(self._agents.keys())
@@ -170,7 +169,7 @@ _registry: AgentRegistry | None = None
 
 
 def get_registry() -> AgentRegistry:
-    """Return the shared AgentRegistry singleton, creating it on first call."""
+    """Return the shared AgentRegistry singleton, creating on first call."""
     global _registry  # noqa: PLW0603
     if _registry is None:
         _registry = AgentRegistry()

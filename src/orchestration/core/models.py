@@ -68,7 +68,7 @@ class Message(BaseModel):
 
 
 class AgentInfo(BaseModel):
-    """Read model for agent enumeration — lightweight summary without Protocol access."""
+    """Read model for agent enumeration — lightweight summary."""
 
     name: str
     agent_type: str

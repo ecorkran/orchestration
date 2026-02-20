@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Generator
 
 import pytest
 
@@ -15,9 +15,10 @@ from orchestration.core.agent_registry import (
 )
 from orchestration.core.models import AgentConfig, AgentState, Message
 from orchestration.providers.errors import ProviderError
+from orchestration.providers.registry import (
+    _REGISTRY as _PROVIDER_REGISTRY,  # pyright: ignore[reportPrivateUsage]
+)
 from orchestration.providers.registry import register_provider
-from orchestration.providers.registry import _REGISTRY as _PROVIDER_REGISTRY
-
 
 # ---------------------------------------------------------------------------
 # Mock implementations satisfying Agent and AgentProvider Protocols
@@ -45,6 +46,10 @@ class MockAgent:
     @property
     def state(self) -> AgentState:
         return self._state
+
+    def set_state(self, state: AgentState) -> None:
+        """Test helper to mutate agent state."""
+        self._state = state
 
     async def handle_message(self, message: Message) -> AsyncIterator[Message]:
         yield message  # pragma: no cover
@@ -94,10 +99,10 @@ def mock_provider() -> MockProvider:
 
 
 @pytest.fixture
-def registry(mock_provider: MockProvider) -> AgentRegistry:
-    """Fresh AgentRegistry with a mock provider registered; cleaned up after test."""
+def registry(mock_provider: MockProvider) -> Generator[AgentRegistry]:
+    """Fresh AgentRegistry with a mock provider registered; cleaned up after."""
     register_provider("mock", mock_provider)
-    yield AgentRegistry()  # type: ignore[misc]
+    yield AgentRegistry()
     _PROVIDER_REGISTRY.pop("mock", None)
 
 
@@ -127,9 +132,7 @@ class TestSpawn:
         retrieved = registry.get("my-agent")
         assert retrieved.name == "my-agent"
 
-    async def test_spawn_duplicate_name_raises(
-        self, registry: AgentRegistry
-    ) -> None:
+    async def test_spawn_duplicate_name_raises(self, registry: AgentRegistry) -> None:
         await registry.spawn(_config("dup"))
         with pytest.raises(AgentAlreadyExistsError, match="dup"):
             await registry.spawn(_config("dup"))
@@ -158,9 +161,7 @@ class TestSpawn:
         with pytest.raises(AgentNotFoundError, match="ghost"):
             registry.get("ghost")
 
-    async def test_has_returns_false_for_unknown(
-        self, registry: AgentRegistry
-    ) -> None:
+    async def test_has_returns_false_for_unknown(self, registry: AgentRegistry) -> None:
         assert not registry.has("nonexistent")
 
 
@@ -194,8 +195,7 @@ class TestListAgents:
     ) -> None:
         await registry.spawn(_config("idle-agent"))
         await registry.spawn(_config("busy-agent"))
-        # Mutate one mock agent's state to processing
-        mock_provider.created_agents[1]._state = AgentState.processing
+        mock_provider.created_agents[1].set_state(AgentState.processing)
 
         idle_only = registry.list_agents(state=AgentState.idle)
         assert len(idle_only) == 1
@@ -231,12 +231,9 @@ class TestListAgents:
             await registry.spawn(_config("m1", provider="mock"))
             await registry.spawn(_config("m2", provider="mock"))
             await registry.spawn(_config("o1", provider="other"))
-            # Set m2 to processing
-            mock_provider.created_agents[1]._state = AgentState.processing
+            mock_provider.created_agents[1].set_state(AgentState.processing)
 
-            result = registry.list_agents(
-                state=AgentState.idle, provider="mock"
-            )
+            result = registry.list_agents(state=AgentState.idle, provider="mock")
             assert len(result) == 1
             assert result[0].name == "m1"
         finally:
@@ -264,17 +261,13 @@ class TestShutdownAgent:
         assert mock_provider.created_agents[0].shutdown_called
         assert not registry.has("bot")
 
-    async def test_after_shutdown_get_raises(
-        self, registry: AgentRegistry
-    ) -> None:
+    async def test_after_shutdown_get_raises(self, registry: AgentRegistry) -> None:
         await registry.spawn(_config("bot"))
         await registry.shutdown_agent("bot")
         with pytest.raises(AgentNotFoundError):
             registry.get("bot")
 
-    async def test_shutdown_unknown_name_raises(
-        self, registry: AgentRegistry
-    ) -> None:
+    async def test_shutdown_unknown_name_raises(self, registry: AgentRegistry) -> None:
         with pytest.raises(AgentNotFoundError, match="ghost"):
             await registry.shutdown_agent("ghost")
 
@@ -364,7 +357,7 @@ class TestShutdownAll:
 
 class TestSingleton:
     @pytest.fixture(autouse=True)
-    def _cleanup(self) -> None:  # type: ignore[return]
+    def _cleanup(self) -> Generator[None]:
         yield
         reset_registry()
 
