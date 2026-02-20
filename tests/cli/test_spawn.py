@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, call
+from unittest.mock import AsyncMock
 
-import pytest
 from typer.testing import CliRunner
 
 from orchestration.cli.app import app
 from orchestration.core.agent_registry import (
     AgentAlreadyExistsError,
-    AgentRegistry,
 )
-from orchestration.core.models import AgentConfig, AgentState
+from orchestration.core.models import AgentConfig
 from orchestration.providers.errors import ProviderAuthError, ProviderError
 from tests.cli.conftest import make_agent_info
 
@@ -104,6 +102,8 @@ class TestSpawnCommand:
         self, cli_runner: CliRunner, patch_registry: AsyncMock
     ) -> None:
         patch_registry.spawn.side_effect = KeyError("no-such-provider")
-        result = _invoke(cli_runner, "--name", "agent", "--provider", "no-such-provider")
+        result = _invoke(
+            cli_runner, "--name", "agent", "--provider", "no-such-provider"
+        )
         assert result.exit_code == 1
         assert "Unknown provider" in result.output

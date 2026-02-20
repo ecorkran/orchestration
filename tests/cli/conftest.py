@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
 
 from orchestration.core.agent_registry import AgentRegistry
-from orchestration.core.models import AgentConfig, AgentInfo, AgentState, Message
+from orchestration.core.models import AgentInfo, AgentState, Message
 
 
 @pytest.fixture
@@ -67,13 +66,3 @@ def make_message(
     )
 
 
-def make_async_iter(*messages: Message) -> AsyncMock:
-    """Return an async mock that iterates over the given messages."""
-
-    async def _gen() -> AsyncIterator[Message]:
-        for msg in messages:
-            yield msg
-
-    mock = MagicMock()
-    mock.__aiter__ = lambda self: _gen()
-    return mock

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
-import pytest
 from typer.testing import CliRunner
 
 from orchestration.cli.app import app
@@ -52,9 +51,7 @@ class TestListCommand:
     ) -> None:
         patch_registry.list_agents.return_value = []
         _invoke(cli_runner, "--provider", "sdk")
-        patch_registry.list_agents.assert_called_once_with(
-            state=None, provider="sdk"
-        )
+        patch_registry.list_agents.assert_called_once_with(state=None, provider="sdk")
 
     def test_state_values_appear_in_output(
         self, cli_runner: CliRunner, patch_registry: MagicMock
