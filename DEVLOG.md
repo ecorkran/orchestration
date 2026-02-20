@@ -14,6 +14,18 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260219
 
+### Slice 102: Agent Registry & Lifecycle — Design and Task Breakdown Complete
+
+**Documents created:**
+- `user/slices/102-slice.agent-registry.md` — slice design
+- `user/tasks/102-tasks.agent-registry.md` — 14 tasks, test-with pattern
+
+**Scope:** `AgentRegistry` class in `core/agent_registry.py` — spawn, get, has, list_agents (with state/provider filtering), shutdown_agent, shutdown_all. Registry errors (`AgentRegistryError`, `AgentNotFoundError`, `AgentAlreadyExistsError`). `AgentInfo` and `ShutdownReport` models added to `core/models.py`. Module-level `get_registry()` singleton. All tests use mock providers.
+
+**Next:** Phase 7 (Implementation) on slice 102.
+
+---
+
 ### Slice 101: SDK Agent Provider — Complete
 
 **Objective:** Implement the first concrete provider — `SDKAgentProvider` and `SDKAgent` wrapping `claude-agent-sdk` for one-shot and multi-turn agent execution.
