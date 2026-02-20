@@ -50,3 +50,11 @@ pythonVersion = "3.12"
 typeCheckingMode = "strict"
 reportMissingImports = true
 reportMissingTypeStubs = false
+
+[tool.uv]
+dev-dependencies = [
+    "pyright>=1.1.408",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "ruff>=0.15.1",
+]
