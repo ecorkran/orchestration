@@ -14,6 +14,41 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260219
 
+### Slice 102: Agent Registry & Lifecycle — Implementation Complete
+
+**Commits:**
+| Hash | Description |
+|------|-------------|
+| `23747c4` | feat: add AgentRegistry core with models, errors, spawn, and lookup |
+| `9a40ff3` | feat: add list_agents filtering and individual shutdown to AgentRegistry |
+| `26f61b4` | feat: add bulk shutdown and singleton accessor to AgentRegistry |
+| `16d2a8a` | chore: fix linting, formatting, and type errors for agent registry |
+| `a045636` | docs: mark slice 102 (Agent Registry & Lifecycle) as complete |
+
+**What works:**
+- 127 tests passing (26 new + 101 existing), ruff clean, pyright zero errors on src/ and new test file
+- `AgentInfo` and `ShutdownReport` Pydantic models in `core/models.py`
+- `AgentRegistryError`, `AgentNotFoundError`, `AgentAlreadyExistsError` error hierarchy
+- `AgentRegistry.spawn()`: resolves provider, creates agent, tracks by unique name
+- `AgentRegistry.get()`, `has()`: lookup by name with proper error raising
+- `AgentRegistry.list_agents()`: returns `AgentInfo` summaries with optional state/provider filtering
+- `AgentRegistry.shutdown_agent()`: always-remove semantics (agent removed even if shutdown raises)
+- `AgentRegistry.shutdown_all()`: best-effort bulk shutdown returning `ShutdownReport`
+- `get_registry()` / `reset_registry()` singleton accessor
+
+**Key decisions:**
+- Imports moved above error class definitions (ruff E402) — error classes placed after imports, not before
+- `AgentInfo.provider` sourced from stored `AgentConfig`, not from the agent object (registry owns this mapping)
+- `shutdown_agent()` uses try/finally to guarantee removal regardless of shutdown errors
+- `shutdown_all()` collects errors per-agent without aborting — returns structured `ShutdownReport`
+- MockAgent uses `set_state()` method instead of direct `_state` access to satisfy pyright's `reportPrivateUsage`
+
+**Issues logged:** None.
+
+**Next:** Slice 4 (CLI Foundation & SDK Agent Tasks).
+
+---
+
 ### Slice 102: Agent Registry & Lifecycle — Design and Task Breakdown Complete
 
 **Documents created:**
