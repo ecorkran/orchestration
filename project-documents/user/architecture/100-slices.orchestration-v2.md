@@ -3,7 +3,7 @@ docType: slice-plan
 parent: 100-arch.orchestration-v2.md
 project: orchestration
 dateCreated: 20260217
-dateUpdated: 20260220
+dateUpdated: 20260221
 ---
 
 # Slice Plan: Orchestration (Python Reboot)
@@ -39,7 +39,13 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 4. [x] **CLI Foundation & SDK Agent Tasks** — Typer app with commands: `spawn` (create agent with --type, --provider, --cwd), `list` (show agents with type and state), `task` (send a one-shot task to a named agent, display streaming output), `shutdown` (stop agent). Wire the full path: CLI → Agent Registry → SDK Agent Provider → claude-agent-sdk → response displayed. Dependencies: [Agent Registry]. Risk: Low. Effort: 2/5
 
-5. [ ] **SDK Client Warm Pool** — Pre-initialize and manage a pool of `ClaudeSDKClient` instances to eliminate the ~20-30s cold-start penalty on task execution. Configurable pool size (default 1 for single-agent use). Pool integrated with agent registry — spawning an SDK agent in client mode checks out a warm instance instead of creating one from scratch. Idle client health checks and recycling. CLI `pool` command to show pool status and pre-warm instances. **Completes M1.** Dependencies: [CLI Foundation]. Risk: Medium (client lifecycle edge cases — disconnect/reconnect, stale sessions). Effort: 3/5
+5. [DEFERRED] **SDK Client Warm Pool** — Deferred during design. SDK research revealed that `ClaudeSDKClient` does not maintain persistent connectable processes — each `query()` spawns a fresh subprocess with options baked in at creation. The original pool concept (pre-initialized clients handed out on demand) is not viable. To be revisited as a **session cache with agent profile management** once review workflows (slice 15) establish usage patterns. See `104-slice.sdk-client-warm-pool.md` for full rationale and future design direction. Dependencies: [CLI Foundation]. Risk: Medium. Effort: 3/5
+
+**M1 is complete at slice 4 (CLI Foundation).** The M1 value proposition — spawn an SDK agent, give it a task, see structured output from the terminal — is fully delivered. Review Workflow Templates (slice 15, pulled forward below) is the immediate next priority.
+
+### Post-M1: Review Workflows
+
+15. [ ] **Review Workflow Templates** — Predefined workflow configurations for common review patterns: architectural review (agent evaluates slice design against architecture doc and stated goals), task plan review (agent checks task breakdown against slice design for completeness and feasibility), code review (agent reviews files against language-specific rules, testing standards, and project conventions). Each template is a configuration combining system_prompt, allowed_tools, cwd, and setting_sources. CLI command: `review` with `--template` flag. Uses SDK agents for file access. All M1 dependencies are met — this is the immediate next slice. Dependencies: [CLI Foundation, SDK Agent Provider]. Risk: Low. Effort: 2/5
 
 ### → Milestone 2: Multi-Agent Communication
 
@@ -69,8 +75,6 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 ## Integration Work
 
-15. [ ] **Review Workflow Templates** — Predefined workflow configurations for common review patterns: code review (agent reviews files against rules), task verification (agent checks task file against slice design), cross-agent plan review (one agent evaluates another's plan output). Each template is a configuration combining system_prompt, allowed_tools, cwd, and setting_sources. CLI command: `review` with `--template` flag. Uses SDK agents for file access. Dependencies: [CLI Foundation, SDK Agent Provider]. Risk: Low. Effort: 2/5
-
 16. [ ] **Subprocess Agent Support** — Extend agent registry to spawn agents as OS processes (`asyncio.create_subprocess_exec`). Stdout/stderr streaming piped back through message bus. PID tracking in agent registry. Graceful and forced termination. Orphan cleanup on restart (PID file strategy). Primary use case: spawning non-SDK CLI tools as agent participants. Dependencies: [Agent Registry, Message Bus Core]. Risk: Medium. Effort: 2/5
 
 17. [ ] **End-to-End Testing & Documentation** — Integration tests for core flows (SDK agent task, API agent chat, multi-agent conversation, human-in-the-loop, topology switching, review workflows). CLI help text and usage examples. README with quickstart (install, configure credentials, spawn first agent). Deployment documentation (local dev, MCP config, server mode). Dependencies: [all prior slices]. Risk: Low. Effort: 2/5
@@ -81,13 +85,16 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 ```
 Foundation:
-  1. Project Setup & Core Models
+  1. Project Setup & Core Models                    ✅ complete
 
 M1 — SDK Agent Task Execution:
-  2. SDK Agent Provider
-  3. Agent Registry & Lifecycle
-  4. CLI Foundation & SDK Agent Tasks
-  5. SDK Client Warm Pool
+  2. SDK Agent Provider                             ✅ complete
+  3. Agent Registry & Lifecycle                     ✅ complete
+  4. CLI Foundation & SDK Agent Tasks               ✅ complete (M1 complete)
+  5. SDK Client Warm Pool                           ⏸ DEFERRED (SDK architecture incompatible)
+
+Post-M1 — Review Workflows:
+  15. Review Workflow Templates (next up — all prereqs met)
 
 M2 — Multi-Agent Communication:
   6. Message Bus Core (can start after 3)
@@ -103,7 +110,6 @@ Post-Milestone (order flexible):
   12. ADK Integration
   13. MCP Server (can start after 6+3)
   14. REST + WebSocket API (can start after 6+3)
-  15. Review Workflow Templates (can start after 4)
 
 Integration:
   16. Subprocess Agent Support
@@ -112,9 +118,10 @@ Integration:
 
 ### Parallelization Notes
 
-- **Slices 7 and 2-5 are parallel tracks.** The Anthropic API Provider only depends on Foundation, not on the SDK Agent Provider. An agent working on the API provider can start as soon as Foundation is done, while another works on the SDK path toward M1.
-- **Slice 15 (Review Workflow Templates) can start immediately after slice 4.** It only needs the SDK agent and CLI — no message bus or warm pool required. This is the fastest path to the code review use case.
+- **Slice 15 (Review Workflow Templates) is the immediate next priority.** All dependencies are met. It directly enables architectural review, task plan review, and code review use cases that are in active daily use during development.
+- **Slices 7 and 15 are parallel tracks.** The Anthropic API Provider only depends on Foundation. An agent working on the API provider can start in parallel with review template work.
 - **Slices 13 and 14 are independent of each other** and can be done in any order after their dependencies are met.
+- **Slice 5 (SDK Client Warm Pool) is deferred.** When revisited, it should be redesigned as a session cache with agent profile management. See `104-slice.sdk-client-warm-pool.md`.
 
 ---
 
@@ -136,8 +143,8 @@ These are high-value capabilities identified during slice design that are intent
 
 - **Numbering**: Slices use the 100 band (100-119) since this is the project's primary initiative. If this creates index pressure with future initiatives, slices can be re-indexed.
 - **Frontend deferred**: The HLD identifies a future React UI. This is explicitly out of scope for this slice plan. When it arrives, it connects to the REST + WebSocket API (slice 14) and warrants its own architecture document and slice plan.
-- **SDK initialization cost**: The Claude Agent SDK's `ClaudeSDKClient` has ~20-30s startup time per instance. Slice 5 (SDK Client Warm Pool) addresses this as the final M1 deliverable, ensuring responsive task execution even for single-agent use.
+- **SDK initialization cost**: Each `query()` call spawns a fresh subprocess with 2-12s+ overhead (up to 20-30s on some platforms). SDK research (2026-02-20) confirmed that `ClaudeSDKClient` options are baked in at creation — no reconfiguration after `connect()`. Slice 5 (SDK Client Warm Pool) is deferred pending redesign as a session cache. See `104-slice.sdk-client-warm-pool.md` for full research findings and future design direction.
 - **ADK exploration**: Slice 12 (ADK Integration) depends on the current ADK Python SDK API surface. A brief spike at the start of that slice may be warranted to validate assumptions from the HLD.
 - **Multi-provider validation**: Slice 11 (Additional LLM Providers) is the critical test that the AgentProvider Protocol generalizes. If the OpenAI provider requires Protocol changes, those changes should be backported to Foundation and Anthropic API Provider before proceeding further.
-- **Review workflows (slice 15) are high practical value.** They can be started as soon as slice 4 (CLI Foundation) is complete, and they directly enable the code review, task verification, and cross-agent plan review use cases that are immediate priorities.
+- **Review workflows (slice 15) pulled forward as immediate next priority.** All dependencies (CLI Foundation, SDK Agent Provider) are complete. Architectural and task plan reviews run 1-4 times per hour during active development — this is the highest practical value slice remaining.
 - **Old orchestration artifacts**: The orch-128, 129, 132, 140 documents in project knowledge describe work from the Node.js/Electron era. They are reference material for design rationale only — no code or architecture carries forward into these slices.
