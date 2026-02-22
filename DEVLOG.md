@@ -12,6 +12,14 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ---
 
+## 20260222
+
+### Slice 105: Review Workflow Templates — Phase 5 Task Breakdown Complete
+
+Task file created at `project-documents/user/tasks/105-tasks.review-workflow-templates.md` (210 lines, 22 tasks). Covers result models, YAML loader/registry, three built-in templates (arch, tasks, code), result parser, review runner, and CLI subcommand. Test-with ordering applied throughout; commit checkpoints after each stable milestone. Merge conflict in slice frontmatter resolved by PM prior to task creation.
+
+---
+
 ## 20260220
 
 ### Slice 103: CLI Foundation & SDK Agent Tasks — Implementation Complete
