@@ -111,9 +111,7 @@ class TestReviewResult:
         assert r.template_name == "code"
         assert r.timestamp is not None
 
-    def test_has_failures_true(
-        self, result_with_mixed_findings: ReviewResult
-    ) -> None:
+    def test_has_failures_true(self, result_with_mixed_findings: ReviewResult) -> None:
         assert result_with_mixed_findings.has_failures is True
 
     def test_has_failures_false(self) -> None:
@@ -143,9 +141,7 @@ class TestReviewResult:
         serialized = json.dumps(d)
         assert isinstance(serialized, str)
 
-    def test_to_dict_structure(
-        self, result_with_mixed_findings: ReviewResult
-    ) -> None:
+    def test_to_dict_structure(self, result_with_mixed_findings: ReviewResult) -> None:
         d = result_with_mixed_findings.to_dict()
         assert d["verdict"] == "CONCERNS"
         assert d["template_name"] == "code"

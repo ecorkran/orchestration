@@ -26,9 +26,7 @@ def code_review_prompt(inputs: dict[str, str]) -> str:
             "then review those files for quality and correctness."
         )
     if files:
-        sections.append(
-            f"Focus your review on files matching the pattern: {files}"
-        )
+        sections.append(f"Focus your review on files matching the pattern: {files}")
     if not diff and not files:
         sections.append(
             "Survey the project structure using Glob and Grep to identify "

@@ -79,9 +79,7 @@ class TestWellFormedOutput:
         assert all(f.severity == Severity.PASS for f in result.findings)
 
     def test_concerns_verdict_mixed_findings(self) -> None:
-        result = parse_review_output(
-            WELL_FORMED_CONCERNS, "code", {"cwd": "."}
-        )
+        result = parse_review_output(WELL_FORMED_CONCERNS, "code", {"cwd": "."})
         assert result.verdict == Verdict.CONCERNS
         assert len(result.findings) == 3
         severities = [f.severity for f in result.findings]
@@ -103,9 +101,7 @@ class TestWellFormedOutput:
 
     def test_finding_descriptions(self) -> None:
         result = parse_review_output(WELL_FORMED_CONCERNS, "code", {})
-        concern = next(
-            f for f in result.findings if f.severity == Severity.CONCERN
-        )
+        concern = next(f for f in result.findings if f.severity == Severity.CONCERN)
         assert "timeout" in concern.description.lower()
 
 
@@ -113,9 +109,7 @@ class TestMalformedOutput:
     """Test parsing malformed agent output."""
 
     def test_missing_summary(self) -> None:
-        result = parse_review_output(
-            "Some text without a summary section.", "arch", {}
-        )
+        result = parse_review_output("Some text without a summary section.", "arch", {})
         assert result.verdict == Verdict.UNKNOWN
 
     def test_empty_output(self) -> None:

@@ -131,9 +131,7 @@ class TestReviewCode:
             template_name="code",
             input_files={"cwd": ".", "files": "src/**/*.py"},
         )
-        result = cli_runner.invoke(
-            app, ["review", "code", "--files", "src/**/*.py"]
-        )
+        result = cli_runner.invoke(app, ["review", "code", "--files", "src/**/*.py"])
         assert result.exit_code == 0
 
     def test_with_diff_flag(
@@ -148,9 +146,7 @@ class TestReviewCode:
             template_name="code",
             input_files={"cwd": ".", "diff": "main"},
         )
-        result = cli_runner.invoke(
-            app, ["review", "code", "--diff", "main"]
-        )
+        result = cli_runner.invoke(app, ["review", "code", "--diff", "main"])
         assert result.exit_code == 0
 
 
@@ -231,7 +227,5 @@ class TestErrorCases:
             template_name="arch",
             input_files={"input": "a.md", "against": "b.md"},
         )
-        result = cli_runner.invoke(
-            app, ["review", "arch", "a.md", "--against", "b.md"]
-        )
+        result = cli_runner.invoke(app, ["review", "arch", "a.md", "--against", "b.md"])
         assert result.exit_code == 2

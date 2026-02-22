@@ -44,10 +44,10 @@ async def run_review(
     options = ClaudeAgentOptions(
         system_prompt=template.system_prompt,
         allowed_tools=template.allowed_tools,
-        permission_mode=template.permission_mode,
-        setting_sources=template.setting_sources,
+        permission_mode=template.permission_mode,  # type: ignore[arg-type]
+        setting_sources=template.setting_sources,  # type: ignore[arg-type]
         cwd=inputs.get("cwd"),
-        hooks=template.hooks,
+        hooks=template.hooks,  # type: ignore[arg-type]
     )
 
     raw_output = ""

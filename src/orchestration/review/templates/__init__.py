@@ -6,6 +6,7 @@ import importlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import yaml
 
@@ -84,10 +85,12 @@ def _resolve_builder(dotted_path: str) -> Callable[[dict[str, str]], str]:
 def load_template(path: Path) -> ReviewTemplate:
     """Load a ReviewTemplate from a YAML file."""
     with open(path) as f:
-        data = yaml.safe_load(f)
+        raw = yaml.safe_load(f)
 
-    if not isinstance(data, dict):
+    if not isinstance(raw, dict):
         raise TemplateValidationError(f"Template file is not a YAML mapping: {path}")
+
+    data = cast(dict[str, object], raw)
 
     # Validate mutually exclusive prompt fields
     has_template = "prompt_template" in data
@@ -104,24 +107,34 @@ def load_template(path: Path) -> ReviewTemplate:
     # Resolve prompt_builder to callable if specified
     builder = None
     if has_builder:
-        builder = _resolve_builder(data["prompt_builder"])
+        builder = _resolve_builder(str(data["prompt_builder"]))
 
     # Parse input definitions
-    inputs_data = data.get("inputs", {})
-    required = [InputDef(**i) for i in inputs_data.get("required", [])]
-    optional = [InputDef(**i) for i in inputs_data.get("optional", [])]
+    inputs_raw = data.get("inputs", {})
+    inputs_data = cast(
+        dict[str, object], inputs_raw if isinstance(inputs_raw, dict) else {}
+    )
+    req_list: list[object] = list(inputs_data.get("required") or [])  # type: ignore[arg-type]
+    opt_list: list[object] = list(inputs_data.get("optional") or [])  # type: ignore[arg-type]
+    required = [InputDef(**i) for i in req_list]  # type: ignore[arg-type]
+    optional = [InputDef(**i) for i in opt_list]  # type: ignore[arg-type]
+
+    setting_src = data.get("setting_sources")
+    hooks_raw = data.get("hooks")
 
     return ReviewTemplate(
-        name=data["name"],
-        description=data["description"],
-        system_prompt=data["system_prompt"],
-        allowed_tools=data["allowed_tools"],
-        permission_mode=data["permission_mode"],
-        setting_sources=data.get("setting_sources"),
+        name=str(data["name"]),
+        description=str(data["description"]),
+        system_prompt=str(data["system_prompt"]),
+        allowed_tools=list(data["allowed_tools"]),  # type: ignore[arg-type]
+        permission_mode=str(data["permission_mode"]),
+        setting_sources=list(setting_src) if setting_src else None,  # type: ignore[arg-type]
         required_inputs=required,
         optional_inputs=optional,
-        hooks=data.get("hooks"),
-        prompt_template=data.get("prompt_template"),
+        hooks=dict(hooks_raw) if isinstance(hooks_raw, dict) else None,  # type: ignore[arg-type]
+        prompt_template=(
+            str(data["prompt_template"]) if "prompt_template" in data else None
+        ),
         prompt_builder=builder,
     )
 
