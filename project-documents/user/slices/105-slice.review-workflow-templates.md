@@ -4,11 +4,7 @@ slice: review-workflow-templates
 project: orchestration
 parent: 100-slices.orchestration-v2.md
 dependencies: [foundation, sdk-agent-provider, cli-foundation]
-<<<<<<< Updated upstream
-interfaces: [end-to-end-testing]
-=======
 interfaces: [end-to-end-testing, automated-dev-pipeline]
->>>>>>> Stashed changes
 status: not started
 dateCreated: 20260221
 dateUpdated: 20260222
