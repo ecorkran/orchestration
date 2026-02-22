@@ -155,7 +155,7 @@ def clear_registry() -> None:
 
 def load_builtin_templates() -> None:
     """Load all YAML templates from the builtin templates directory."""
-    builtin_dir = Path(__file__).parent / "templates" / "builtin"
+    builtin_dir = Path(__file__).parent / "builtin"
     if not builtin_dir.is_dir():
         return
     for yaml_file in sorted(builtin_dir.glob("*.yaml")):
