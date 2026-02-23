@@ -14,9 +14,34 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260222
 
+### Slice 106: M1 Polish & Publish — Phase 7 Implementation Complete
+
+All 22 tasks (T1-T22) implemented. 49 new tests (28 config + 12 verbosity + 6 rules + 3 cwd), 281 total project tests passing. Zero pyright/ruff errors on src/.
+
+**Key commits:**
+| Hash | Description |
+|------|-------------|
+| `9034843` | feat: add persistent config system with TOML storage |
+| `196f03f` | feat: add config CLI commands (set, get, list, path) |
+| `b002801` | feat: add verbosity levels and improve text colors |
+| `b945fb4` | feat: add --rules flag, config-based cwd, and rules injection |
+| `85c953e` | chore: format and fix pyright issues in slice 106 code |
+| `eb44cef` | docs: add README, COMMANDS, and TEMPLATES documentation |
+
+**What was added:**
+- `config/` package: typed key definitions, TOML load/merge/persist manager, user + project config with precedence
+- Config CLI: `config set/get/list/path` commands
+- Verbosity levels (0/1/2) with `-v`/`-vv` flags on all review commands
+- Text color improvements: bright severity badges, white headings, default foreground body text
+- `--rules` flag on `review code` with config-based `default_rules`
+- Config-based `--cwd` resolution across all review commands
+- Documentation: `docs/README.md`, `docs/COMMANDS.md`, `docs/TEMPLATES.md`
+
+**Architecture note:** `config.py` restructured to `config/__init__.py` package (same pattern as templates in slice 105) to coexist with `keys.py` and `manager.py`. TOML reading via stdlib `tomllib`, writing via `tomli-w`.
+
 ### Slice 106: M1 Polish & Publish — Phase 5 Task Breakdown Complete
 
-Task file created at `project-documents/user/tasks/106-tasks.m1-polish-and-publish.md` (219 lines, 22 tasks). Covers config persistence (TOML-based, user + project level), verbosity levels (0/1/2), text color improvements, `--rules` flag for code reviews, config integration for `--cwd`, and documentation (README, COMMANDS, TEMPLATES). Test-with ordering applied; commit checkpoints after each stable milestone.
+Task file created at `project-documents/user/tasks/106-tasks.m1-polish-and-publish.md` (219 lines, 22 tasks).
 
 **Commit:** `09a69cd` docs: add slice 106 task breakdown (m1-polish-and-publish)
 
