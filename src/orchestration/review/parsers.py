@@ -23,15 +23,15 @@ _SEVERITY_MAP: dict[str, Severity] = {
     "FAIL": Severity.FAIL,
 }
 
-# Matches "## Summary" section followed by a verdict keyword
+# Matches "## Summary" section followed by a verdict keyword (possibly bold)
 _SUMMARY_RE = re.compile(
-    r"##\s+Summary\s*\n+\s*(?:.*?\b)?(PASS|CONCERNS|FAIL)\b",
+    r"##\s+Summary\s*\n+\s*(?:.*?\b)?(?:\*{0,2})(PASS|CONCERNS|FAIL)(?:\*{0,2})\b",
     re.IGNORECASE,
 )
 
-# Matches "### [SEVERITY] Title" finding blocks
+# Matches finding blocks: "### [SEVERITY] Title" or "### SEVERITY Title"
 _FINDING_RE = re.compile(
-    r"###\s+\[(PASS|CONCERN|FAIL)\]\s+(.+?)(?=\n###\s+\[|\n##\s+|\Z)",
+    r"###\s+\[?(PASS|CONCERN|FAIL)\]?\s+(.+?)(?=\n###\s+\[?(?:PASS|CONCERN|FAIL)|\n##\s+|\Z)",
     re.DOTALL | re.IGNORECASE,
 )
 

@@ -62,6 +62,9 @@ class TestVerdictExtraction:
             ("## Summary\nFAIL\n", Verdict.FAIL),
             ("## Summary\n\nPASS\n", Verdict.PASS),
             ("##  Summary \nFAIL\n", Verdict.FAIL),
+            ("## Summary\n**PASS**\n", Verdict.PASS),
+            ("## Summary\n**CONCERNS**\n", Verdict.CONCERNS),
+            ("## Summary\n**FAIL**\n", Verdict.FAIL),
         ],
     )
     def test_verdict_values(self, text: str, expected: Verdict) -> None:
@@ -105,6 +108,50 @@ class TestWellFormedOutput:
         assert "timeout" in concern.description.lower()
 
 
+class TestBracketOptionalFindings:
+    """Test parsing findings without brackets (real agent output format)."""
+
+    def test_no_brackets(self) -> None:
+        text = """\
+## Summary
+**PASS**
+
+## Findings
+
+### PASS Good structure
+Clean layout.
+
+### CONCERN Missing tests
+No tests for edge cases.
+
+### FAIL Security hole
+SQL injection possible.
+"""
+        result = parse_review_output(text, "code", {})
+        assert result.verdict == Verdict.PASS
+        assert len(result.findings) == 3
+        severities = [f.severity for f in result.findings]
+        assert Severity.PASS in severities
+        assert Severity.CONCERN in severities
+        assert Severity.FAIL in severities
+
+    def test_mixed_brackets_and_no_brackets(self) -> None:
+        text = """\
+## Summary
+CONCERNS
+
+## Findings
+
+### [PASS] With brackets
+Description.
+
+### CONCERN Without brackets
+Description.
+"""
+        result = parse_review_output(text, "arch", {})
+        assert len(result.findings) == 2
+
+
 class TestMalformedOutput:
     """Test parsing malformed agent output."""
 
@@ -117,8 +164,15 @@ class TestMalformedOutput:
         assert result.verdict == Verdict.UNKNOWN
         assert result.findings == []
 
-    def test_partial_output_findings_only(self) -> None:
+    def test_partial_output_findings_only_bracketed(self) -> None:
         text = "### [FAIL] Something wrong\nDescription here.\n"
+        result = parse_review_output(text, "code", {})
+        assert result.verdict == Verdict.UNKNOWN
+        assert len(result.findings) == 1
+        assert result.findings[0].severity == Severity.FAIL
+
+    def test_partial_output_findings_only_unbracketed(self) -> None:
+        text = "### FAIL Something wrong\nDescription here.\n"
         result = parse_review_output(text, "code", {})
         assert result.verdict == Verdict.UNKNOWN
         assert len(result.findings) == 1

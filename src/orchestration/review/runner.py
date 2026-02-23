@@ -8,7 +8,6 @@ from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
     ClaudeSDKClient,
-    ResultMessage,
     TextBlock,
 )
 
@@ -18,15 +17,17 @@ from orchestration.review.templates import ReviewTemplate
 
 
 def _extract_text(message: Any) -> str:
-    """Extract text content from an SDK message."""
+    """Extract text content from an SDK message.
+
+    Only extracts from AssistantMessage — ResultMessage duplicates the
+    assistant content and is skipped to avoid doubled output.
+    """
     if isinstance(message, AssistantMessage):
         parts: list[str] = []
         for block in message.content:
             if isinstance(block, TextBlock):
                 parts.append(block.text)
         return "\n".join(parts)
-    if isinstance(message, ResultMessage):
-        return str(message.result) if message.result else ""
     return ""
 
 
