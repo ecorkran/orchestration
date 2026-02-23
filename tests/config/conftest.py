@@ -33,14 +33,20 @@ def patch_config_paths(
     user_file = user_config_dir / "config.toml"
     project_file = project_dir / ".orchestration.toml"
 
-    with (
-        patch(
-            "orchestration.config.manager.user_config_path",
-            return_value=user_file,
-        ),
-        patch(
-            "orchestration.config.manager.project_config_path",
-            return_value=project_file,
-        ),
-    ):
-        yield {"user": user_file, "project": project_file}
+    targets = [
+        "orchestration.config.manager.user_config_path",
+        "orchestration.cli.commands.config.user_config_path",
+    ]
+    project_targets = [
+        "orchestration.config.manager.project_config_path",
+        "orchestration.cli.commands.config.project_config_path",
+    ]
+
+    patches = [patch(t, return_value=user_file) for t in targets]
+    patches += [patch(t, return_value=project_file) for t in project_targets]
+
+    for p in patches:
+        p.start()
+    yield {"user": user_file, "project": project_file}
+    for p in patches:
+        p.stop()

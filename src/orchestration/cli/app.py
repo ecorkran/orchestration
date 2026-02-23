@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typer
 
+from orchestration.cli.commands.config import config_app
 from orchestration.cli.commands.list import list_agents
 from orchestration.cli.commands.review import review_app
 from orchestration.cli.commands.shutdown import shutdown
@@ -21,3 +22,4 @@ app.command("list")(list_agents)
 app.command("task")(task)
 app.command("shutdown")(shutdown)
 app.add_typer(review_app, name="review")
+app.add_typer(config_app, name="config")
