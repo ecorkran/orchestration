@@ -34,16 +34,25 @@ def _extract_text(message: Any) -> str:
 async def run_review(
     template: ReviewTemplate,
     inputs: dict[str, str],
+    *,
+    rules_content: str | None = None,
 ) -> ReviewResult:
     """Execute a review and return structured results.
 
     This is the primary interface for both CLI and programmatic consumers.
     Creates an ephemeral ClaudeSDKClient session per review.
+
+    If rules_content is provided, it is appended to the template's system
+    prompt as additional review rules.
     """
     prompt = template.build_prompt(inputs)
 
+    system_prompt = template.system_prompt
+    if rules_content:
+        system_prompt += f"\n\n## Additional Review Rules\n\n{rules_content}"
+
     options = ClaudeAgentOptions(
-        system_prompt=template.system_prompt,
+        system_prompt=system_prompt,
         allowed_tools=template.allowed_tools,
         permission_mode=template.permission_mode,  # type: ignore[arg-type]
         setting_sources=template.setting_sources,  # type: ignore[arg-type]

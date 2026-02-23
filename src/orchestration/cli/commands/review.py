@@ -127,6 +127,16 @@ def _write_file(result: ReviewResult, output_path: str | None) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _resolve_cwd(cwd: str | None) -> str:
+    """Resolve cwd: CLI flag overrides config default."""
+    if cwd is not None:
+        return cwd
+    config_val = get_config("cwd")
+    if isinstance(config_val, str):
+        return config_val
+    return "."
+
+
 def _resolve_verbosity(verbose: int) -> int:
     """Resolve verbosity: CLI flag overrides config default."""
     if verbose > 0:
@@ -137,12 +147,24 @@ def _resolve_verbosity(verbose: int) -> int:
     return 0
 
 
+def _resolve_rules_content(rules_path: str | None) -> str | None:
+    """Read rules file content if a path is provided."""
+    if not rules_path:
+        return None
+    path = Path(rules_path)
+    if not path.is_file():
+        rprint(f"[red]Error: Rules file not found: {rules_path}[/red]")
+        raise typer.Exit(code=1)
+    return path.read_text()
+
+
 def _run_review_command(
     template_name: str,
     inputs: dict[str, str],
     output: str,
     output_path: str | None,
     verbosity: int = 0,
+    rules_content: str | None = None,
 ) -> None:
     """Common logic for running a review and displaying results."""
     load_builtin_templates()
@@ -165,7 +187,9 @@ def _run_review_command(
             raise typer.Exit(code=1)
 
     try:
-        result = asyncio.run(_execute_review(template_name, inputs))
+        result = asyncio.run(
+            _execute_review(template_name, inputs, rules_content)
+        )
     except Exception as exc:
         rprint(f"[red]Error: Review failed — {exc}[/red]")
         raise typer.Exit(code=1) from exc
@@ -180,12 +204,15 @@ def _run_review_command(
 async def _execute_review(
     template_name: str,
     inputs: dict[str, str],
+    rules_content: str | None = None,
 ) -> ReviewResult:
     """Execute the review asynchronously."""
     load_builtin_templates()
     template = get_template(template_name)
     assert template is not None
-    return await run_review(template, inputs)
+    return await run_review(
+        template, inputs, rules_content=rules_content
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +226,9 @@ def review_arch(
     against: str = typer.Option(
         ..., "--against", help="Architecture document to review against"
     ),
-    cwd: str = typer.Option(".", "--cwd", help="Working directory"),
+    cwd: str | None = typer.Option(
+        None, "--cwd", help="Working directory (default: config or .)"
+    ),
     verbose: int = typer.Option(
         0, "--verbose", "-v", count=True, help="Verbosity level (-v, -vv)"
     ),
@@ -212,7 +241,8 @@ def review_arch(
 ) -> None:
     """Run an architectural review."""
     verbosity = _resolve_verbosity(verbose)
-    inputs = {"input": input_file, "against": against, "cwd": cwd}
+    resolved_cwd = _resolve_cwd(cwd)
+    inputs = {"input": input_file, "against": against, "cwd": resolved_cwd}
     _run_review_command("arch", inputs, output, output_path, verbosity)
 
 
@@ -222,7 +252,9 @@ def review_tasks(
     against: str = typer.Option(
         ..., "--against", help="Parent slice design to review against"
     ),
-    cwd: str = typer.Option(".", "--cwd", help="Working directory"),
+    cwd: str | None = typer.Option(
+        None, "--cwd", help="Working directory (default: config or .)"
+    ),
     verbose: int = typer.Option(
         0, "--verbose", "-v", count=True, help="Verbosity level (-v, -vv)"
     ),
@@ -235,17 +267,23 @@ def review_tasks(
 ) -> None:
     """Run a task plan review."""
     verbosity = _resolve_verbosity(verbose)
-    inputs = {"input": input_file, "against": against, "cwd": cwd}
+    resolved_cwd = _resolve_cwd(cwd)
+    inputs = {"input": input_file, "against": against, "cwd": resolved_cwd}
     _run_review_command("tasks", inputs, output, output_path, verbosity)
 
 
 @review_app.command("code")
 def review_code(
-    cwd: str = typer.Option(".", "--cwd", help="Project directory to review"),
+    cwd: str | None = typer.Option(
+        None, "--cwd", help="Project directory (default: config or .)"
+    ),
     files: str | None = typer.Option(
         None, "--files", help="Glob pattern to scope the review"
     ),
     diff: str | None = typer.Option(None, "--diff", help="Git ref to diff against"),
+    rules: str | None = typer.Option(
+        None, "--rules", help="Path to additional rules file"
+    ),
     verbose: int = typer.Option(
         0, "--verbose", "-v", count=True, help="Verbosity level (-v, -vv)"
     ),
@@ -258,12 +296,24 @@ def review_code(
 ) -> None:
     """Run a code review."""
     verbosity = _resolve_verbosity(verbose)
-    inputs: dict[str, str] = {"cwd": cwd}
+    resolved_cwd = _resolve_cwd(cwd)
+
+    # Resolve rules: CLI flag > config default
+    rules_path = rules
+    if not rules_path:
+        config_rules = get_config("default_rules")
+        if isinstance(config_rules, str):
+            rules_path = config_rules
+    rules_content = _resolve_rules_content(rules_path)
+
+    inputs: dict[str, str] = {"cwd": resolved_cwd}
     if files:
         inputs["files"] = files
     if diff:
         inputs["diff"] = diff
-    _run_review_command("code", inputs, output, output_path, verbosity)
+    _run_review_command(
+        "code", inputs, output, output_path, verbosity, rules_content
+    )
 
 
 @review_app.command("list")
