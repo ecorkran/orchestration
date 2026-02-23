@@ -14,6 +14,12 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260223
 
+### Model selection support (Issue #2)
+
+Added `--model` flag to all review commands and spawn. Model threads through the full pipeline: config key (`default_model`) → ReviewTemplate YAML field → runner → `ClaudeAgentOptions`. Precedence: CLI flag → config → template default → None (SDK default). Template defaults: `opus` for arch/tasks, `sonnet` for code. Model shown in review output panel header at all verbosity levels. 17 new tests (298 total).
+
+**Commit:** `9eae0f7` feat: add model selection support to review and spawn commands
+
 ### Post-implementation: code review findings and fixes
 
 Ran `orchestration review code` against its own codebase. Addressed three findings from the review:
