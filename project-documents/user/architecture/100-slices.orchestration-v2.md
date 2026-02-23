@@ -45,7 +45,7 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 ### Post-M1: Review Workflows
 
-15. [ ] **Review Workflow Templates** — Predefined workflow configurations for common review patterns: architectural review (agent evaluates slice design against architecture doc and stated goals), task plan review (agent checks task breakdown against slice design for completeness and feasibility), code review (agent reviews files against language-specific rules, testing standards, and project conventions). Each template is a configuration combining system_prompt, allowed_tools, cwd, and setting_sources. CLI command: `review` with `--template` flag. Uses SDK agents for file access. All M1 dependencies are met — this is the immediate next slice. Dependencies: [CLI Foundation, SDK Agent Provider]. Risk: Low. Effort: 2/5
+15. [x] **Review Workflow Templates** — Predefined workflow configurations for common review patterns: architectural review (agent evaluates slice design against architecture doc and stated goals), task plan review (agent checks task breakdown against slice design for completeness and feasibility), code review (agent reviews files against language-specific rules, testing standards, and project conventions). Each template is a configuration combining system_prompt, allowed_tools, cwd, and setting_sources. CLI command: `review` with `--template` flag. Uses SDK agents for file access. All M1 dependencies are met — this is the immediate next slice. Dependencies: [CLI Foundation, SDK Agent Provider]. Risk: Low. Effort: 2/5
 
 ### → Milestone 2: Multi-Agent Communication
 
