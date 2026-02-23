@@ -71,6 +71,7 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 14. [ ] **REST + WebSocket API** — FastAPI server. REST endpoints for agent lifecycle (create, list, delete) and conversation management (send message, get history). WebSocket endpoint for real-time message streaming (subscribe to message bus events). Automatic OpenAPI docs. CORS configuration for future frontend consumption. Dependencies: [Message Bus Core, Agent Registry]. Risk: Low. Effort: 2/5
 
+15. [ ] **Review Findings Pipeline** — Automated triage and tracking for review output. When a review produces findings, classify each by complexity (auto-fix, guided fix, design decision, skip/acknowledged) and route accordingly. Auto-fixable findings (style violations, missing error handling, fixture consolidation) are applied directly with commit. Guided fixes get context annotation before handoff to an agent. Design decisions are surfaced to human PM for disposition. All findings and their dispositions are recorded in a structured log (findings ledger) that persists across reviews — enables pattern detection ("this category of issue keeps recurring, add it to the template rules") and serves as an audit trail for what was addressed vs. intentionally deferred. Commit strategy: batch commit for auto-fixes, individual commits for guided fixes with finding reference in commit message. Dependencies: [Review Workflow Templates, M1 Polish]. Risk: Medium (classification heuristics need tuning). Effort: 3/5
 ---
 
 ## Integration Work

@@ -9,7 +9,6 @@ orchestration review code --diff main -v
 ```
 ![Review output from current orchestration branch](assets/review-image.png)
 
-
 ## Why this exists
 
 Code review with LLMs is powerful but inconsistent. The same prompt gets different levels of scrutiny depending on how you phrase it, what context you include, and whether you remembered to mention your project's conventions.
