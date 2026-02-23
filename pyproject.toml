@@ -15,6 +15,7 @@ dependencies = [
     "mcp>=1.0.0",
     "claude-agent-sdk>=0.1.38",
     "pyyaml>=6.0",
+    "tomli-w>=1.0",
 ]
 
 [project.scripts]
