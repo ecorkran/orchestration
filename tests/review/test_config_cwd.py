@@ -60,7 +60,7 @@ class TestConfigCwd:
             assert result.exit_code == 0
             # Verify run_review was called with the config cwd
             call_args = mock_run_review.call_args
-            template, inputs = call_args.args
+            _, inputs = call_args.args
             assert inputs["cwd"] == "/configured/path"
 
     def test_flag_overrides_config_cwd(
@@ -84,7 +84,7 @@ class TestConfigCwd:
             )
             assert result.exit_code == 0
             call_args = mock_run_review.call_args
-            template, inputs = call_args.args
+            _, inputs = call_args.args
             assert inputs["cwd"] == "/explicit/path"
 
     def test_default_dot_when_no_config_no_flag(
@@ -106,5 +106,5 @@ class TestConfigCwd:
             result = cli_runner.invoke(app, ["review", "code"])
             assert result.exit_code == 0
             call_args = mock_run_review.call_args
-            template, inputs = call_args.args
+            _, inputs = call_args.args
             assert inputs["cwd"] == "."

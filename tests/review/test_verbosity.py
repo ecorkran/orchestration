@@ -10,7 +10,9 @@ from rich.console import Console
 from typer.testing import CliRunner
 
 from orchestration.cli.app import app
-from orchestration.cli.commands.review import _display_terminal
+from orchestration.cli.commands.review import (
+    _display_terminal,  # pyright: ignore[reportPrivateUsage]
+)
 from orchestration.review.models import (
     ReviewFinding,
     ReviewResult,
@@ -51,9 +53,7 @@ def _capture_terminal(result: ReviewResult, verbosity: int) -> str:
     """Capture _display_terminal output as plain text."""
     buf = StringIO()
     console = Console(file=buf, force_terminal=True, width=120)
-    with patch(
-        "orchestration.cli.commands.review.Console", return_value=console
-    ):
+    with patch("orchestration.cli.commands.review.Console", return_value=console):
         _display_terminal(result, verbosity)
     return buf.getvalue()
 
@@ -65,9 +65,7 @@ class TestVerbosity0:
         output = _capture_terminal(sample_result, 0)
         assert "CONCERNS" in output
 
-    def test_shows_finding_headings(
-        self, sample_result: ReviewResult
-    ) -> None:
+    def test_shows_finding_headings(self, sample_result: ReviewResult) -> None:
         output = _capture_terminal(sample_result, 0)
         assert "Missing validation" in output
         assert "Clean structure" in output

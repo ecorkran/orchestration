@@ -38,9 +38,7 @@ def _coerce_value(key: str, raw_value: str) -> object:
 
 def load_config(cwd: str = ".") -> dict[str, object]:
     """Load merged config: defaults → user config → project config."""
-    merged: dict[str, object] = {
-        k: v.default for k, v in CONFIG_KEYS.items()
-    }
+    merged: dict[str, object] = {k: v.default for k, v in CONFIG_KEYS.items()}
 
     user_data = _read_toml(user_config_path())
     for k, v in user_data.items():

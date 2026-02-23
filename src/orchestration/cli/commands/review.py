@@ -187,9 +187,7 @@ def _run_review_command(
             raise typer.Exit(code=1)
 
     try:
-        result = asyncio.run(
-            _execute_review(template_name, inputs, rules_content)
-        )
+        result = asyncio.run(_execute_review(template_name, inputs, rules_content))
     except Exception as exc:
         rprint(f"[red]Error: Review failed — {exc}[/red]")
         raise typer.Exit(code=1) from exc
@@ -210,9 +208,7 @@ async def _execute_review(
     load_builtin_templates()
     template = get_template(template_name)
     assert template is not None
-    return await run_review(
-        template, inputs, rules_content=rules_content
-    )
+    return await run_review(template, inputs, rules_content=rules_content)
 
 
 # ---------------------------------------------------------------------------
@@ -311,9 +307,7 @@ def review_code(
         inputs["files"] = files
     if diff:
         inputs["diff"] = diff
-    _run_review_command(
-        "code", inputs, output, output_path, verbosity, rules_content
-    )
+    _run_review_command("code", inputs, output, output_path, verbosity, rules_content)
 
 
 @review_app.command("list")

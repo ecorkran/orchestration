@@ -64,5 +64,3 @@ def make_message(
         recipients=["human"],
         content=content,
     )
-
-

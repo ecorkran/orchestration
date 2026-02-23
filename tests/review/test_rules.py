@@ -51,9 +51,7 @@ class TestRulesFlag:
         rules_file = tmp_path / "rules.md"
         rules_file.write_text("Always check for null pointers.")
 
-        result = cli_runner.invoke(
-            app, ["review", "code", "--rules", str(rules_file)]
-        )
+        result = cli_runner.invoke(app, ["review", "code", "--rules", str(rules_file)])
         assert result.exit_code == 0
 
         # run_review was called with rules_content keyword
@@ -114,9 +112,7 @@ class TestRulesFlag:
             )
             assert result.exit_code == 0
             call_kwargs = mock_run_review.call_args
-            assert call_kwargs.kwargs["rules_content"] == (
-                "Flag rules content."
-            )
+            assert call_kwargs.kwargs["rules_content"] == ("Flag rules content.")
 
 
 class TestConfigDefaultRules:
@@ -145,9 +141,7 @@ class TestConfigDefaultRules:
             result = cli_runner.invoke(app, ["review", "code"])
             assert result.exit_code == 0
             call_kwargs = mock_run_review.call_args
-            assert call_kwargs.kwargs["rules_content"] == (
-                "Default rules from config."
-            )
+            assert call_kwargs.kwargs["rules_content"] == ("Default rules from config.")
 
 
 class TestRunnerRulesInjection:
@@ -173,9 +167,7 @@ class TestRunnerRulesInjection:
         system_prompt = template.system_prompt
         rules_content = "Check for SQL injection."
         if rules_content:
-            system_prompt += (
-                f"\n\n## Additional Review Rules\n\n{rules_content}"
-            )
+            system_prompt += f"\n\n## Additional Review Rules\n\n{rules_content}"
 
         assert "Base prompt." in system_prompt
         assert "## Additional Review Rules" in system_prompt
