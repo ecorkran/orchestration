@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
+from orchestration.config.manager import get_config
 from orchestration.review.models import ReviewResult, Severity, Verdict
 from orchestration.review.runner import run_review
 from orchestration.review.templates import (
@@ -27,14 +28,14 @@ review_app = typer.Typer(
 )
 
 _VERDICT_COLORS: dict[Verdict, str] = {
-    Verdict.PASS: "green",
+    Verdict.PASS: "bright_green",
     Verdict.CONCERNS: "yellow",
     Verdict.FAIL: "red",
     Verdict.UNKNOWN: "dim",
 }
 
 _SEVERITY_COLORS: dict[Severity, str] = {
-    Severity.PASS: "green",
+    Severity.PASS: "bright_green",
     Severity.CONCERN: "yellow",
     Severity.FAIL: "red",
 }
@@ -49,11 +50,12 @@ def display_result(
     result: ReviewResult,
     output_mode: str,
     output_path: str | None,
+    verbosity: int = 0,
 ) -> None:
     """Format and deliver review results based on output mode."""
     match output_mode:
         case "terminal":
-            _display_terminal(result)
+            _display_terminal(result, verbosity)
         case "json":
             _display_json(result)
         case "file":
@@ -63,8 +65,13 @@ def display_result(
             raise typer.Exit(code=1)
 
 
-def _display_terminal(result: ReviewResult) -> None:
-    """Rich-formatted terminal output."""
+def _display_terminal(result: ReviewResult, verbosity: int = 0) -> None:
+    """Rich-formatted terminal output with verbosity levels.
+
+    Level 0: verdict badge + finding headings with severity
+    Level 1: above + full finding descriptions
+    Level 2: above + raw output (tool usage details)
+    """
     console = Console()
     color = _VERDICT_COLORS.get(result.verdict, "dim")
 
@@ -76,19 +83,28 @@ def _display_terminal(result: ReviewResult) -> None:
 
     if not result.findings:
         console.print("  No specific findings.", style="dim")
+        if verbosity >= 2 and result.raw_output:
+            console.print()
+            console.rule("Raw Output", style="dim")
+            console.print(result.raw_output)
         return
 
     for finding in result.findings:
         sev_color = _SEVERITY_COLORS.get(finding.severity, "dim")
         console.print(
             f"  [{sev_color}][{finding.severity.value}][/{sev_color}] "
-            f"[bold]{finding.title}[/bold]"
+            f"[bold white]{finding.title}[/bold white]"
         )
-        if finding.description:
+        if verbosity >= 1 and finding.description:
             for line in finding.description.split("\n"):
-                console.print(f"    {line}", style="dim")
-        if finding.file_ref:
+                console.print(f"    {line}")
+        if verbosity >= 1 and finding.file_ref:
             console.print(f"    -> {finding.file_ref}", style="cyan")
+
+    if verbosity >= 2 and result.raw_output:
+        console.print()
+        console.rule("Raw Output", style="dim")
+        console.print(result.raw_output)
 
 
 def _display_json(result: ReviewResult) -> None:
@@ -111,14 +127,14 @@ def _write_file(result: ReviewResult, output_path: str | None) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_template(name: str) -> None:
-    """Ensure templates are loaded; exit if template not found."""
-    load_builtin_templates()
-    template = get_template(name)
-    if template is None:
-        available = [t.name for t in list_templates()]
-        rprint(f"[red]Error: Unknown template '{name}'. Available: {available}[/red]")
-        raise typer.Exit(code=1)
+def _resolve_verbosity(verbose: int) -> int:
+    """Resolve verbosity: CLI flag overrides config default."""
+    if verbose > 0:
+        return verbose
+    config_val = get_config("verbosity")
+    if isinstance(config_val, int):
+        return config_val
+    return 0
 
 
 def _run_review_command(
@@ -126,6 +142,7 @@ def _run_review_command(
     inputs: dict[str, str],
     output: str,
     output_path: str | None,
+    verbosity: int = 0,
 ) -> None:
     """Common logic for running a review and displaying results."""
     load_builtin_templates()
@@ -153,7 +170,7 @@ def _run_review_command(
         rprint(f"[red]Error: Review failed — {exc}[/red]")
         raise typer.Exit(code=1) from exc
 
-    display_result(result, output, output_path)
+    display_result(result, output, output_path, verbosity)
 
     # Exit with non-zero if review has failures
     if result.verdict == Verdict.FAIL:
@@ -183,6 +200,9 @@ def review_arch(
         ..., "--against", help="Architecture document to review against"
     ),
     cwd: str = typer.Option(".", "--cwd", help="Working directory"),
+    verbose: int = typer.Option(
+        0, "--verbose", "-v", count=True, help="Verbosity level (-v, -vv)"
+    ),
     output: str = typer.Option(
         "terminal", "--output", help="Output format: terminal, json, file"
     ),
@@ -191,8 +211,9 @@ def review_arch(
     ),
 ) -> None:
     """Run an architectural review."""
+    verbosity = _resolve_verbosity(verbose)
     inputs = {"input": input_file, "against": against, "cwd": cwd}
-    _run_review_command("arch", inputs, output, output_path)
+    _run_review_command("arch", inputs, output, output_path, verbosity)
 
 
 @review_app.command("tasks")
@@ -202,6 +223,9 @@ def review_tasks(
         ..., "--against", help="Parent slice design to review against"
     ),
     cwd: str = typer.Option(".", "--cwd", help="Working directory"),
+    verbose: int = typer.Option(
+        0, "--verbose", "-v", count=True, help="Verbosity level (-v, -vv)"
+    ),
     output: str = typer.Option(
         "terminal", "--output", help="Output format: terminal, json, file"
     ),
@@ -210,8 +234,9 @@ def review_tasks(
     ),
 ) -> None:
     """Run a task plan review."""
+    verbosity = _resolve_verbosity(verbose)
     inputs = {"input": input_file, "against": against, "cwd": cwd}
-    _run_review_command("tasks", inputs, output, output_path)
+    _run_review_command("tasks", inputs, output, output_path, verbosity)
 
 
 @review_app.command("code")
@@ -221,6 +246,9 @@ def review_code(
         None, "--files", help="Glob pattern to scope the review"
     ),
     diff: str | None = typer.Option(None, "--diff", help="Git ref to diff against"),
+    verbose: int = typer.Option(
+        0, "--verbose", "-v", count=True, help="Verbosity level (-v, -vv)"
+    ),
     output: str = typer.Option(
         "terminal", "--output", help="Output format: terminal, json, file"
     ),
@@ -229,12 +257,13 @@ def review_code(
     ),
 ) -> None:
     """Run a code review."""
+    verbosity = _resolve_verbosity(verbose)
     inputs: dict[str, str] = {"cwd": cwd}
     if files:
         inputs["files"] = files
     if diff:
         inputs["diff"] = diff
-    _run_review_command("code", inputs, output, output_path)
+    _run_review_command("code", inputs, output, output_path, verbosity)
 
 
 @review_app.command("list")
