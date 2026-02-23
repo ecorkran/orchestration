@@ -7,12 +7,21 @@ import asyncio
 import typer
 from rich import print as rprint
 
+from orchestration.config.manager import get_config
 from orchestration.core.agent_registry import (
     AgentAlreadyExistsError,
     get_registry,
 )
 from orchestration.core.models import AgentConfig
 from orchestration.providers.errors import ProviderAuthError, ProviderError
+
+
+def _resolve_spawn_model(flag: str | None) -> str | None:
+    """Resolve model for spawn: CLI flag → config → None."""
+    if flag is not None:
+        return flag
+    config_val = get_config("default_model")
+    return config_val if isinstance(config_val, str) else None
 
 
 def spawn(
@@ -30,9 +39,13 @@ def spawn(
     permission_mode: str | None = typer.Option(
         None, "--permission-mode", help="SDK permission mode"
     ),
+    model: str | None = typer.Option(
+        None, "--model", help="Model override (e.g. opus, sonnet)"
+    ),
 ) -> None:
     """Spawn a new agent."""
     resolved_provider = provider or agent_type
+    resolved_model = _resolve_spawn_model(model)
     config = AgentConfig(
         name=name,
         agent_type=agent_type,
@@ -40,6 +53,7 @@ def spawn(
         cwd=cwd,
         instructions=system_prompt,
         permission_mode=permission_mode,
+        model=resolved_model,
     )
     asyncio.run(_spawn(config))
 

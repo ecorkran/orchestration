@@ -23,6 +23,7 @@ class TestLoadConfig:
         assert config["cwd"] == "."
         assert config["verbosity"] == 0
         assert config["default_rules"] is None
+        assert config["default_model"] is None
 
     def test_user_config_overrides_defaults(
         self, patch_config_paths: dict[str, Path]
@@ -136,6 +137,12 @@ class TestSetConfig:
         set_config("verbosity", "1")
         assert get_config("cwd") == "/first"
         assert get_config("verbosity") == 1
+
+    def test_default_model_round_trip(
+        self, patch_config_paths: dict[str, Path]
+    ) -> None:
+        set_config("default_model", "opus")
+        assert get_config("default_model") == "opus"
 
 
 class TestResolveConfigSource:

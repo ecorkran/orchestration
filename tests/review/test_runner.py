@@ -137,6 +137,129 @@ class TestRunReview:
             assert result.findings[0].title == "Missing validation"
 
     @pytest.mark.asyncio
+    async def test_explicit_model_passed_to_options(
+        self, arch_template: ReviewTemplate
+    ) -> None:
+        mock_client = _make_mock_client()
+
+        with (
+            patch(
+                "orchestration.review.runner.ClaudeSDKClient",
+                return_value=mock_client,
+            ) as mock_cls,
+            patch(
+                "orchestration.review.runner._extract_text",
+                return_value="",
+            ),
+        ):
+            inputs = {"input": "s.md", "against": "a.md"}
+            await run_review(arch_template, inputs, model="opus")
+
+            options = mock_cls.call_args.kwargs["options"]
+            assert options.model == "opus"
+
+    @pytest.mark.asyncio
+    async def test_template_model_used_as_fallback(self) -> None:
+        template = ReviewTemplate(
+            name="modeled",
+            description="Template with model",
+            system_prompt="Review.",
+            allowed_tools=["Read"],
+            permission_mode="bypassPermissions",
+            setting_sources=None,
+            required_inputs=[],
+            optional_inputs=[],
+            model="sonnet",
+            prompt_template="Review all.",
+        )
+        mock_client = _make_mock_client()
+
+        with (
+            patch(
+                "orchestration.review.runner.ClaudeSDKClient",
+                return_value=mock_client,
+            ) as mock_cls,
+            patch(
+                "orchestration.review.runner._extract_text",
+                return_value="",
+            ),
+        ):
+            await run_review(template, {})
+            options = mock_cls.call_args.kwargs["options"]
+            assert options.model == "sonnet"
+
+    @pytest.mark.asyncio
+    async def test_explicit_model_overrides_template(self) -> None:
+        template = ReviewTemplate(
+            name="modeled",
+            description="Template with model",
+            system_prompt="Review.",
+            allowed_tools=["Read"],
+            permission_mode="bypassPermissions",
+            setting_sources=None,
+            required_inputs=[],
+            optional_inputs=[],
+            model="sonnet",
+            prompt_template="Review all.",
+        )
+        mock_client = _make_mock_client()
+
+        with (
+            patch(
+                "orchestration.review.runner.ClaudeSDKClient",
+                return_value=mock_client,
+            ) as mock_cls,
+            patch(
+                "orchestration.review.runner._extract_text",
+                return_value="",
+            ),
+        ):
+            await run_review(template, {}, model="opus")
+            options = mock_cls.call_args.kwargs["options"]
+            assert options.model == "opus"
+
+    @pytest.mark.asyncio
+    async def test_model_stored_in_result(self, arch_template: ReviewTemplate) -> None:
+        mock_client = _make_mock_client()
+
+        with (
+            patch(
+                "orchestration.review.runner.ClaudeSDKClient",
+                return_value=mock_client,
+            ),
+            patch(
+                "orchestration.review.runner._extract_text",
+                return_value=MOCK_REVIEW_OUTPUT,
+            ),
+        ):
+            inputs = {"input": "a.md", "against": "b.md"}
+            result = await run_review(arch_template, inputs, model="opus")
+            assert result.model == "opus"
+
+    @pytest.mark.asyncio
+    async def test_no_model_omitted_from_options(
+        self, arch_template: ReviewTemplate
+    ) -> None:
+        """When no model is specified, ClaudeAgentOptions should not receive model."""
+        mock_client = _make_mock_client()
+
+        with (
+            patch(
+                "orchestration.review.runner.ClaudeSDKClient",
+                return_value=mock_client,
+            ) as mock_cls,
+            patch(
+                "orchestration.review.runner._extract_text",
+                return_value="",
+            ),
+        ):
+            inputs = {"input": "s.md", "against": "a.md"}
+            await run_review(arch_template, inputs)
+
+            options = mock_cls.call_args.kwargs["options"]
+            assert options.model is None
+
+    @pytest.mark.asyncio
     async def test_hooks_passed_to_options(self) -> None:
         template = ReviewTemplate(
             name="hooked",

@@ -104,6 +104,16 @@ class TestLoadTemplate:
         assert t.optional_inputs[0].default == "."
         assert t.prompt_template is not None
         assert t.prompt_builder is None
+        assert t.model is None  # no model in YAML → None
+
+    def test_model_field_parsed_from_yaml(self, tmp_path: Path) -> None:
+        yaml_with_model = VALID_YAML.replace(
+            "permission_mode: bypassPermissions",
+            "permission_mode: bypassPermissions\nmodel: opus",
+        )
+        path = _write_yaml(tmp_path, yaml_with_model)
+        t = load_template(path)
+        assert t.model == "opus"
 
     def test_build_prompt_with_template(self, tmp_path: Path) -> None:
         path = _write_yaml(tmp_path, VALID_YAML)

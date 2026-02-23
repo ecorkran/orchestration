@@ -19,6 +19,7 @@ orchestration review arch <INPUT_FILE> --against <ARCH_DOC> [OPTIONS]
 | `INPUT_FILE` | string | yes | — | Document to review |
 | `--against` | string | yes | — | Architecture document to review against |
 | `--cwd` | string | no | config or `.` | Working directory |
+| `--model` | string | no | config or template default | Model override (e.g. `opus`, `sonnet`) |
 | `-v`, `--verbose` | count | no | config or `0` | Verbosity level (use `-v` or `-vv`) |
 | `--output` | string | no | `terminal` | Output format: `terminal`, `json`, `file` |
 | `--output-path` | string | no | — | File path (required when `--output file`) |
@@ -26,6 +27,7 @@ orchestration review arch <INPUT_FILE> --against <ARCH_DOC> [OPTIONS]
 ```bash
 orchestration review arch slice-design.md --against hld.md -v
 orchestration review arch spec.md --against arch.md --output json
+orchestration review arch spec.md --against arch.md --model sonnet
 ```
 
 ### review tasks
@@ -41,6 +43,7 @@ orchestration review tasks <INPUT_FILE> --against <SLICE_DOC> [OPTIONS]
 | `INPUT_FILE` | string | yes | — | Task breakdown file to review |
 | `--against` | string | yes | — | Parent slice design to review against |
 | `--cwd` | string | no | config or `.` | Working directory |
+| `--model` | string | no | config or template default | Model override (e.g. `opus`, `sonnet`) |
 | `-v`, `--verbose` | count | no | config or `0` | Verbosity level |
 | `--output` | string | no | `terminal` | Output format |
 | `--output-path` | string | no | — | File path for `--output file` |
@@ -63,6 +66,7 @@ orchestration review code [OPTIONS]
 | `--files` | string | no | — | Glob pattern to scope the review |
 | `--diff` | string | no | — | Git ref to diff against |
 | `--rules` | string | no | config `default_rules` | Path to additional rules file |
+| `--model` | string | no | config or template default | Model override (e.g. `opus`, `sonnet`) |
 | `-v`, `--verbose` | count | no | config or `0` | Verbosity level |
 | `--output` | string | no | `terminal` | Output format |
 | `--output-path` | string | no | — | File path for `--output file` |
@@ -114,6 +118,7 @@ orchestration config set <KEY> <VALUE> [OPTIONS]
 orchestration config set cwd ~/source/repos/myproject
 orchestration config set verbosity 1
 orchestration config set default_rules ./rules/python.md --project
+orchestration config set default_model opus
 ```
 
 ### config get
@@ -187,6 +192,7 @@ orchestration spawn --name <NAME> [OPTIONS]
 | `--cwd` | string | no | `.` | Working directory |
 | `--system-prompt` | string | no | — | System prompt |
 | `--permission-mode` | string | no | `acceptEdits` | Permission mode |
+| `--model` | string | no | config `default_model` | Model override (e.g. `opus`, `sonnet`) |
 
 ## list
 

@@ -31,6 +31,7 @@ class TestArchTemplate:
         assert t.setting_sources is None
         assert t.prompt_builder is None
         assert t.prompt_template is not None
+        assert t.model == "opus"
 
     def test_required_inputs(self) -> None:
         t = load_template(_arch_yaml())

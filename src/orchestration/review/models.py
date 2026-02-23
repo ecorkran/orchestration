@@ -48,6 +48,7 @@ class ReviewResult:
     template_name: str
     input_files: dict[str, str]
     timestamp: datetime = field(default_factory=datetime.now)
+    model: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         """Serialize for JSON output."""
@@ -66,6 +67,7 @@ class ReviewResult:
             "template_name": self.template_name,
             "input_files": self.input_files,
             "timestamp": self.timestamp.isoformat(),
+            "model": self.model,
         }
 
     @property

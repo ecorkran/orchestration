@@ -72,6 +72,7 @@ def parse_review_output(
     raw_output: str,
     template_name: str,
     input_files: dict[str, str],
+    model: str | None = None,
 ) -> ReviewResult:
     """Parse agent markdown output into a structured ReviewResult.
 
@@ -86,4 +87,5 @@ def parse_review_output(
         raw_output=raw_output,
         template_name=template_name,
         input_files=input_files,
+        model=model,
     )

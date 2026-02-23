@@ -52,6 +52,8 @@ prompt_builder: module.path.function_name
                           # Receives dict[str, str] of inputs, returns str
 
 # Optional
+model: string | null      # Default model for this template (e.g. opus, sonnet)
+                          # Overridden by CLI --model flag or config default_model
 hooks: null | object      # SDK hook configuration (schema ready, not yet wired)
 ```
 
@@ -122,6 +124,7 @@ system_prompt: |
 
 allowed_tools: [Read, Glob, Grep]
 permission_mode: bypassPermissions
+model: opus
 setting_sources: null
 
 inputs:
@@ -148,15 +151,15 @@ prompt_template: |
 
 ### arch
 
-Reviews a document against an architecture reference. Uses `Read`, `Glob`, `Grep` tools. Does not load project settings (`setting_sources: null`).
+Reviews a document against an architecture reference. Uses `Read`, `Glob`, `Grep` tools. Does not load project settings (`setting_sources: null`). Default model: `opus`.
 
 ### tasks
 
-Reviews a task breakdown against its parent slice design. Same tool set and permissions as `arch`.
+Reviews a task breakdown against its parent slice design. Same tool set and permissions as `arch`. Default model: `opus`.
 
 ### code
 
-Reviews project code. Uses `Read`, `Glob`, `Grep`, and `Bash` tools. Loads project settings (`setting_sources: [project]`), which means `CLAUDE.md` rules are available to the review agent. Uses a `prompt_builder` for conditional diff/files/survey sections.
+Reviews project code. Uses `Read`, `Glob`, `Grep`, and `Bash` tools. Loads project settings (`setting_sources: [project]`), which means `CLAUDE.md` rules are available to the review agent. Uses a `prompt_builder` for conditional diff/files/survey sections. Default model: `sonnet`.
 
 ## Output format
 

@@ -58,6 +58,26 @@ def _capture_terminal(result: ReviewResult, verbosity: int) -> str:
     return buf.getvalue()
 
 
+class TestModelInHeader:
+    """Test model shown in panel header."""
+
+    def test_model_shown_when_set(self) -> None:
+        result = ReviewResult(
+            verdict=Verdict.PASS,
+            findings=[],
+            raw_output="",
+            template_name="arch",
+            input_files={},
+            model="opus",
+        )
+        output = _capture_terminal(result, 0)
+        assert "opus" in output
+
+    def test_model_omitted_when_none(self, sample_result: ReviewResult) -> None:
+        output = _capture_terminal(sample_result, 0)
+        assert "Model:" not in output
+
+
 class TestVerbosity0:
     """Verbosity 0: verdict + headings only, no descriptions."""
 

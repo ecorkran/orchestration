@@ -79,6 +79,9 @@ def _display_terminal(result: ReviewResult, verbosity: int = 0) -> None:
     header = Text(f"Review: {result.template_name}", style="bold")
     header.append("  Verdict: ", style="dim")
     header.append(result.verdict.value, style=f"bold {color}")
+    if result.model is not None:
+        header.append("  Model: ", style="dim")
+        header.append(result.model)
 
     console.print(Panel(header, expand=False))
 
@@ -159,6 +162,20 @@ def _resolve_rules_content(rules_path: str | None) -> str | None:
     return path.read_text()
 
 
+def _resolve_model(
+    flag: str | None, template: ReviewTemplate | None = None
+) -> str | None:
+    """Resolve model: CLI flag → config → template default → None (SDK default)."""
+    if flag is not None:
+        return flag
+    config_val = get_config("default_model")
+    if isinstance(config_val, str):
+        return config_val
+    if template is not None and template.model is not None:
+        return template.model
+    return None
+
+
 def _run_review_command(
     template_name: str,
     inputs: dict[str, str],
@@ -166,6 +183,7 @@ def _run_review_command(
     output_path: str | None,
     verbosity: int = 0,
     rules_content: str | None = None,
+    model_flag: str | None = None,
 ) -> None:
     """Common logic for running a review and displaying results."""
     load_builtin_templates()
@@ -187,9 +205,11 @@ def _run_review_command(
             )
             raise typer.Exit(code=1)
 
+    resolved_model = _resolve_model(model_flag, template)
+
     try:
         result = asyncio.run(
-            _execute_review(template, inputs, rules_content)
+            _execute_review(template, inputs, rules_content, resolved_model)
         )
     except Exception as exc:
         err_str = str(exc).lower()
@@ -213,9 +233,10 @@ async def _execute_review(
     template: ReviewTemplate,
     inputs: dict[str, str],
     rules_content: str | None = None,
+    model: str | None = None,
 ) -> ReviewResult:
     """Execute the review asynchronously."""
-    return await run_review(template, inputs, rules_content=rules_content)
+    return await run_review(template, inputs, rules_content=rules_content, model=model)
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +253,9 @@ def review_arch(
     cwd: str | None = typer.Option(
         None, "--cwd", help="Working directory (default: config or .)"
     ),
+    model: str | None = typer.Option(
+        None, "--model", help="Model override (e.g. opus, sonnet)"
+    ),
     verbose: int = typer.Option(
         0, "--verbose", "-v", count=True, help="Verbosity level (-v, -vv)"
     ),
@@ -246,7 +270,9 @@ def review_arch(
     verbosity = _resolve_verbosity(verbose)
     resolved_cwd = _resolve_cwd(cwd)
     inputs = {"input": input_file, "against": against, "cwd": resolved_cwd}
-    _run_review_command("arch", inputs, output, output_path, verbosity)
+    _run_review_command(
+        "arch", inputs, output, output_path, verbosity, model_flag=model
+    )
 
 
 @review_app.command("tasks")
@@ -257,6 +283,9 @@ def review_tasks(
     ),
     cwd: str | None = typer.Option(
         None, "--cwd", help="Working directory (default: config or .)"
+    ),
+    model: str | None = typer.Option(
+        None, "--model", help="Model override (e.g. opus, sonnet)"
     ),
     verbose: int = typer.Option(
         0, "--verbose", "-v", count=True, help="Verbosity level (-v, -vv)"
@@ -272,7 +301,9 @@ def review_tasks(
     verbosity = _resolve_verbosity(verbose)
     resolved_cwd = _resolve_cwd(cwd)
     inputs = {"input": input_file, "against": against, "cwd": resolved_cwd}
-    _run_review_command("tasks", inputs, output, output_path, verbosity)
+    _run_review_command(
+        "tasks", inputs, output, output_path, verbosity, model_flag=model
+    )
 
 
 @review_app.command("code")
@@ -286,6 +317,9 @@ def review_code(
     diff: str | None = typer.Option(None, "--diff", help="Git ref to diff against"),
     rules: str | None = typer.Option(
         None, "--rules", help="Path to additional rules file"
+    ),
+    model: str | None = typer.Option(
+        None, "--model", help="Model override (e.g. opus, sonnet)"
     ),
     verbose: int = typer.Option(
         0, "--verbose", "-v", count=True, help="Verbosity level (-v, -vv)"
@@ -314,7 +348,9 @@ def review_code(
         inputs["files"] = files
     if diff:
         inputs["diff"] = diff
-    _run_review_command("code", inputs, output, output_path, verbosity, rules_content)
+    _run_review_command(
+        "code", inputs, output, output_path, verbosity, rules_content, model_flag=model
+    )
 
 
 @review_app.command("list")

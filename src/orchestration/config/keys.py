@@ -34,6 +34,12 @@ CONFIG_KEYS: dict[str, ConfigKey] = {
         default=None,
         description="Default rules file path for code reviews",
     ),
+    "default_model": ConfigKey(
+        name="default_model",
+        type_=str,
+        default=None,
+        description="Default model for review and spawn commands (e.g. opus, sonnet)",
+    ),
 }
 
 

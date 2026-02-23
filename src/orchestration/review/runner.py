@@ -43,6 +43,7 @@ async def run_review(
     inputs: dict[str, str],
     *,
     rules_content: str | None = None,
+    model: str | None = None,
 ) -> ReviewResult:
     """Execute a review and return structured results.
 
@@ -51,6 +52,9 @@ async def run_review(
 
     If rules_content is provided, it is appended to the template's system
     prompt as additional review rules.
+
+    Model resolution: explicit model kwarg overrides template.model.
+    Pass None to use the SDK default.
     """
     prompt = template.build_prompt(inputs)
 
@@ -58,14 +62,20 @@ async def run_review(
     if rules_content:
         system_prompt += f"\n\n## Additional Review Rules\n\n{rules_content}"
 
-    options = ClaudeAgentOptions(
-        system_prompt=system_prompt,
-        allowed_tools=template.allowed_tools,
-        permission_mode=template.permission_mode,  # type: ignore[arg-type]
-        setting_sources=template.setting_sources,  # type: ignore[arg-type]
-        cwd=inputs.get("cwd"),
-        hooks=template.hooks,  # type: ignore[arg-type]
-    )
+    resolved_model = model if model is not None else template.model
+
+    options_kwargs: dict[str, object] = {
+        "system_prompt": system_prompt,
+        "allowed_tools": template.allowed_tools,
+        "permission_mode": template.permission_mode,
+        "setting_sources": template.setting_sources,
+        "cwd": inputs.get("cwd"),
+        "hooks": template.hooks,
+    }
+    if resolved_model is not None:
+        options_kwargs["model"] = resolved_model
+
+    options = ClaudeAgentOptions(**options_kwargs)  # type: ignore[arg-type]
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -79,6 +89,7 @@ async def run_review(
                 raw_output=raw_output,
                 template_name=template.name,
                 input_files=inputs,
+                model=resolved_model,
             )
         except Exception as exc:
             if "rate_limit" in str(exc).lower() and attempt < MAX_RETRIES:

@@ -1,0 +1,145 @@
+"""Tests for model resolution precedence in review CLI."""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from typer.testing import CliRunner
+
+from orchestration.cli.app import app
+from orchestration.cli.commands.review import (
+    _resolve_model,  # pyright: ignore[reportPrivateUsage]
+)
+from orchestration.review.models import ReviewResult, Verdict
+from orchestration.review.templates import ReviewTemplate
+
+
+@pytest.fixture
+def cli_runner() -> CliRunner:
+    return CliRunner()
+
+
+@pytest.fixture
+def mock_run_review() -> AsyncMock:
+    """Patch run_review to return a minimal result."""
+    result = ReviewResult(
+        verdict=Verdict.PASS,
+        findings=[],
+        raw_output="## Summary\nPASS\n",
+        template_name="arch",
+        input_files={"input": "a.md", "against": "b.md"},
+        model="opus",
+    )
+    with patch(
+        "orchestration.cli.commands.review.run_review",
+        new_callable=AsyncMock,
+        return_value=result,
+    ) as mock:
+        yield mock
+
+
+def _make_template(model: str | None = None) -> ReviewTemplate:
+    return ReviewTemplate(
+        name="test",
+        description="Test",
+        system_prompt="Review.",
+        allowed_tools=["Read"],
+        permission_mode="bypassPermissions",
+        setting_sources=None,
+        required_inputs=[],
+        optional_inputs=[],
+        model=model,
+        prompt_template="Review all.",
+    )
+
+
+class TestResolveModel:
+    """Test _resolve_model precedence: flag → config → template → None."""
+
+    def test_flag_wins_over_all(self) -> None:
+        template = _make_template(model="sonnet")
+        with patch(
+            "orchestration.cli.commands.review.get_config", return_value="haiku"
+        ):
+            assert _resolve_model("opus", template) == "opus"
+
+    def test_config_wins_over_template(self) -> None:
+        template = _make_template(model="sonnet")
+        with patch(
+            "orchestration.cli.commands.review.get_config", return_value="haiku"
+        ):
+            assert _resolve_model(None, template) == "haiku"
+
+    def test_template_wins_over_none(self) -> None:
+        template = _make_template(model="sonnet")
+        with patch("orchestration.cli.commands.review.get_config", return_value=None):
+            assert _resolve_model(None, template) == "sonnet"
+
+    def test_all_absent_returns_none(self) -> None:
+        template = _make_template(model=None)
+        with patch("orchestration.cli.commands.review.get_config", return_value=None):
+            assert _resolve_model(None, template) is None
+
+    def test_no_template_falls_through(self) -> None:
+        with patch("orchestration.cli.commands.review.get_config", return_value=None):
+            assert _resolve_model(None) is None
+
+
+class TestModelCLIFlag:
+    """Test --model flag passes through to run_review."""
+
+    def test_arch_model_flag(
+        self,
+        cli_runner: CliRunner,
+        mock_run_review: AsyncMock,
+    ) -> None:
+        result = cli_runner.invoke(
+            app,
+            ["review", "arch", "a.md", "--against", "b.md", "--model", "sonnet"],
+        )
+        assert result.exit_code == 0
+        call_kwargs = mock_run_review.call_args.kwargs
+        assert call_kwargs["model"] == "sonnet"
+
+    def test_tasks_model_flag(
+        self,
+        cli_runner: CliRunner,
+        mock_run_review: AsyncMock,
+    ) -> None:
+        mock_run_review.return_value = ReviewResult(
+            verdict=Verdict.PASS,
+            findings=[],
+            raw_output="## Summary\nPASS\n",
+            template_name="tasks",
+            input_files={"input": "t.md", "against": "s.md"},
+            model="opus",
+        )
+        result = cli_runner.invoke(
+            app,
+            ["review", "tasks", "t.md", "--against", "s.md", "--model", "opus"],
+        )
+        assert result.exit_code == 0
+        call_kwargs = mock_run_review.call_args.kwargs
+        assert call_kwargs["model"] == "opus"
+
+    def test_code_model_flag(
+        self,
+        cli_runner: CliRunner,
+        mock_run_review: AsyncMock,
+    ) -> None:
+        mock_run_review.return_value = ReviewResult(
+            verdict=Verdict.PASS,
+            findings=[],
+            raw_output="## Summary\nPASS\n",
+            template_name="code",
+            input_files={"cwd": "."},
+            model="haiku",
+        )
+        result = cli_runner.invoke(
+            app,
+            ["review", "code", "--model", "haiku"],
+        )
+        assert result.exit_code == 0
+        call_kwargs = mock_run_review.call_args.kwargs
+        assert call_kwargs["model"] == "haiku"

@@ -32,6 +32,7 @@ class TestCodeTemplate:
         assert t.allowed_tools == ["Read", "Glob", "Grep", "Bash"]
         assert t.permission_mode == "bypassPermissions"
         assert t.setting_sources == ["project"]
+        assert t.model == "sonnet"
 
     def test_no_required_inputs(self) -> None:
         t = load_template(_code_yaml())

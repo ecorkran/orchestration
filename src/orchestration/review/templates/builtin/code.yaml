@@ -25,6 +25,7 @@ system_prompt: |
 
 allowed_tools: [Read, Glob, Grep, Bash]
 permission_mode: bypassPermissions
+model: sonnet
 setting_sources: [project]
 
 inputs:
