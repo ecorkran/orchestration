@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from claude_agent_sdk import ClaudeSDKError
 
 from orchestration.review.models import Verdict
 from orchestration.review.runner import run_review
@@ -288,3 +289,94 @@ class TestRunReview:
             await run_review(template, {})
             options = mock_cls.call_args.kwargs["options"]
             assert options.hooks == {"PostToolUse": {"command": "echo done"}}
+
+
+class TestRateLimitEventHandling:
+    """Test graceful handling of rate_limit_event parse errors."""
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_event_recovered(
+        self, arch_template: ReviewTemplate
+    ) -> None:
+        """rate_limit_event causes receive_response restart, review completes."""
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.query = AsyncMock()
+
+        call_count = 0
+        sentinel = MagicMock()
+
+        async def _receive():  # type: ignore[no-untyped-def]
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise ClaudeSDKError("Unknown message type: rate_limit_event")
+            yield sentinel
+
+        mock_client.receive_response = _receive
+
+        with (
+            patch(
+                "orchestration.review.runner.ClaudeSDKClient",
+                return_value=mock_client,
+            ),
+            patch(
+                "orchestration.review.runner._extract_text",
+                return_value=MOCK_REVIEW_OUTPUT,
+            ),
+        ):
+            inputs = {"input": "a.md", "against": "b.md"}
+            result = await run_review(arch_template, inputs)
+            assert result.verdict == Verdict.CONCERNS
+            assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_parse_retries_exhausted(self, arch_template: ReviewTemplate) -> None:
+        """After MAX_PARSE_RETRIES, the error propagates."""
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.query = AsyncMock()
+
+        async def _always_fail():  # type: ignore[no-untyped-def]
+            raise ClaudeSDKError("Unknown message type: rate_limit_event")
+            yield  # makes this an async generator  # noqa: RUF027
+
+        mock_client.receive_response = _always_fail
+
+        with (
+            patch(
+                "orchestration.review.runner.ClaudeSDKClient",
+                return_value=mock_client,
+            ),
+        ):
+            inputs = {"input": "a.md", "against": "b.md"}
+            with pytest.raises(ClaudeSDKError, match="rate_limit_event"):
+                await run_review(arch_template, inputs)
+
+    @pytest.mark.asyncio
+    async def test_non_rate_limit_sdk_error_propagates(
+        self, arch_template: ReviewTemplate
+    ) -> None:
+        """Non-rate-limit ClaudeSDKError is not caught."""
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.query = AsyncMock()
+
+        async def _other_error():  # type: ignore[no-untyped-def]
+            raise ClaudeSDKError("Connection lost")
+            yield  # makes this an async generator  # noqa: RUF027
+
+        mock_client.receive_response = _other_error
+
+        with (
+            patch(
+                "orchestration.review.runner.ClaudeSDKClient",
+                return_value=mock_client,
+            ),
+        ):
+            inputs = {"input": "a.md", "against": "b.md"}
+            with pytest.raises(ClaudeSDKError, match="Connection lost"):
+                await run_review(arch_template, inputs)

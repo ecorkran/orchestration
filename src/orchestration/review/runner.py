@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -10,6 +9,7 @@ from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
     ClaudeSDKClient,
+    ClaudeSDKError,
     TextBlock,
 )
 
@@ -19,8 +19,7 @@ from orchestration.review.templates import ReviewTemplate
 
 _logger = logging.getLogger(__name__)
 
-MAX_RETRIES = 3
-RETRY_DELAY_SECONDS = 10
+MAX_PARSE_RETRIES = 10
 
 
 def _extract_text(message: Any) -> str:
@@ -77,31 +76,34 @@ async def run_review(
 
     options = ClaudeAgentOptions(**options_kwargs)  # type: ignore[arg-type]
 
-    for attempt in range(1, MAX_RETRIES + 1):
-        try:
-            raw_output = ""
-            async with ClaudeSDKClient(options=options) as client:
-                await client.query(prompt)
+    raw_output = ""
+    async with ClaudeSDKClient(options=options) as client:
+        await client.query(prompt)
+        retries = 0
+        while True:
+            try:
                 async for message in client.receive_response():
                     raw_output += _extract_text(message)
+                break  # normal completion (ResultMessage received)
+            except ClaudeSDKError as exc:
+                # The SDK's MessageParseError (not publicly exported) is
+                # raised when the CLI emits message types the parser doesn't
+                # recognize. rate_limit_event is benign — the CLI handles
+                # backoff internally. We restart receive_response() on the
+                # same session; the underlying anyio channel is still intact.
+                if "rate_limit_event" in str(exc) and retries < MAX_PARSE_RETRIES:
+                    retries += 1
+                    _logger.debug(
+                        "Rate limit event %d/%d (CLI handles backoff internally)",
+                        retries,
+                        MAX_PARSE_RETRIES,
+                    )
+                    continue  # restart receive_response() on same session
+                raise
 
-            return parse_review_output(
-                raw_output=raw_output,
-                template_name=template.name,
-                input_files=inputs,
-                model=resolved_model,
-            )
-        except Exception as exc:
-            if "rate_limit" in str(exc).lower() and attempt < MAX_RETRIES:
-                _logger.warning(
-                    "Rate limited (attempt %d/%d), retrying in %ds...",
-                    attempt,
-                    MAX_RETRIES,
-                    RETRY_DELAY_SECONDS,
-                )
-                await asyncio.sleep(RETRY_DELAY_SECONDS)
-                continue
-            raise
-
-    # Unreachable: loop always returns or raises on final attempt
-    raise RuntimeError("Review execution exhausted retries")
+    return parse_review_output(
+        raw_output=raw_output,
+        template_name=template.name,
+        input_files=inputs,
+        model=resolved_model,
+    )

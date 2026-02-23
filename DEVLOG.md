@@ -20,6 +20,10 @@ Added `--model` flag to all review commands and spawn. Model threads through the
 
 **Commit:** `9eae0f7` feat: add model selection support to review and spawn commands
 
+### Rate limit handling fix (Issue #1)
+
+Replaced the retry-entire-session loop (3 retries, 10s delay each) with a `receive_response()` restart on the same session. The SDK's `MessageParseError` (not publicly exported) fires on `rate_limit_event` messages the CLI emits while handling API rate limits internally. Fix catches `ClaudeSDKError` (public parent) with string match, restarts the async generator on the same connected session (anyio channel survives generator death), circuit breaker at 10 retries. Eliminates ~10-20s unnecessary delay. 3 new tests (301 total).
+
 ### Post-implementation: code review findings and fixes
 
 Ran `orchestration review code` against its own codebase. Addressed three findings from the review:
