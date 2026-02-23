@@ -189,7 +189,14 @@ def _run_review_command(
     try:
         result = asyncio.run(_execute_review(template_name, inputs, rules_content))
     except Exception as exc:
-        rprint(f"[red]Error: Review failed — {exc}[/red]")
+        err_str = str(exc).lower()
+        if "rate_limit" in err_str:
+            rprint(
+                "[red]Error: Rate limited by the API. "
+                "Please wait a moment and try again.[/red]"
+            )
+        else:
+            rprint(f"[red]Error: Review failed — {exc}[/red]")
         raise typer.Exit(code=1) from exc
 
     display_result(result, output, output_path, verbosity)

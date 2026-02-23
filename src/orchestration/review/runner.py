@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from typing import Any
 
 from claude_agent_sdk import (
@@ -14,6 +16,11 @@ from claude_agent_sdk import (
 from orchestration.review.models import ReviewResult
 from orchestration.review.parsers import parse_review_output
 from orchestration.review.templates import ReviewTemplate
+
+_logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 10
 
 
 def _extract_text(message: Any) -> str:
@@ -60,14 +67,30 @@ async def run_review(
         hooks=template.hooks,  # type: ignore[arg-type]
     )
 
-    raw_output = ""
-    async with ClaudeSDKClient(options=options) as client:
-        await client.query(prompt)
-        async for message in client.receive_response():
-            raw_output += _extract_text(message)
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            raw_output = ""
+            async with ClaudeSDKClient(options=options) as client:
+                await client.query(prompt)
+                async for message in client.receive_response():
+                    raw_output += _extract_text(message)
 
-    return parse_review_output(
-        raw_output=raw_output,
-        template_name=template.name,
-        input_files=inputs,
-    )
+            return parse_review_output(
+                raw_output=raw_output,
+                template_name=template.name,
+                input_files=inputs,
+            )
+        except Exception as exc:
+            if "rate_limit" in str(exc).lower() and attempt < MAX_RETRIES:
+                _logger.warning(
+                    "Rate limited (attempt %d/%d), retrying in %ds...",
+                    attempt,
+                    MAX_RETRIES,
+                    RETRY_DELAY_SECONDS,
+                )
+                await asyncio.sleep(RETRY_DELAY_SECONDS)
+                continue
+            raise
+
+    # Unreachable: loop always returns or raises on final attempt
+    raise RuntimeError("Review execution exhausted retries")

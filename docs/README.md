@@ -12,7 +12,7 @@ orchestration review code --diff main -v
 ### 1. Install
 
 ```bash
-git clone https://github.com/manta/orchestration.git
+git clone https://github.com/ecorkran/orchestration.git
 cd orchestration
 pip install -e ".[dev]"
 ```
