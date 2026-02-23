@@ -14,6 +14,12 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260222
 
+### Slice 106: M1 Polish & Publish — Phase 5 Task Breakdown Complete
+
+Task file created at `project-documents/user/tasks/106-tasks.m1-polish-and-publish.md` (219 lines, 22 tasks). Covers config persistence (TOML-based, user + project level), verbosity levels (0/1/2), text color improvements, `--rules` flag for code reviews, config integration for `--cwd`, and documentation (README, COMMANDS, TEMPLATES). Test-with ordering applied; commit checkpoints after each stable milestone.
+
+**Commit:** `09a69cd` docs: add slice 106 task breakdown (m1-polish-and-publish)
+
 ### Slice 105: Review Workflow Templates — Phase 7 Implementation Complete
 
 All 22 tasks (T1-T22) implemented. 76 review-specific tests, 226 total project tests passing. Zero pyright/ruff errors. Build succeeds.
