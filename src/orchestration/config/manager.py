@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import tomllib
 from pathlib import Path
 
 import tomli_w
 
 from orchestration.config.keys import CONFIG_KEYS
+
+_logger = logging.getLogger(__name__)
 
 
 def user_config_path() -> Path:
@@ -33,22 +36,30 @@ def _coerce_value(key: str, raw_value: str) -> object:
     key_def = CONFIG_KEYS[key]
     if key_def.type_ is int:
         return int(raw_value)
-    return raw_value
+    if key_def.type_ is str:
+        return raw_value
+    raise ValueError(f"Unsupported config type: {key_def.type_}")
 
 
 def load_config(cwd: str = ".") -> dict[str, object]:
     """Load merged config: defaults → user config → project config."""
     merged: dict[str, object] = {k: v.default for k, v in CONFIG_KEYS.items()}
 
-    user_data = _read_toml(user_config_path())
+    user_path = user_config_path()
+    user_data = _read_toml(user_path)
     for k, v in user_data.items():
         if k in CONFIG_KEYS:
             merged[k] = v
+        else:
+            _logger.warning("Unknown config key '%s' in %s — ignoring", k, user_path)
 
-    project_data = _read_toml(project_config_path(cwd))
+    project_path = project_config_path(cwd)
+    project_data = _read_toml(project_path)
     for k, v in project_data.items():
         if k in CONFIG_KEYS:
             merged[k] = v
+        else:
+            _logger.warning("Unknown config key '%s' in %s — ignoring", k, project_path)
 
     return merged
 

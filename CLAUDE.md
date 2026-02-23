@@ -29,7 +29,7 @@
 - never include usernames, passwords, API keys, or similar sensitive information in any source code or comments.  At the very least it must be loaded from environment variables, and the .env used must be included in .gitignore.  If you find any code in violation of this, you must raise an issue with Project Manager.
 
 ### Document Standards
-- **All markdown files must include YAML frontmatter.** Minimum: `docType` field. See `file-naming-conventions` for full metadata spec.
+- **All markdown files must include YAML frontmatter.** Minimum: `docType` field. See `file-naming-conventions` for full metadata spec. **Exception:** Public-facing docs (`docs/`, root `README.md`) are exempt — these target external readers and should not include internal metadata.
 - **Dates in YAML**: Use `YYYYMMDD` format (no dashes). Example: `dateCreated: 20260217`
 - **Document naming**: Use periods (`.`) as primary separators, hyphens (`-`) for secondary grouping: `[document-type].[subject].[additional-info].md`
 - **3-digit index system (000-999)**: Files use indices for lineage tracing and categorization. Related documents share a base index. See `file-naming-conventions` for reserved ranges and initiative-based numbering.

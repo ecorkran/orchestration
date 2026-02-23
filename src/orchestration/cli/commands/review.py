@@ -16,6 +16,7 @@ from orchestration.config.manager import get_config
 from orchestration.review.models import ReviewResult, Severity, Verdict
 from orchestration.review.runner import run_review
 from orchestration.review.templates import (
+    ReviewTemplate,
     get_template,
     list_templates,
     load_builtin_templates,
@@ -187,7 +188,9 @@ def _run_review_command(
             raise typer.Exit(code=1)
 
     try:
-        result = asyncio.run(_execute_review(template_name, inputs, rules_content))
+        result = asyncio.run(
+            _execute_review(template, inputs, rules_content)
+        )
     except Exception as exc:
         err_str = str(exc).lower()
         if "rate_limit" in err_str:
@@ -207,14 +210,11 @@ def _run_review_command(
 
 
 async def _execute_review(
-    template_name: str,
+    template: ReviewTemplate,
     inputs: dict[str, str],
     rules_content: str | None = None,
 ) -> ReviewResult:
     """Execute the review asynchronously."""
-    load_builtin_templates()
-    template = get_template(template_name)
-    assert template is not None
     return await run_review(template, inputs, rules_content=rules_content)
 
 

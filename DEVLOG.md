@@ -2,13 +2,32 @@
 docType: devlog
 project: orchestration
 dateCreated: 20260218
-dateUpdated: 20260222
+dateUpdated: 20260223
 ---
 
 # Development Log
 
 A lightweight, append-only record of development activity. Newest entries first.
 Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
+
+---
+
+## 20260223
+
+### Post-implementation: code review findings and fixes
+
+Ran `orchestration review code` against its own codebase. Addressed three findings from the review:
+
+1. **`_coerce_value` guard** — added explicit `str` check and `ValueError` for unsupported types (was silently falling through)
+2. **Unknown config key warnings** — `load_config` now logs warnings for unrecognized keys in TOML files (catches typos)
+3. **Double template loading** — `_execute_review` now accepts `ReviewTemplate` directly instead of re-loading by name
+4. **CLAUDE.md exception** — documented that public-facing docs (`docs/`, root `README.md`) are exempt from YAML frontmatter rule
+
+Also added rate-limit retry (3 attempts, 10s delay) in runner and friendlier CLI error message.
+
+**Deferred findings** (logged for future work):
+- Duplicated `cli_runner` fixture across 6 test files → promote to root `conftest.py`
+- `_resolve_verbosity` can't override config back to 0 from CLI → consider `--quiet` flag
 
 ---
 
