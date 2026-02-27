@@ -2,13 +2,42 @@
 docType: devlog
 project: orchestration
 dateCreated: 20260218
-dateUpdated: 20260223
+dateUpdated: 20260226
 ---
 
 # Development Log
 
 A lightweight, append-only record of development activity. Newest entries first.
 Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
+
+---
+
+## 20260226
+
+### Slice 111: OpenAI-Compatible Provider Core — Slice Design Complete
+
+**Documents created:**
+- `user/slices/111-slice.openai-provider-core.md` — slice design (410 lines)
+
+**Scope:** `OpenAICompatibleProvider` and `OpenAICompatibleAgent` using the `openai` Python SDK's `AsyncOpenAI` client with `base_url` override. Single implementation covers OpenAI, OpenRouter, Ollama/vLLM, and Gemini-compatible endpoints. Validates that `AgentProvider` Protocol generalizes beyond Anthropic with no core engine changes. Also fixes provider auto-loader gap in `spawn.py` and adds `--base-url` CLI flag.
+
+**Key design decisions:**
+- Per-agent `AsyncOpenAI` client (not per-provider) — credentials and `base_url` are per-agent concerns
+- Accumulate full stream response before yielding `Message` objects — preserves `AsyncIterator[Message]` Protocol contract; streaming-through deferred as future evolution
+- No silent model default — `ProviderError` if `config.model` is None (billing concern)
+- Tool calls surfaced as `system` Messages with metadata; no execution (needs message bus + executor, future slice)
+- `_load_provider(name)` auto-loader via `importlib.import_module` in `spawn.py` — silent `ImportError` catch; benefits all current and future providers retroactively
+- Model alias / provider profile registry (`codex_53` → openai + model + base_url) deferred to slice 112
+
+**Commit:** `864ed9c` docs: add slice design for 111-openai-provider-core
+
+### Slice 111: OpenAI-Compatible Provider Core — Task Breakdown Complete
+
+Task file created at `project-documents/user/tasks/111-tasks.openai-provider-core.md` (169 lines, 17 tasks). Test-with pattern applied; two commit checkpoints (T11 after providers/openai, T17 after CLI changes).
+
+**Tasks overview:** T1 add dependency → T2 test infra → T3-T4 translation.py → T5-T6 provider.py → T7-T8 agent.py → T9-T10 `__init__.py` registration → T11 commit → T12-T13 auto-loader → T14-T15 `--base-url` flag → T16 full validation → T17 commit.
+
+**Commit:** `5f4a7be` docs: add task breakdown for 111-openai-provider-core
 
 ---
 
