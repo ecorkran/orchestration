@@ -3,7 +3,7 @@ docType: slice-plan
 parent: 100-arch.orchestration-v2.md
 project: orchestration
 dateCreated: 20260217
-dateUpdated: 20260221
+dateUpdated: 20260226
 ---
 
 # Slice Plan: Orchestration (Python Reboot)
@@ -43,9 +43,17 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 **M1 is complete at slice 4 (CLI Foundation).** The M1 value proposition — spawn an SDK agent, give it a task, see structured output from the terminal — is fully delivered. Review Workflow Templates (slice 15, pulled forward below) is the immediate next priority.
 
-### Post-M1: Review Workflows
+### Post-M1
 
-15. [x] **Review Workflow Templates** — Predefined workflow configurations for common review patterns: architectural review (agent evaluates slice design against architecture doc and stated goals), task plan review (agent checks task breakdown against slice design for completeness and feasibility), code review (agent reviews files against language-specific rules, testing standards, and project conventions). Each template is a configuration combining system_prompt, allowed_tools, cwd, and setting_sources. CLI command: `review` with `--template` flag. Uses SDK agents for file access. All M1 dependencies are met — this is the immediate next slice. Dependencies: [CLI Foundation, SDK Agent Provider]. Risk: Low. Effort: 2/5
+15. [x] **Review Workflow Templates** — Predefined workflow configurations for common review patterns: architectural review (agent evaluates slice design against architecture doc and stated goals), task plan review (agent checks task breakdown against slice design for completeness and feasibility), code review (agent reviews files against language-specific rules, testing standards, and project conventions). Each template is a configuration combining system_prompt, allowed_tools, cwd, and setting_sources. CLI command: `review` with `--template` flag. Uses SDK agents for file access. Dependencies: [CLI Foundation, SDK Agent Provider]. Risk: Low. Effort: 2/5
+
+106. [x] **M1 Polish & Publish** — Verbosity levels, persistent configuration (`orchestration config`), text color improvements, `--rules` flag for code review, README and documentation. Makes the CLI presentable and usable by external developers. Dependencies: [Review Workflow Templates, CLI Foundation]. Risk: Low. Effort: 2/5
+
+111. [ ] **OpenAI-Compatible Provider Core** — `OpenAICompatibleProvider` and `OpenAICompatibleAgent` implementing AgentProvider/Agent Protocols against the Chat Completions API. Request/response mapping, streaming, tool use translation (OpenAI function calling ↔ orchestration tool model), API key auth. Provider registry integration with configurable base URL. CLI `--provider openai --model gpt-4o` flags. Validates that the AgentProvider Protocol generalizes beyond Anthropic. Dependencies: [Foundation]. Risk: Low. Effort: 2-3/5
+
+112. [ ] **Provider Variants & Registry** — OpenRouter configuration (base URL, required headers, model name mapping), local model configuration (localhost, no auth, model discovery via `/v1/models`), Gemini-via-compatible configuration (Google's OpenAI-compatible endpoint). Provider config file (`~/.config/orchestration/providers.toml`) for persistent endpoint definitions. CLI `--provider openrouter --model anthropic/claude-3.5-sonnet` etc. Dependencies: [OpenAI-Compatible Provider Core]. Risk: Low. Effort: 1-2/5
+
+113. [ ] **OAuth & Advanced Auth** — OAuth2 flow for OpenAI Team accounts (and potentially others). Token exchange, refresh, secure storage. `orchestration auth login openai` CLI flow. Auth strategy selection per provider (API key vs OAuth vs none). Dependencies: [OpenAI-Compatible Provider Core]. Risk: Medium (auth flows are always more work than expected). Effort: 2-3/5
 
 ### → Milestone 2: Multi-Agent Communication
 
@@ -63,7 +71,7 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 10. [ ] **Communication Topologies** — Topology manager as first-class component. Implement filtered topology (agents see addressed messages + broadcasts only), hierarchical topology (orchestrator sees all, workers see assigned scope), and custom topology (user-provided routing function). CLI commands to select and configure topology per session. Topology affects message bus routing, not agent logic — agents remain unaware of topology details. Dependencies: [Human-in-the-Loop]. Risk: Medium. Effort: 3/5
 
-11. [ ] **Additional LLM Providers** — OpenAI provider implementation (Chat Completions API, API key auth). Provider registry lookup by name. Per-agent provider override at spawn time (e.g., spawn a GPT agent and a Claude agent in the same session). CLI `spawn` gains `--provider openai --model gpt-4o` flags. Validates that the AgentProvider Protocol generalizes beyond Anthropic. Establishes the pattern for Gemini, OpenRouter, and local model providers. Dependencies: [Anthropic API Provider]. Risk: Low. Effort: 2/5
+11. [→ 111-113] **Additional LLM Providers** — Expanded to three slices in Post-M1 section. OpenAI-compatible provider core (111), provider variants for OpenRouter/Gemini/local (112), OAuth & advanced auth (113). No longer depends on Anthropic API Provider — builds directly against Foundation.
 
 12. [ ] **ADK Integration** — Bridge between ADK workflow patterns (ParallelAgent, SequentialAgent, Loop) and core engine message bus. ADK manages execution order; each agent step routes through the message bus. Define ADK-compatible agent wrappers that use the AgentProvider abstraction. CLI commands for running ADK workflows (`workflow run`, `workflow list`). Dependencies: [Multi-Agent Message Routing]. Risk: Medium (ADK API surface and integration patterns need exploration). Effort: 3/5
 
@@ -96,8 +104,12 @@ M1 — SDK Agent Task Execution:
   4. CLI Foundation & SDK Agent Tasks               ✅ complete (M1 complete)
   5. SDK Client Warm Pool                           ⏸ DEFERRED (SDK architecture incompatible)
 
-Post-M1 — Review Workflows:
-  15. Review Workflow Templates (next up — all prereqs met)
+Post-M1:
+  15. Review Workflow Templates                     ✅ complete
+  106. M1 Polish & Publish                           ✅ complete
+  111. OpenAI-Compatible Provider Core               (can start now — depends on Foundation only)
+  112. Provider Variants & Registry                  (after 111)
+  113. OAuth & Advanced Auth                         (after 111, parallel with 112)
 
 M2 — Multi-Agent Communication:
   6. Message Bus Core (can start after 3)
@@ -109,20 +121,19 @@ M3 — Human + Agents:
 
 Post-Milestone (order flexible):
   10. Communication Topologies
-  11. Additional LLM Providers
   12. ADK Integration
   13. MCP Server (can start after 6+3)
   14. REST + WebSocket API (can start after 6+3)
 
 Integration:
-  16. Subprocess Agent Support
-  17. End-to-End Testing & Documentation
+  17. Subprocess Agent Support
+  18. End-to-End Testing & Documentation
 ```
 
 ### Parallelization Notes
 
-- **Slice 15 (Review Workflow Templates) is the immediate next priority.** All dependencies are met. It directly enables architectural review, task plan review, and code review use cases that are in active daily use during development.
-- **Slices 7 and 15 are parallel tracks.** The Anthropic API Provider only depends on Foundation. An agent working on the API provider can start in parallel with review template work.
+- **Slices 111-113 (Multi-Provider) are the immediate next priority.** Slice 111 depends only on Foundation (complete). Validates that the AgentProvider Protocol generalizes beyond Anthropic. 112 and 113 follow directly, with 113 (OAuth) parallelizable with 112 (Variants).
+- **Slices 7 and 111 are parallel tracks.** Both depend only on Foundation. An agent working on one doesn't block the other.
 - **Slices 13 and 14 are independent of each other** and can be done in any order after their dependencies are met.
 - **Slice 5 (SDK Client Warm Pool) is deferred.** When revisited, it should be redesigned as a session cache with agent profile management. See `104-slice.sdk-client-warm-pool.md`.
 
@@ -148,6 +159,6 @@ These are high-value capabilities identified during slice design that are intent
 - **Frontend deferred**: The HLD identifies a future React UI. This is explicitly out of scope for this slice plan. When it arrives, it connects to the REST + WebSocket API (slice 14) and warrants its own architecture document and slice plan.
 - **SDK initialization cost**: Each `query()` call spawns a fresh subprocess with 2-12s+ overhead (up to 20-30s on some platforms). SDK research (2026-02-20) confirmed that `ClaudeSDKClient` options are baked in at creation — no reconfiguration after `connect()`. Slice 5 (SDK Client Warm Pool) is deferred pending redesign as a session cache. See `104-slice.sdk-client-warm-pool.md` for full research findings and future design direction.
 - **ADK exploration**: Slice 12 (ADK Integration) depends on the current ADK Python SDK API surface. A brief spike at the start of that slice may be warranted to validate assumptions from the HLD.
-- **Multi-provider validation**: Slice 11 (Additional LLM Providers) is the critical test that the AgentProvider Protocol generalizes. If the OpenAI provider requires Protocol changes, those changes should be backported to Foundation and Anthropic API Provider before proceeding further.
-- **Review workflows (slice 15) pulled forward as immediate next priority.** All dependencies (CLI Foundation, SDK Agent Provider) are complete. Architectural and task plan reviews run 1-4 times per hour during active development — this is the highest practical value slice remaining.
+- **Multi-provider validation**: Slices 111-113 replace the original slice 11. The OpenAI-compatible provider (111) is the critical Protocol generalization test. Dependency on Anthropic API Provider removed — builds directly against Foundation. If 111 requires Protocol changes, backport to Foundation before proceeding. Expanded scope covers OpenAI, OpenRouter, Gemini (via compatible endpoint), local models, and OAuth for Team accounts.
+- **Review workflows (slice 15) and M1 Polish (slice 106) are complete.** M1 is fully shipped and published.
 - **Old orchestration artifacts**: The orch-128, 129, 132, 140 documents in project knowledge describe work from the Node.js/Electron era. They are reference material for design rationale only — no code or architecture carries forward into these slices.
