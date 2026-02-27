@@ -14,6 +14,35 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260226
 
+### Slice 111: OpenAI-Compatible Provider Core — Phase 7 Implementation Complete
+
+All 17 tasks (T1-T17) implemented. 41 new tests (342 total project tests passing). Zero pyright/ruff errors on src/.
+
+**Key commits:**
+| Hash | Description |
+|------|-------------|
+| `3965380` | chore: add openai>=1.0.0 dependency |
+| `b4d1da9` | feat: add OpenAI provider translation module with tests |
+| `c53c64c` | feat: add OpenAICompatibleProvider with tests |
+| `fba88e6` | feat: implement OpenAICompatibleAgent with tests |
+| `ab12531` | feat: add OpenAI-compatible provider |
+| `4c547c7` | feat: add provider auto-loader and --base-url to spawn command |
+
+**What was added:**
+- `providers/openai/` package: `translation.py`, `provider.py`, `agent.py`, `__init__.py`
+- `OpenAICompatibleProvider`: API key resolution (config → env → ProviderAuthError), `AsyncOpenAI` client construction, `base_url` pass-through, explicit `ProviderError` on missing model
+- `OpenAICompatibleAgent`: conversation history, streaming accumulation, tool call reconstruction by chunk index, full error mapping (AuthenticationError→ProviderAuthError, RateLimitError→ProviderAPIError(429), APIStatusError→ProviderAPIError(status_code), APIConnectionError→ProviderError, APITimeoutError→ProviderTimeoutError)
+- `translation.py`: `build_text_message`, `build_tool_call_message`, `build_messages` — pure functions, independently testable
+- Auto-registration: `get_provider("openai")` available after import
+- `_load_provider(name)` auto-loader in `spawn.py` — lazy `importlib.import_module` triggers provider registration; silent `ImportError` catch; benefits all providers retroactively
+- `--base-url` flag on `spawn` command — passed through to `AgentConfig.base_url`
+
+**Architecture note:** Per-agent `AsyncOpenAI` client (not per-provider) — credentials and `base_url` are per-agent concerns. Accumulate full stream then yield complete `Message` objects to preserve `AsyncIterator[Message]` Protocol contract. Validated that `AgentProvider` Protocol generalizes beyond Anthropic with zero core engine changes.
+
+**Issues logged:** None.
+
+**Next:** Slice 112 (Provider Variants & Registry — OpenRouter, local, Gemini configs + model alias profiles).
+
 ### Slice 111: OpenAI-Compatible Provider Core — Slice Design Complete
 
 **Documents created:**
