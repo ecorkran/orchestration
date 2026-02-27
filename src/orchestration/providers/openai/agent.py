@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, cast
 
 import openai
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, AsyncStream
+from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from orchestration.core.models import AgentState, Message
 from orchestration.logging import get_logger
@@ -80,10 +81,12 @@ class OpenAICompatibleAgent:
         text_buffer = ""
         tool_calls_dict: dict[int, dict[str, Any]] = {}
 
-        stream = await self._client.chat.completions.create(
-            model=self._model,
-            messages=self._history,  # type: ignore[arg-type]
-            stream=True,
+        stream: AsyncStream[ChatCompletionChunk] = (
+            await self._client.chat.completions.create(
+                model=self._model,
+                messages=cast(list[ChatCompletionMessageParam], self._history),
+                stream=True,
+            )
         )
         async for chunk in stream:
             if not chunk.choices:

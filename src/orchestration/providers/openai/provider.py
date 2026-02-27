@@ -49,7 +49,7 @@ class OpenAICompatibleProvider:
     async def validate_credentials(self) -> bool:
         """Return True if openai is importable and OPENAI_API_KEY is set."""
         try:
-            import openai  # noqa: F401
+            __import__("openai")
         except ImportError:
             return False
         return bool(os.environ.get("OPENAI_API_KEY"))
