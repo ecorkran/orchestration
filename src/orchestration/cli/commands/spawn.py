@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 
 import typer
 from rich import print as rprint
@@ -14,6 +15,14 @@ from orchestration.core.agent_registry import (
 )
 from orchestration.core.models import AgentConfig
 from orchestration.providers.errors import ProviderAuthError, ProviderError
+
+
+def _load_provider(name: str) -> None:
+    """Import the provider module to trigger its auto-registration side effect."""
+    try:
+        importlib.import_module(f"orchestration.providers.{name}")
+    except ImportError:
+        pass  # Unknown name; let get_provider raise KeyError naturally
 
 
 def _resolve_spawn_model(flag: str | None) -> str | None:
@@ -42,6 +51,11 @@ def spawn(
     model: str | None = typer.Option(
         None, "--model", help="Model override (e.g. opus, sonnet)"
     ),
+    base_url: str | None = typer.Option(
+        None,
+        "--base-url",
+        help="Base URL for OpenAI-compatible endpoints (e.g. http://localhost:11434/v1)",
+    ),
 ) -> None:
     """Spawn a new agent."""
     resolved_provider = provider or agent_type
@@ -53,6 +67,7 @@ def spawn(
         cwd=cwd,
         instructions=system_prompt,
         permission_mode=permission_mode,
+        base_url=base_url,
         model=resolved_model,
     )
     asyncio.run(_spawn(config))
@@ -60,6 +75,7 @@ def spawn(
 
 async def _spawn(config: AgentConfig) -> None:
     try:
+        _load_provider(config.provider)
         registry = get_registry()
         await registry.spawn(config)
         rprint(
