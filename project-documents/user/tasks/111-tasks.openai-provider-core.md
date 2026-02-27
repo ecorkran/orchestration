@@ -4,6 +4,7 @@ project: orchestration
 lld: project-documents/user/slices/111-slice.openai-provider-core.md
 dependencies: [foundation]
 projectState: M1 complete and published. Review workflows and M1 polish done. SDK provider, agent registry, and CLI all operational. Expanding to multi-provider support.
+status: not started
 dateCreated: 20260226
 dateUpdated: 20260226
 ---
