@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Generator
 from typing import Any
 
 import httpx
@@ -14,6 +14,7 @@ from orchestration.core.models import (
     Message,
     MessageType,
 )
+from orchestration.providers import registry as reg_module
 from orchestration.providers.base import Agent, AgentProvider
 from orchestration.server.app import create_app
 from orchestration.server.engine import OrchestrationEngine
@@ -79,6 +80,16 @@ class MockProvider:
         return True
 
 
+@pytest.fixture(autouse=True)
+def _clean_provider_registry() -> Generator[None]:  # pyright: ignore[reportUnusedFunction]
+    """Save and restore provider registry state so tests are isolated."""
+    original = dict(reg_module._REGISTRY)  # pyright: ignore[reportPrivateUsage]
+    reg_module._REGISTRY.clear()  # pyright: ignore[reportPrivateUsage]
+    yield
+    reg_module._REGISTRY.clear()  # pyright: ignore[reportPrivateUsage]
+    reg_module._REGISTRY.update(original)  # pyright: ignore[reportPrivateUsage]
+
+
 @pytest.fixture
 def mock_provider() -> MockProvider:
     """A fresh MockProvider instance."""
@@ -89,9 +100,7 @@ def mock_provider() -> MockProvider:
 def engine(mock_provider: MockProvider) -> OrchestrationEngine:
     """OrchestrationEngine with mock provider registered."""
     eng = OrchestrationEngine()
-    from orchestration.providers.registry import register_provider
-
-    register_provider("mock", mock_provider)
+    reg_module.register_provider("mock", mock_provider)
     return eng
 
 

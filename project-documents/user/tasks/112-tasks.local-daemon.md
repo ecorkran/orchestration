@@ -30,29 +30,29 @@ dateUpdated: 20260228
   - [x] Run `uv sync` to install
   - [x] Success: `python -c "import httpx; print(httpx.__version__)"` prints a version; `uv sync` clean
 
-- [ ] **T2: Create test infrastructure for server and client**
-  - [ ] Create `tests/server/__init__.py`
-  - [ ] Create `tests/server/conftest.py` with:
-    - [ ] `MockAgent` class satisfying the `Agent` Protocol (reusable mock with controllable `handle_message` responses)
-    - [ ] `MockProvider` class satisfying `AgentProvider` Protocol (returns `MockAgent` from `create_agent`)
-    - [ ] `engine` fixture — creates `OrchestrationEngine`, registers mock provider
-    - [ ] `app` fixture — calls `create_app(engine)` to get a FastAPI test app
-    - [ ] `async_client` fixture — `httpx.AsyncClient` with `ASGITransport(app)` for route testing
-  - [ ] Create `tests/client/__init__.py`
-  - [ ] Success: `pytest tests/server/ tests/client/` runs (0 tests, 0 errors)
+- [x] **T2: Create test infrastructure for server and client**
+  - [x] Create `tests/server/__init__.py`
+  - [x] Create `tests/server/conftest.py` with:
+    - [x] `MockAgent` class satisfying the `Agent` Protocol (reusable mock with controllable `handle_message` responses)
+    - [x] `MockProvider` class satisfying `AgentProvider` Protocol (returns `MockAgent` from `create_agent`)
+    - [x] `engine` fixture — creates `OrchestrationEngine`, registers mock provider
+    - [x] `app` fixture — calls `create_app(engine)` to get a FastAPI test app
+    - [x] `async_client` fixture — `httpx.AsyncClient` with `ASGITransport(app)` for route testing
+  - [x] Create `tests/client/__init__.py`
+  - [x] Success: `pytest tests/server/ tests/client/` runs (0 tests, 0 errors)
 
-- [ ] **T3: Implement OrchestrationEngine**
-  - [ ] Create `src/orchestration/server/engine.py`
-  - [ ] `OrchestrationEngine.__init__()` — creates own `AgentRegistry` instance; initializes `_histories: dict[str, list[Message]]`
-  - [ ] `spawn_agent(config)` — calls `_load_provider(config.provider)` (import from shared location or inline), then `self._registry.spawn(config)`; initializes empty history list for the agent; returns `AgentInfo`
-  - [ ] `list_agents(state, provider)` — delegates to `self._registry.list_agents(...)`
-  - [ ] `get_agent(name)` — delegates to `self._registry.get(name)`
-  - [ ] `send_message(agent_name, content)` — creates `Message(sender="human", ...)`, records in history, calls `agent.handle_message(msg)`, collects and records response messages, returns them
-  - [ ] `get_history(agent_name)` — returns `self._histories.get(agent_name, [])` (works for shutdown agents too)
-  - [ ] `shutdown_agent(name)` — delegates to `self._registry.shutdown_agent(name)`; does NOT clear history (history retained per design)
-  - [ ] `shutdown_all()` — delegates to `self._registry.shutdown_all()`; returns `ShutdownReport`
-  - [ ] Update `src/orchestration/server/__init__.py` — replace stub docstring; export `OrchestrationEngine`
-  - [ ] Success: module importable; all methods present; pyright clean on this file
+- [x] **T3: Implement OrchestrationEngine**
+  - [x] Create `src/orchestration/server/engine.py`
+  - [x] `OrchestrationEngine.__init__()` — creates own `AgentRegistry` instance; initializes `_histories: dict[str, list[Message]]`
+  - [x] `spawn_agent(config)` — calls `_load_provider(config.provider)` (import from shared location or inline), then `self._registry.spawn(config)`; initializes empty history list for the agent; returns `AgentInfo`
+  - [x] `list_agents(state, provider)` — delegates to `self._registry.list_agents(...)`
+  - [x] `get_agent(name)` — delegates to `self._registry.get(name)`
+  - [x] `send_message(agent_name, content)` — creates `Message(sender="human", ...)`, records in history, calls `agent.handle_message(msg)`, collects and records response messages, returns them
+  - [x] `get_history(agent_name)` — returns `self._histories.get(agent_name, [])` (works for shutdown agents too)
+  - [x] `shutdown_agent(name)` — delegates to `self._registry.shutdown_agent(name)`; does NOT clear history (history retained per design)
+  - [x] `shutdown_all()` — delegates to `self._registry.shutdown_all()`; returns `ShutdownReport`
+  - [x] Update `src/orchestration/server/__init__.py` — replace stub docstring; export `OrchestrationEngine`
+  - [x] Success: module importable; all methods present; pyright clean on this file
 
 - [ ] **T4: Test OrchestrationEngine**
   - [ ] Create `tests/server/test_engine.py`
