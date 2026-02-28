@@ -51,9 +51,11 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 111. [x] **OpenAI-Compatible Provider Core** — `OpenAICompatibleProvider` and `OpenAICompatibleAgent` implementing AgentProvider/Agent Protocols against the Chat Completions API. Request/response mapping, streaming, tool use translation (OpenAI function calling ↔ orchestration tool model), API key auth. Provider registry integration with configurable base URL. CLI `--provider openai --model gpt-4o` flags. Validates that the AgentProvider Protocol generalizes beyond Anthropic. Dependencies: [Foundation]. Risk: Low. Effort: 2-3/5
 
-112. [ ] **Provider Variants & Registry** — OpenRouter configuration (base URL, required headers, model name mapping), local model configuration (localhost, no auth, model discovery via `/v1/models`), Gemini-via-compatible configuration (Google's OpenAI-compatible endpoint). Provider config file (`~/.config/orchestration/providers.toml`) for persistent endpoint definitions. CLI `--provider openrouter --model anthropic/claude-3.5-sonnet` etc. Dependencies: [OpenAI-Compatible Provider Core]. Risk: Low. Effort: 1-2/5
+112. [ ] **Local Server & CLI Client** — Persistent daemon process (`orchestration serve`) that holds agent registry, agent instances, and conversation state in memory. CLI commands become thin clients communicating with the daemon via Unix socket or localhost HTTP. Enables spawn-then-message workflows that are impossible with the current per-command process model. All non-SDK providers require this for useful multi-turn interaction. Future interfaces (MCP server, REST+WebSocket API) become additional frontends to the same daemon rather than separate infrastructure. GitHub issue #4. Dependencies: [Foundation, Agent Registry, CLI Foundation]. Risk: Medium (daemon lifecycle, PID management, orphan cleanup). Effort: 3/5
 
-113. [ ] **OAuth & Advanced Auth** — OAuth2 flow for OpenAI Team accounts (and potentially others). Token exchange, refresh, secure storage. `orchestration auth login openai` CLI flow. Auth strategy selection per provider (API key vs OAuth vs none). Dependencies: [OpenAI-Compatible Provider Core]. Risk: Medium (auth flows are always more work than expected). Effort: 2-3/5
+113. [ ] **Provider Variants & Registry** — OpenRouter configuration (base URL, required headers, model name mapping), local model configuration (localhost, no auth, model discovery via `/v1/models`), Gemini-via-compatible configuration (Google's OpenAI-compatible endpoint). Provider config file (`~/.config/orchestration/providers.toml`) for persistent endpoint definitions. CLI `--provider openrouter --model anthropic/claude-3.5-sonnet` etc. Dependencies: [OpenAI-Compatible Provider Core]. Risk: Low. Effort: 1-2/5
+
+114. [ ] **OAuth & Advanced Auth** — OAuth2 flow for OpenAI Team accounts (and potentially others). Token exchange, refresh, secure storage. `orchestration auth login openai` CLI flow. Auth strategy selection per provider (API key vs OAuth vs none). Dependencies: [OpenAI-Compatible Provider Core]. Risk: Medium (auth flows are always more work than expected). Effort: 2-3/5
 
 ### → Milestone 2: Multi-Agent Communication
 
@@ -108,8 +110,9 @@ Post-M1:
   15. Review Workflow Templates                     ✅ complete
   106. M1 Polish & Publish                           ✅ complete
   111. OpenAI-Compatible Provider Core               (can start now — depends on Foundation only)
-  112. Provider Variants & Registry                  (after 111)
-  113. OAuth & Advanced Auth                         (after 111, parallel with 112)
+  112. Local Server & CLI Client
+  113. Provider Variants & Registry                  (after 112)
+  114. OAuth & Advanced Auth                         (after 112, parallel with 113)
 
 M2 — Multi-Agent Communication:
   6. Message Bus Core (can start after 3)
