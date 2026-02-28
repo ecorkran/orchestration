@@ -7,20 +7,27 @@ import asyncio
 import typer
 from rich import print as rprint
 
-from orchestration.core.agent_registry import AgentNotFoundError, get_registry
-from orchestration.core.models import ShutdownReport
+from orchestration.client.http import DaemonClient, DaemonNotRunningError
+from orchestration.core.agent_registry import AgentNotFoundError
 
 
 def shutdown(
-    agent_name: str | None = typer.Argument(default=None, help="Agent to shut down"),
-    all_agents: bool = typer.Option(False, "--all", help="Shut down all agents"),
+    agent_name: str | None = typer.Argument(
+        default=None, help="Agent to shut down"
+    ),
+    all_agents: bool = typer.Option(
+        False, "--all", help="Shut down all agents"
+    ),
 ) -> None:
     """Shut down one agent or all agents."""
     if agent_name is None and not all_agents:
         rprint("[red]Error: Provide an agent name or use --all.[/red]")
         raise typer.Exit(code=1)
     if agent_name is not None and all_agents:
-        rprint("[red]Error: Provide either an agent name or --all, not both.[/red]")
+        rprint(
+            "[red]Error: Provide either an agent name"
+            " or --all, not both.[/red]"
+        )
         raise typer.Exit(code=1)
 
     if all_agents:
@@ -30,25 +37,45 @@ def shutdown(
 
 
 async def _shutdown_one(name: str) -> None:
+    client = DaemonClient()
     try:
-        registry = get_registry()
-        await registry.shutdown_agent(name)
+        await client.shutdown_agent(name)
         rprint(f"[green]Agent '{name}' shut down.[/green]")
+    except DaemonNotRunningError:
+        rprint(
+            "[red]Error: Daemon is not running."
+            " Start it with: orchestration serve[/red]"
+        )
+        raise typer.Exit(code=1)
     except AgentNotFoundError:
         rprint(
             f"[red]Error: No agent named '{name}'."
             " Use 'orchestration list' to see active agents.[/red]"
         )
         raise typer.Exit(code=1)
+    finally:
+        await client.close()
 
 
 async def _shutdown_all() -> None:
-    registry = get_registry()
-    report: ShutdownReport = await registry.shutdown_all()
-    total = len(report.succeeded) + len(report.failed)
-    rprint(
-        f"Shut down {total} agents."
-        f" {len(report.succeeded)} succeeded, {len(report.failed)} failed."
-    )
-    for name, error in report.failed.items():
-        rprint(f"  [red]✗ {name}: {error}[/red]")
+    client = DaemonClient()
+    try:
+        report = await client.shutdown_all()
+        succeeded = report.get("succeeded", [])
+        failed = report.get("failed", {})
+        total = len(succeeded) + len(failed)
+        rprint(
+            f"Shut down {total} agents."
+            f" {len(succeeded)} succeeded,"
+            f" {len(failed)} failed."
+        )
+        for name, error in failed.items():
+            rprint(f"  [red]✗ {name}: {error}[/red]")
+    except DaemonNotRunningError:
+        rprint(
+            "[red]Error: Daemon is not running."
+            " Start it with: orchestration serve[/red]"
+        )
+        raise typer.Exit(code=1)
+    finally:
+        await client.close()

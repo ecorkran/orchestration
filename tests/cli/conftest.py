@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from orchestration.core.agent_registry import AgentRegistry
 from orchestration.core.models import AgentInfo, AgentState, Message
 
 
@@ -18,28 +17,38 @@ def cli_runner() -> CliRunner:
 
 
 @pytest.fixture
-def mock_registry() -> MagicMock:
-    """Mock AgentRegistry with async methods patched as AsyncMock."""
-    registry = MagicMock(spec=AgentRegistry)
-    registry.spawn = AsyncMock()
-    registry.shutdown_agent = AsyncMock()
-    registry.shutdown_all = AsyncMock()
-    return registry
+def mock_daemon_client() -> MagicMock:
+    """Mock DaemonClient with all async methods as AsyncMock."""
+    client = MagicMock()
+    client.spawn = AsyncMock()
+    client.list_agents = AsyncMock()
+    client.send_message = AsyncMock()
+    client.get_history = AsyncMock()
+    client.shutdown_agent = AsyncMock()
+    client.shutdown_all = AsyncMock()
+    client.health = AsyncMock()
+    client.close = AsyncMock()
+    return client
 
 
 @pytest.fixture
-def patch_registry(mock_registry: MagicMock):  # type: ignore[no-untyped-def]
-    """Patch get_registry() in all command modules to return mock_registry."""
+def patch_daemon_client(mock_daemon_client: MagicMock):  # type: ignore[no-untyped-def]
+    """Patch DaemonClient() in all command modules to return mock."""
     targets = [
-        "orchestration.cli.commands.spawn.get_registry",
-        "orchestration.cli.commands.list.get_registry",
-        "orchestration.cli.commands.task.get_registry",
-        "orchestration.cli.commands.shutdown.get_registry",
+        "orchestration.cli.commands.spawn.DaemonClient",
+        "orchestration.cli.commands.list.DaemonClient",
+        "orchestration.cli.commands.task.DaemonClient",
+        "orchestration.cli.commands.shutdown.DaemonClient",
     ]
-    patches = [patch(t, return_value=mock_registry) for t in targets]
-    for p in patches:
-        p.start()
-    yield mock_registry
+    patches = []
+    for t in targets:
+        try:
+            p = patch(t, return_value=mock_daemon_client)
+            p.start()
+            patches.append(p)
+        except (ModuleNotFoundError, AttributeError):
+            pass  # Module not yet created
+    yield mock_daemon_client
     for p in patches:
         p.stop()
 
@@ -51,7 +60,27 @@ def make_agent_info(
     state: AgentState = AgentState.idle,
 ) -> AgentInfo:
     """Factory for AgentInfo test instances."""
-    return AgentInfo(name=name, agent_type=agent_type, provider=provider, state=state)
+    return AgentInfo(
+        name=name,
+        agent_type=agent_type,
+        provider=provider,
+        state=state,
+    )
+
+
+def make_agent_dict(
+    name: str = "test-agent",
+    agent_type: str = "sdk",
+    provider: str = "sdk",
+    state: str = "idle",
+) -> dict:  # type: ignore[type-arg]
+    """Factory for agent info dicts (daemon API response format)."""
+    return {
+        "name": name,
+        "agent_type": agent_type,
+        "provider": provider,
+        "state": state,
+    }
 
 
 def make_message(
@@ -64,3 +93,18 @@ def make_message(
         recipients=["human"],
         content=content,
     )
+
+
+def make_message_dict(
+    content: str = "Hello from agent",
+    sender: str = "test-agent",
+) -> dict:  # type: ignore[type-arg]
+    """Factory for message dicts (daemon API response format)."""
+    return {
+        "id": "test-id",
+        "sender": sender,
+        "content": content,
+        "message_type": "chat",
+        "timestamp": "2026-02-28T00:00:00",
+        "metadata": {},
+    }

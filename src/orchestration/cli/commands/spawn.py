@@ -1,28 +1,15 @@
-"""spawn command — create an agent via the registry."""
+"""spawn command — create an agent via the daemon."""
 
 from __future__ import annotations
 
 import asyncio
-import importlib
+from typing import Any
 
 import typer
 from rich import print as rprint
 
+from orchestration.client.http import DaemonClient, DaemonNotRunningError
 from orchestration.config.manager import get_config
-from orchestration.core.agent_registry import (
-    AgentAlreadyExistsError,
-    get_registry,
-)
-from orchestration.core.models import AgentConfig
-from orchestration.providers.errors import ProviderAuthError, ProviderError
-
-
-def _load_provider(name: str) -> None:
-    """Import the provider module to trigger its auto-registration side effect."""
-    try:
-        importlib.import_module(f"orchestration.providers.{name}")
-    except ImportError:
-        pass  # Unknown name; let get_provider raise KeyError naturally
 
 
 def _resolve_spawn_model(flag: str | None) -> str | None:
@@ -35,7 +22,9 @@ def _resolve_spawn_model(flag: str | None) -> str | None:
 
 def spawn(
     name: str = typer.Option(..., help="Unique agent name"),
-    agent_type: str = typer.Option("sdk", "--type", help="Agent type (default: sdk)"),
+    agent_type: str = typer.Option(
+        "sdk", "--type", help="Agent type (default: sdk)"
+    ),
     provider: str | None = typer.Option(
         None, "--provider", help="Provider name (defaults to --type)"
     ),
@@ -54,55 +43,41 @@ def spawn(
     base_url: str | None = typer.Option(
         None,
         "--base-url",
-        help="Base URL for OpenAI-compatible endpoints (e.g. http://localhost:11434/v1)",
+        help="Base URL for OpenAI-compatible endpoints",
     ),
 ) -> None:
     """Spawn a new agent."""
     resolved_provider = provider or agent_type
     resolved_model = _resolve_spawn_model(model)
-    config = AgentConfig(
-        name=name,
-        agent_type=agent_type,
-        provider=resolved_provider,
-        cwd=cwd,
-        instructions=system_prompt,
-        permission_mode=permission_mode,
-        base_url=base_url,
-        model=resolved_model,
-    )
-    asyncio.run(_spawn(config))
+    request_data: dict[str, Any] = {
+        "name": name,
+        "agent_type": agent_type,
+        "provider": resolved_provider,
+        "model": resolved_model,
+        "instructions": system_prompt,
+        "base_url": base_url,
+        "cwd": cwd,
+    }
+    asyncio.run(_spawn(request_data))
 
 
-async def _spawn(config: AgentConfig) -> None:
+async def _spawn(request_data: dict[str, Any]) -> None:
+    client = DaemonClient()
     try:
-        _load_provider(config.provider)
-        registry = get_registry()
-        await registry.spawn(config)
+        result = await client.spawn(request_data)
         rprint(
-            f"[green]Agent '{config.name}' spawned"
-            f" (type: {config.agent_type}, provider: {config.provider})[/green]"
+            f"[green]Agent '{result['name']}' spawned"
+            f" (type: {result['agent_type']},"
+            f" provider: {result['provider']})[/green]"
         )
-    except AgentAlreadyExistsError:
+    except DaemonNotRunningError:
         rprint(
-            f"[red]Error: Agent '{config.name}' already exists."
-            " Choose a different name or shut it down first.[/red]"
-        )
-        raise typer.Exit(code=1)
-    except ProviderAuthError as exc:
-        rprint(
-            f"[red]Error: Authentication failed for provider"
-            f" '{config.provider}'. Check your credentials. ({exc})[/red]"
+            "[red]Error: Daemon is not running."
+            " Start it with: orchestration serve[/red]"
         )
         raise typer.Exit(code=1)
-    except ProviderError as exc:
-        rprint(f"[red]Error: Provider failed — {exc}[/red]")
+    except Exception as exc:
+        rprint(f"[red]Error: {exc}[/red]")
         raise typer.Exit(code=1)
-    except KeyError:
-        from orchestration.providers.registry import list_providers
-
-        available = list_providers()
-        rprint(
-            f"[red]Error: Unknown provider '{config.provider}'."
-            f" Available: {available}[/red]"
-        )
-        raise typer.Exit(code=1)
+    finally:
+        await client.close()

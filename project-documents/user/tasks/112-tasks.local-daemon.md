@@ -191,38 +191,38 @@ dateUpdated: 20260228
   - [x] `test_serve_already_running` — PID file with live PID → prints error about existing daemon
   - [x] Success: all tests pass; ruff clean
 
-- [ ] **T17: Refactor spawn and list commands**
-  - [ ] Update `src/orchestration/cli/commands/spawn.py`:
-    - [ ] Replace `get_registry()` + direct `registry.spawn()` with `DaemonClient().spawn()`
-    - [ ] Add `DaemonNotRunningError` handler with user-friendly error message
-    - [ ] Remove `_load_provider` call (now handled by engine)
-    - [ ] Keep display logic (Rich output) unchanged
-  - [ ] Update `src/orchestration/cli/commands/list.py`:
-    - [ ] Replace `get_registry()` + `registry.list_agents()` with `DaemonClient().list_agents()`
-    - [ ] Add `DaemonNotRunningError` handler
-    - [ ] Keep Rich table display unchanged
-  - [ ] Success: both commands produce same user-visible output when daemon is running; show clear error when daemon is not running
+- [x] **T17: Refactor spawn and list commands**
+  - [x] Update `src/orchestration/cli/commands/spawn.py`:
+    - [x] Replace `get_registry()` + direct `registry.spawn()` with `DaemonClient().spawn()`
+    - [x] Add `DaemonNotRunningError` handler with user-friendly error message
+    - [x] Remove `_load_provider` call (now handled by engine)
+    - [x] Keep display logic (Rich output) unchanged
+  - [x] Update `src/orchestration/cli/commands/list.py`:
+    - [x] Replace `get_registry()` + `registry.list_agents()` with `DaemonClient().list_agents()`
+    - [x] Add `DaemonNotRunningError` handler
+    - [x] Keep Rich table display unchanged
+  - [x] Success: both commands produce same user-visible output when daemon is running; show clear error when daemon is not running
 
-- [ ] **T18: Test spawn and list refactors**
-  - [ ] Update `tests/cli/test_spawn.py` — mock `DaemonClient` instead of `get_registry`; test happy path and daemon-not-running error
-  - [ ] Update `tests/cli/test_list.py` — mock `DaemonClient`; test happy path and daemon-not-running error
-  - [ ] Success: all tests pass; ruff clean
+- [x] **T18: Test spawn and list refactors**
+  - [x] Update `tests/cli/test_spawn.py` — mock `DaemonClient` instead of `get_registry`; test happy path and daemon-not-running error
+  - [x] Update `tests/cli/test_list.py` — mock `DaemonClient`; test happy path and daemon-not-running error
+  - [x] Success: all tests pass; ruff clean
 
-- [ ] **T19: Refactor task and shutdown commands**
-  - [ ] Update `src/orchestration/cli/commands/task.py`:
-    - [ ] Replace direct registry + `agent.handle_message()` with `DaemonClient().send_message()` (for existing agents) or appropriate task endpoint
-    - [ ] Add `DaemonNotRunningError` handler
-    - [ ] Keep response display logic unchanged
-  - [ ] Update `src/orchestration/cli/commands/shutdown.py`:
-    - [ ] Replace `get_registry()` calls with `DaemonClient().shutdown_agent()` / `shutdown_all()`
-    - [ ] Add `DaemonNotRunningError` handler
-    - [ ] Keep `ShutdownReport` display unchanged
-  - [ ] Success: both commands produce same user-visible output; show clear error when daemon not running
+- [x] **T19: Refactor task and shutdown commands**
+  - [x] Update `src/orchestration/cli/commands/task.py`:
+    - [x] Replace direct registry + `agent.handle_message()` with `DaemonClient().send_message()` (for existing agents) or appropriate task endpoint
+    - [x] Add `DaemonNotRunningError` handler
+    - [x] Keep response display logic unchanged
+  - [x] Update `src/orchestration/cli/commands/shutdown.py`:
+    - [x] Replace `get_registry()` calls with `DaemonClient().shutdown_agent()` / `shutdown_all()`
+    - [x] Add `DaemonNotRunningError` handler
+    - [x] Keep `ShutdownReport` display unchanged
+  - [x] Success: both commands produce same user-visible output; show clear error when daemon not running
 
-- [ ] **T20: Test task and shutdown refactors**
-  - [ ] Update `tests/cli/test_task.py` — mock `DaemonClient`; test happy path and daemon-not-running
-  - [ ] Update `tests/cli/test_shutdown.py` — mock `DaemonClient`; test happy path and daemon-not-running
-  - [ ] Success: all tests pass; ruff clean
+- [x] **T20: Test task and shutdown refactors**
+  - [x] Update `tests/cli/test_task.py` — mock `DaemonClient`; test happy path and daemon-not-running
+  - [x] Update `tests/cli/test_shutdown.py` — mock `DaemonClient`; test happy path and daemon-not-running
+  - [x] Success: all tests pass; ruff clean
 
 - [ ] **T21: Implement message command**
   - [ ] Create `src/orchestration/cli/commands/message.py`

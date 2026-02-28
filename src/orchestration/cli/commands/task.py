@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+from typing import Any
 
 import typer
 from rich import print as rprint
 
-from orchestration.core.agent_registry import AgentNotFoundError, get_registry
-from orchestration.core.models import Message, MessageType
+from orchestration.client.http import DaemonClient, DaemonNotRunningError
+from orchestration.core.agent_registry import AgentNotFoundError
 
 _TOOL_PREVIEW_LENGTH = 80
 
@@ -23,39 +24,38 @@ def task(
 
 
 async def _task(agent_name: str, prompt: str) -> None:
+    client = DaemonClient()
     try:
-        registry = get_registry()
-        agent = registry.get(agent_name)
-        message = Message(
-            sender="human",
-            recipients=[agent_name],
-            content=prompt,
-            message_type=MessageType.chat,
-        )
-        messages: list[Message] = []
-        async for msg in agent.handle_message(message):
-            messages.append(msg)
-
+        messages = await client.send_message(agent_name, prompt)
         _display_messages(messages)
+    except DaemonNotRunningError:
+        rprint(
+            "[red]Error: Daemon is not running."
+            " Start it with: orchestration serve[/red]"
+        )
+        raise typer.Exit(code=1)
     except AgentNotFoundError:
         rprint(
             f"[red]Error: No agent named '{agent_name}'."
             " Use 'orchestration list' to see active agents.[/red]"
         )
         raise typer.Exit(code=1)
+    finally:
+        await client.close()
 
 
-def _display_messages(messages: list[Message]) -> None:
+def _display_messages(messages: list[dict[str, Any]]) -> None:
     multi = len(messages) > 1
     for msg in messages:
+        metadata = msg.get("metadata", {})
         if multi:
-            rprint(f"[dim]\\[{msg.sender}][/dim]", end=" ")
-        if msg.metadata.get("type") == "tool_use":
-            tool_name = msg.metadata.get("tool_name", "tool")
-            raw_input = msg.metadata.get("tool_input", {})
+            rprint(f"[dim]\\[{msg['sender']}][/dim]", end=" ")
+        if metadata.get("type") == "tool_use":
+            tool_name = metadata.get("tool_name", "tool")
+            raw_input = metadata.get("tool_input", {})
             preview = json.dumps(raw_input)[:_TOOL_PREVIEW_LENGTH]
             if len(json.dumps(raw_input)) > _TOOL_PREVIEW_LENGTH:
                 preview += "…"
             typer.echo(f"[tool:{tool_name}] {preview}")
         else:
-            typer.echo(msg.content)
+            typer.echo(msg["content"])

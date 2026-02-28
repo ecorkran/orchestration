@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import typer
+from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
 
-from orchestration.core.agent_registry import get_registry
-from orchestration.core.models import AgentInfo, AgentState
+from orchestration.client.http import DaemonClient, DaemonNotRunningError
+from orchestration.core.models import AgentState
 
 _STATE_COLORS: dict[str, str] = {
     AgentState.idle: "green",
@@ -21,19 +23,33 @@ _STATE_COLORS: dict[str, str] = {
 
 
 def list_agents(
-    state: str | None = typer.Option(None, "--state", help="Filter by agent state"),
-    provider: str | None = typer.Option(None, "--provider", help="Filter by provider"),
+    state: str | None = typer.Option(
+        None, "--state", help="Filter by agent state"
+    ),
+    provider: str | None = typer.Option(
+        None, "--provider", help="Filter by provider"
+    ),
 ) -> None:
     """List active agents."""
     asyncio.run(_list_agents(state, provider))
 
 
-async def _list_agents(state_filter: str | None, provider_filter: str | None) -> None:
-    registry = get_registry()
-    agent_state = AgentState(state_filter) if state_filter else None
-    agents: list[AgentInfo] = registry.list_agents(
-        state=agent_state, provider=provider_filter
-    )
+async def _list_agents(
+    state_filter: str | None, provider_filter: str | None
+) -> None:
+    client = DaemonClient()
+    try:
+        agents: list[dict[str, Any]] = await client.list_agents(
+            state=state_filter, provider=provider_filter
+        )
+    except DaemonNotRunningError:
+        rprint(
+            "[red]Error: Daemon is not running."
+            " Start it with: orchestration serve[/red]"
+        )
+        raise typer.Exit(code=1)
+    finally:
+        await client.close()
 
     if not agents:
         typer.echo("No agents running.")
@@ -46,12 +62,13 @@ async def _list_agents(state_filter: str | None, provider_filter: str | None) ->
     table.add_column("State")
 
     for info in agents:
-        color = _STATE_COLORS.get(info.state, "white")
+        agent_state = info.get("state", "unknown")
+        color = _STATE_COLORS.get(agent_state, "white")
         table.add_row(
-            info.name,
-            info.agent_type,
-            info.provider,
-            f"[{color}]{info.state}[/{color}]",
+            info["name"],
+            info["agent_type"],
+            info["provider"],
+            f"[{color}]{agent_state}[/{color}]",
         )
 
     Console().print(table)
