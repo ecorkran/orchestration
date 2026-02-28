@@ -172,24 +172,24 @@ dateUpdated: 20260228
   - [x] `pyright src/orchestration/client/` — zero errors
   - [x] Commit: `feat: add DaemonClient for CLI-to-daemon communication`
 
-- [ ] **T15: Implement serve command**
-  - [ ] Create `src/orchestration/cli/commands/serve.py`
-  - [ ] `serve()` Typer command with mutually exclusive flags: `--stop`, `--status`, `--port`
-  - [ ] Default (no flags): create `OrchestrationEngine`, create `DaemonConfig`, check if already running (error if so), call `start_server(engine, config)`
-  - [ ] `--status`: call `is_daemon_running()`; print status and exit
-  - [ ] `--stop`: read PID file, send SIGTERM via `os.kill(pid, signal.SIGTERM)`; print confirmation
-  - [ ] `--port`: override HTTP port in `DaemonConfig`
-  - [ ] Register in `cli/app.py`: `app.command("serve")(serve)`
-  - [ ] Success: `orchestration serve --help` shows the command with options
+- [x] **T15: Implement serve command**
+  - [x] Create `src/orchestration/cli/commands/serve.py`
+  - [x] `serve()` Typer command with mutually exclusive flags: `--stop`, `--status`, `--port`
+  - [x] Default (no flags): create `OrchestrationEngine`, create `DaemonConfig`, check if already running (error if so), call `start_server(engine, config)`
+  - [x] `--status`: call `is_daemon_running()`; print status and exit
+  - [x] `--stop`: read PID file, send SIGTERM via `os.kill(pid, signal.SIGTERM)`; print confirmation
+  - [x] `--port`: override HTTP port in `DaemonConfig`
+  - [x] Register in `cli/app.py`: `app.command("serve")(serve)`
+  - [x] Success: `orchestration serve --help` shows the command with options
 
-- [ ] **T16: Test serve command**
-  - [ ] Create `tests/cli/test_serve.py`
-  - [ ] `test_serve_status_not_running` — no PID file → prints "not running"
-  - [ ] `test_serve_status_running` — PID file with live PID → prints "running"
-  - [ ] `test_serve_stop_sends_sigterm` — mock `os.kill`; verify SIGTERM sent to PID from file
-  - [ ] `test_serve_stop_not_running` — no PID file → prints error, exits non-zero
-  - [ ] `test_serve_already_running` — PID file with live PID → prints error about existing daemon
-  - [ ] Success: all tests pass; ruff clean
+- [x] **T16: Test serve command**
+  - [x] Create `tests/cli/test_serve.py`
+  - [x] `test_serve_status_not_running` — no PID file → prints "not running"
+  - [x] `test_serve_status_running` — PID file with live PID → prints "running"
+  - [x] `test_serve_stop_sends_sigterm` — mock `os.kill`; verify SIGTERM sent to PID from file
+  - [x] `test_serve_stop_not_running` — no PID file → prints error, exits non-zero
+  - [x] `test_serve_already_running` — PID file with live PID → prints error about existing daemon
+  - [x] Success: all tests pass; ruff clean
 
 - [ ] **T17: Refactor spawn and list commands**
   - [ ] Update `src/orchestration/cli/commands/spawn.py`:
