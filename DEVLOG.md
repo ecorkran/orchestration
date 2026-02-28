@@ -2,13 +2,40 @@
 docType: devlog
 project: orchestration
 dateCreated: 20260218
-dateUpdated: 20260226
+dateUpdated: 20260228
 ---
 
 # Development Log
 
 A lightweight, append-only record of development activity. Newest entries first.
 Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
+
+---
+
+## 20260228
+
+### Slice 112: Local Server & CLI Client — Slice Design Complete
+
+**Documents created:**
+- `user/slices/112-slice.local-daemon.md` — slice design
+- `user/slices/112-slice.local-daemon-agent-brief.md` — technical brief from PM
+
+**Scope:** Persistent daemon process (`orchestration serve`) holding agent registry, agent instances, and conversation history in memory. CLI commands become thin clients communicating with daemon via Unix domain socket (primary) or localhost HTTP (secondary). New `OrchestrationEngine` composes existing `AgentRegistry` and adds conversation history tracking. FastAPI app serves both transports. New commands: `serve`, `message`, `history`. Existing commands (`spawn`, `list`, `task`, `shutdown`) refactored to use `DaemonClient`.
+
+**Key design decisions:**
+- `OrchestrationEngine` composes `AgentRegistry` (not subclass/replace) — registry manages lifecycle, engine adds history and coordination
+- Dual transport: Unix socket (`~/.orchestration/daemon.sock`) for CLI, HTTP (`127.0.0.1:7862`) for external consumers — same FastAPI app serves both via two uvicorn instances
+- `httpx.AsyncHTTPTransport(uds=path)` for CLI→daemon Unix socket communication
+- Explicit `orchestration serve` — no auto-start magic, predictable daemon lifecycle
+- All agent commands route through daemon — one execution path, enables future observability
+- Conversation history at engine level (not just agent-internal) — provider-agnostic, supports `history` command
+- Agent lifecycle categories: ephemeral (task) and session (spawn+message) — behavioral patterns, not formal types
+- PID file + socket file in `~/.orchestration/` — stale file detection on startup
+- `review` and `config` commands left unchanged for now (review uses SDK directly, config is stateless)
+
+**Commit:** `dcab7a9` docs: add slice 112 design for local daemon & CLI client
+
+**Next:** Phase 5 (Task Breakdown) on slice 112.
 
 ---
 
