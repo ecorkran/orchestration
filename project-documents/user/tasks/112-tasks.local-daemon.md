@@ -125,16 +125,16 @@ dateUpdated: 20260228
   - [x] Signal handler: on signal, call `engine.shutdown_all()`, then set a shutdown event that causes servers to stop
   - [x] Success: module importable; all functions present; pyright clean
 
-- [ ] **T10: Test daemon module**
-  - [ ] Create `tests/server/test_daemon.py`
-  - [ ] `test_write_and_read_pid_file` — write PID, read back, matches `os.getpid()`
-  - [ ] `test_read_pid_file_missing` — non-existent file returns None
-  - [ ] `test_remove_pid_file` — write then remove; file gone
-  - [ ] `test_is_daemon_running_true` — write current PID, returns True
-  - [ ] `test_is_daemon_running_stale` — write non-existent PID, returns False, stale PID file removed
-  - [ ] `test_is_daemon_running_no_file` — no PID file, returns False
-  - [ ] Use `tmp_path` fixture for all file operations (no real `~/.orchestration/`)
-  - [ ] Success: all tests pass; ruff clean
+- [x] **T10: Test daemon module**
+  - [x] Create `tests/server/test_daemon.py`
+  - [x] `test_write_and_read_pid_file` — write PID, read back, matches `os.getpid()`
+  - [x] `test_read_pid_file_missing` — non-existent file returns None
+  - [x] `test_remove_pid_file` — write then remove; file gone
+  - [x] `test_is_daemon_running_true` — write current PID, returns True
+  - [x] `test_is_daemon_running_stale` — write non-existent PID, returns False, stale PID file removed
+  - [x] `test_is_daemon_running_no_file` — no PID file, returns False
+  - [x] Use `tmp_path` fixture for all file operations (no real `~/.orchestration/`)
+  - [x] Success: all tests pass; ruff clean
 
 - [ ] **T11: Commit server core**
   - [ ] `pytest tests/server/` — all green
