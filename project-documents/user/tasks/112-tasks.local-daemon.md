@@ -67,18 +67,18 @@ dateUpdated: 20260228
   - [x] `test_shutdown_all` — spawn two, shutdown_all returns `ShutdownReport` with both names
   - [x] Success: all tests pass; ruff clean
 
-- [ ] **T5: Implement server models and health route**
-  - [ ] Create `src/orchestration/server/models.py` with Pydantic models:
-    - [ ] `SpawnRequest` — mirrors `AgentConfig` fields needed for spawning (name, agent_type, provider, model, instructions, base_url, cwd, etc.)
-    - [ ] `MessageRequest` — `content: str`
-    - [ ] `MessageOut` — serializable Message (id, sender, content, message_type, timestamp, metadata)
-    - [ ] `MessageResponse` — `messages: list[MessageOut]`
-    - [ ] `AgentInfoOut` — mirrors `AgentInfo` (name, agent_type, provider, state)
-    - [ ] `HealthResponse` — `status: str`, `agents: int`
-    - [ ] `ShutdownReportOut` — mirrors `ShutdownReport`
-  - [ ] Create `src/orchestration/server/routes/__init__.py` (empty)
-  - [ ] Create `src/orchestration/server/routes/health.py` — `health_router` with `GET /health` returning `HealthResponse`
-  - [ ] Success: models importable; health router importable; pyright clean
+- [x] **T5: Implement server models and health route**
+  - [x] Create `src/orchestration/server/models.py` with Pydantic models:
+    - [x] `SpawnRequest` — mirrors `AgentConfig` fields needed for spawning (name, agent_type, provider, model, instructions, base_url, cwd, etc.)
+    - [x] `MessageRequest` — `content: str`
+    - [x] `MessageOut` — serializable Message (id, sender, content, message_type, timestamp, metadata)
+    - [x] `MessageResponse` — `messages: list[MessageOut]`
+    - [x] `AgentInfoOut` — mirrors `AgentInfo` (name, agent_type, provider, state)
+    - [x] `HealthResponse` — `status: str`, `agents: int`
+    - [x] `ShutdownReportOut` — mirrors `ShutdownReport`
+  - [x] Create `src/orchestration/server/routes/__init__.py` (empty)
+  - [x] Create `src/orchestration/server/routes/health.py` — `health_router` with `GET /health` returning `HealthResponse`
+  - [x] Success: models importable; health router importable; pyright clean
 
 - [ ] **T6: Implement agent routes**
   - [ ] Create `src/orchestration/server/routes/agents.py` — `agents_router` with:
