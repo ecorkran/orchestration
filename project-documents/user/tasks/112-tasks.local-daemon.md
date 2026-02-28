@@ -224,29 +224,29 @@ dateUpdated: 20260228
   - [x] Update `tests/cli/test_shutdown.py` — mock `DaemonClient`; test happy path and daemon-not-running
   - [x] Success: all tests pass; ruff clean
 
-- [ ] **T21: Implement message command**
-  - [ ] Create `src/orchestration/cli/commands/message.py`
-  - [ ] `message(agent_name: str, prompt: str)` — constructs `DaemonClient`, calls `send_message(agent_name, prompt)`, displays response messages using same styling as `task` output
-  - [ ] Handle `DaemonNotRunningError` and agent-not-found errors with user-friendly messages
-  - [ ] Register in `cli/app.py`: `app.command("message")(message)`
-  - [ ] Success: `orchestration message --help` shows the command
+- [x] **T21: Implement message command**
+  - [x] Create `src/orchestration/cli/commands/message.py`
+  - [x] `message(agent_name: str, prompt: str)` — constructs `DaemonClient`, calls `send_message(agent_name, prompt)`, displays response messages using same styling as `task` output
+  - [x] Handle `DaemonNotRunningError` and agent-not-found errors with user-friendly messages
+  - [x] Register in `cli/app.py`: `app.command("message")(message)`
+  - [x] Success: `orchestration message --help` shows the command
 
-- [ ] **T22: Implement history command**
-  - [ ] Create `src/orchestration/cli/commands/history.py`
-  - [ ] `history(agent_name: str, limit: int | None)` — calls `DaemonClient().get_history(agent_name, limit)`, displays messages with sender, timestamp, and content
-  - [ ] Handle `DaemonNotRunningError` with user-friendly message
-  - [ ] Register in `cli/app.py`: `app.command("history")(history)`
-  - [ ] Success: `orchestration history --help` shows the command with `--limit` option
+- [x] **T22: Implement history command**
+  - [x] Create `src/orchestration/cli/commands/history.py`
+  - [x] `history(agent_name: str, limit: int | None)` — calls `DaemonClient().get_history(agent_name, limit)`, displays messages with sender, timestamp, and content
+  - [x] Handle `DaemonNotRunningError` with user-friendly message
+  - [x] Register in `cli/app.py`: `app.command("history")(history)`
+  - [x] Success: `orchestration history --help` shows the command with `--limit` option
 
-- [ ] **T23: Test message and history commands**
-  - [ ] Create `tests/cli/test_message.py`:
-    - [ ] `test_message_displays_response` — mock `DaemonClient.send_message`; verify output contains response content
-    - [ ] `test_message_daemon_not_running` — mock `DaemonNotRunningError`; verify error message
-  - [ ] Create `tests/cli/test_history.py`:
-    - [ ] `test_history_displays_messages` — mock `DaemonClient.get_history`; verify output shows messages
-    - [ ] `test_history_daemon_not_running` — mock `DaemonNotRunningError`; verify error message
-    - [ ] `test_history_with_limit` — verify `--limit` param passed to client
-  - [ ] Success: all tests pass; ruff clean
+- [x] **T23: Test message and history commands**
+  - [x] Create `tests/cli/test_message.py`:
+    - [x] `test_message_displays_response` — mock `DaemonClient.send_message`; verify output contains response content
+    - [x] `test_message_daemon_not_running` — mock `DaemonNotRunningError`; verify error message
+  - [x] Create `tests/cli/test_history.py`:
+    - [x] `test_history_displays_messages` — mock `DaemonClient.get_history`; verify output shows messages
+    - [x] `test_history_daemon_not_running` — mock `DaemonNotRunningError`; verify error message
+    - [x] `test_history_with_limit` — verify `--limit` param passed to client
+  - [x] Success: all tests pass; ruff clean
 
 - [ ] **T24: Full validation pass**
   - [ ] `pytest` (full suite) — all green, no regressions
