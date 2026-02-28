@@ -22,9 +22,7 @@ def _resolve_spawn_model(flag: str | None) -> str | None:
 
 def spawn(
     name: str = typer.Option(..., help="Unique agent name"),
-    agent_type: str = typer.Option(
-        "sdk", "--type", help="Agent type (default: sdk)"
-    ),
+    agent_type: str = typer.Option("sdk", "--type", help="Agent type (default: sdk)"),
     provider: str | None = typer.Option(
         None, "--provider", help="Provider name (defaults to --type)"
     ),

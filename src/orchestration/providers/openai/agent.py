@@ -81,12 +81,12 @@ class OpenAICompatibleAgent:
         text_buffer = ""
         tool_calls_dict: dict[int, dict[str, Any]] = {}
 
-        stream: AsyncStream[ChatCompletionChunk] = (
-            await self._client.chat.completions.create(
-                model=self._model,
-                messages=cast(list[ChatCompletionMessageParam], self._history),
-                stream=True,
-            )
+        stream: AsyncStream[
+            ChatCompletionChunk
+        ] = await self._client.chat.completions.create(
+            model=self._model,
+            messages=cast(list[ChatCompletionMessageParam], self._history),
+            stream=True,
         )
         async for chunk in stream:
             if not chunk.choices:

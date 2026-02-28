@@ -248,16 +248,16 @@ dateUpdated: 20260228
     - [x] `test_history_with_limit` — verify `--limit` param passed to client
   - [x] Success: all tests pass; ruff clean
 
-- [ ] **T24: Full validation pass**
-  - [ ] `pytest` (full suite) — all green, no regressions
-  - [ ] `ruff check src/` — clean
-  - [ ] `ruff format --check src/` — clean
-  - [ ] `pyright src/` — zero errors
-  - [ ] Success: all four checks pass
+- [x] **T24: Full validation pass**
+  - [x] `pytest` (full suite) — all green, no regressions
+  - [x] `ruff check src/` — clean
+  - [x] `ruff format --check src/` — clean
+  - [x] `pyright src/` — zero errors
+  - [x] Success: all four checks pass
 
-- [ ] **T25: Commit CLI changes**
-  - [ ] `git add` all new and modified CLI command files, test files
-  - [ ] Commit: `feat: add serve, message, history commands and refactor CLI to use daemon`
+- [x] **T25: Commit CLI changes**
+  - [x] `git add` all new and modified CLI command files, test files
+  - [x] Commit: `feat: add serve, message, history commands and refactor CLI to use daemon`
 
 - [ ] **T26: Integration test**
   - [ ] Create `tests/server/test_integration.py`

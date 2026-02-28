@@ -17,8 +17,7 @@ class DaemonNotRunningError(Exception):
 
     def __init__(self, message: str | None = None) -> None:
         super().__init__(
-            message
-            or "Daemon is not running. Start it with: orchestration serve"
+            message or "Daemon is not running. Start it with: orchestration serve"
         )
 
 
@@ -89,9 +88,7 @@ class DaemonClient:
             )
         return resp
 
-    async def spawn(
-        self, request_data: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def spawn(self, request_data: dict[str, Any]) -> dict[str, Any]:
         """POST /agents — spawn a new agent."""
         resp = await self._request("POST", "/agents/", json=request_data)
         return resp.json()  # type: ignore[no-any-return]
@@ -110,9 +107,7 @@ class DaemonClient:
         resp = await self._request("GET", "/agents/", params=params)
         return resp.json()  # type: ignore[no-any-return]
 
-    async def send_message(
-        self, agent_name: str, content: str
-    ) -> list[dict[str, Any]]:
+    async def send_message(self, agent_name: str, content: str) -> list[dict[str, Any]]:
         """POST /agents/{name}/message — send a message."""
         resp = await self._request(
             "POST",

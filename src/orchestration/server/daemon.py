@@ -24,13 +24,9 @@ _DEFAULT_DIR = Path.home() / ".orchestration"
 class DaemonConfig:
     """Configuration for the daemon process."""
 
-    socket_path: str = field(
-        default_factory=lambda: str(_DEFAULT_DIR / "daemon.sock")
-    )
+    socket_path: str = field(default_factory=lambda: str(_DEFAULT_DIR / "daemon.sock"))
     port: int = 7862
-    pid_path: str = field(
-        default_factory=lambda: str(_DEFAULT_DIR / "daemon.pid")
-    )
+    pid_path: str = field(default_factory=lambda: str(_DEFAULT_DIR / "daemon.pid"))
 
 
 def write_pid_file(path: str) -> None:
@@ -88,9 +84,7 @@ def remove_socket_file(path: str) -> None:
         sock_path.unlink()
 
 
-async def start_server(
-    engine: OrchestrationEngine, config: DaemonConfig
-) -> None:
+async def start_server(engine: OrchestrationEngine, config: DaemonConfig) -> None:
     """Start dual-transport daemon: Unix socket + HTTP on localhost.
 
     Runs both uvicorn servers in a TaskGroup. If either fails to bind,
@@ -104,9 +98,7 @@ async def start_server(
     # Ensure socket directory exists
     Path(config.socket_path).parent.mkdir(parents=True, exist_ok=True)
 
-    uds_config = uvicorn.Config(
-        app, uds=config.socket_path, log_level="info"
-    )
+    uds_config = uvicorn.Config(app, uds=config.socket_path, log_level="info")
     http_config = uvicorn.Config(
         app, host="127.0.0.1", port=config.port, log_level="info"
     )

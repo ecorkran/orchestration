@@ -23,20 +23,14 @@ _STATE_COLORS: dict[str, str] = {
 
 
 def list_agents(
-    state: str | None = typer.Option(
-        None, "--state", help="Filter by agent state"
-    ),
-    provider: str | None = typer.Option(
-        None, "--provider", help="Filter by provider"
-    ),
+    state: str | None = typer.Option(None, "--state", help="Filter by agent state"),
+    provider: str | None = typer.Option(None, "--provider", help="Filter by provider"),
 ) -> None:
     """List active agents."""
     asyncio.run(_list_agents(state, provider))
 
 
-async def _list_agents(
-    state_filter: str | None, provider_filter: str | None
-) -> None:
+async def _list_agents(state_filter: str | None, provider_filter: str | None) -> None:
     client = DaemonClient()
     try:
         agents: list[dict[str, Any]] = await client.list_agents(

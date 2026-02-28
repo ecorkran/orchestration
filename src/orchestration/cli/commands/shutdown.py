@@ -12,22 +12,15 @@ from orchestration.core.agent_registry import AgentNotFoundError
 
 
 def shutdown(
-    agent_name: str | None = typer.Argument(
-        default=None, help="Agent to shut down"
-    ),
-    all_agents: bool = typer.Option(
-        False, "--all", help="Shut down all agents"
-    ),
+    agent_name: str | None = typer.Argument(default=None, help="Agent to shut down"),
+    all_agents: bool = typer.Option(False, "--all", help="Shut down all agents"),
 ) -> None:
     """Shut down one agent or all agents."""
     if agent_name is None and not all_agents:
         rprint("[red]Error: Provide an agent name or use --all.[/red]")
         raise typer.Exit(code=1)
     if agent_name is not None and all_agents:
-        rprint(
-            "[red]Error: Provide either an agent name"
-            " or --all, not both.[/red]"
-        )
+        rprint("[red]Error: Provide either an agent name or --all, not both.[/red]")
         raise typer.Exit(code=1)
 
     if all_agents:

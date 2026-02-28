@@ -19,12 +19,8 @@ from orchestration.server.engine import OrchestrationEngine
 
 
 def serve(
-    stop: bool = typer.Option(
-        False, "--stop", help="Stop a running daemon"
-    ),
-    status: bool = typer.Option(
-        False, "--status", help="Check daemon status"
-    ),
+    stop: bool = typer.Option(False, "--stop", help="Stop a running daemon"),
+    status: bool = typer.Option(False, "--status", help="Check daemon status"),
     port: int | None = typer.Option(
         None, "--port", help="Override HTTP port (default: 7862)"
     ),

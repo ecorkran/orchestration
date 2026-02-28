@@ -76,9 +76,7 @@ class OrchestrationEngine:
         """Get an agent by name. Raises AgentNotFoundError if not found."""
         return self._registry.get(name)
 
-    async def send_message(
-        self, agent_name: str, content: str
-    ) -> list[Message]:
+    async def send_message(self, agent_name: str, content: str) -> list[Message]:
         """Send a message to an agent and record the conversation.
 
         Creates a human Message, records it, calls the agent's handle_message,

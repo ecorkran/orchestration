@@ -118,9 +118,7 @@ async def get_agent(name: str, request: Request) -> AgentInfoOut | JSONResponse:
     except AgentNotFoundError:
         return JSONResponse(
             status_code=404,
-            content=ErrorResponse(
-                detail=f"Agent '{name}' not found"
-            ).model_dump(),
+            content=ErrorResponse(detail=f"Agent '{name}' not found").model_dump(),
         )
     # Need provider from registry config
     config = engine.registry._configs.get(name)  # pyright: ignore[reportPrivateUsage]
@@ -153,9 +151,7 @@ async def shutdown_agent(name: str, request: Request) -> Response:
     except AgentNotFoundError:
         return JSONResponse(
             status_code=404,
-            content=ErrorResponse(
-                detail=f"Agent '{name}' not found"
-            ).model_dump(),
+            content=ErrorResponse(detail=f"Agent '{name}' not found").model_dump(),
         )
     return Response(status_code=204)
 
@@ -171,9 +167,7 @@ async def send_message(
     except AgentNotFoundError:
         return JSONResponse(
             status_code=404,
-            content=ErrorResponse(
-                detail=f"Agent '{name}' not found"
-            ).model_dump(),
+            content=ErrorResponse(detail=f"Agent '{name}' not found").model_dump(),
         )
     return MessageResponse(messages=[_message_to_out(m) for m in responses])
 
