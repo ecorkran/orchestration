@@ -138,6 +138,14 @@ When `send_message` is called:
 
 This is distinct from the agent's internal history (which tracks the raw API conversation for context). The engine history is the orchestration-level record of what was said, visible via `get_history`.
 
+#### History Lifecycle After Agent Shutdown
+
+History is **retained after agent shutdown** until the daemon exits. `orchestration history gpt` works even after `orchestration shutdown gpt`. This supports post-mortem inspection of agent conversations — a developer can shut down an agent and still review what it said.
+
+The `list` command only shows live agents, so a shutdown agent won't appear in `list` but its history is still retrievable. This is analogous to shell history surviving after a process exits. History for all agents is cleared when the daemon stops.
+
+No explicit `history --clear` command in this slice — not worth the complexity. If memory pressure from accumulated histories becomes a concern, it can be addressed when persistent agents (future) introduce proper storage.
+
 ### FastAPI Application
 
 The FastAPI app is created by a factory function that takes an `OrchestrationEngine` instance:
@@ -229,7 +237,11 @@ async def start_server(engine: OrchestrationEngine, config: DaemonConfig) -> Non
     uds_server = uvicorn.Server(uds_config)
     http_server = uvicorn.Server(http_config)
 
-    await asyncio.gather(uds_server.serve(), http_server.serve())
+    # TaskGroup (not asyncio.gather) — if either server fails to bind,
+    # the other is cancelled automatically. Python 3.11+ required.
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(uds_server.serve())
+        tg.create_task(http_server.serve())
 ```
 
 - **Unix socket** (`~/.orchestration/daemon.sock`): Used by CLI commands. Fast, no port conflicts, no network exposure.
@@ -571,10 +583,12 @@ SDK agent tests may need special handling since SDK agents spawn subprocesses. T
 
 ### Special Considerations
 
-**Review command:** The `review` command currently uses SDK agents directly and does not go through the agent registry. It can continue to work this way in the short term, but should eventually route through the daemon for consistency. This slice should not break the review command but need not refactor it — it can be deferred to a follow-up.
+**Review command:** The `review` command currently uses SDK agents directly and does not go through the agent registry. It can continue to work this way in this slice — review has its own runner, its own template system, and refactoring it adds risk without clear value here. The planned convergence point is **slice 15 (Review Findings Pipeline)**, which redesigns review output handling and is a natural place to route review execution through the engine. Until then, `review` remains a separate execution path. This slice must not break the review command.
 
 **Config command:** The `config` command is stateless (reads/writes config files). It does not need to communicate with the daemon. Leave it unchanged.
 
-**Provider auto-loading:** The auto-loader in `spawn.py` (`_load_provider`) imports provider modules to trigger registration. This logic needs to execute in the daemon process, not the CLI client. The auto-loader moves into the engine or server-side spawn handling.
+**Provider auto-loading:** The auto-loader in `spawn.py` (`_load_provider`) imports provider modules to trigger registration. This logic must execute in the daemon process, not the CLI client. It moves into `OrchestrationEngine.spawn_agent()` — the engine calls `_load_provider(config.provider)` before delegating to the registry. This keeps the engine as the single coordination point for agent creation and ensures the provider module is loaded in the process that actually holds the agents. The `_load_provider` function itself can be reused as-is (import from a shared location or inline in engine).
+
+**Long-running requests:** `POST /agents/{name}/message` and `POST /agents/{name}/task` are synchronous request/response — the HTTP connection stays open until the LLM responds. API agents (OpenAI, etc.) typically respond in seconds, but SDK agents performing complex tasks can take 60s+. Uvicorn has no default request timeout, which is correct here. The `DaemonClient` should set a generous `httpx` timeout (e.g., 300s) and the implementation should not add any intermediate timeouts that could kill a legitimate long-running agent response. WebSocket streaming (slice 14) is the proper solution for real-time output of long tasks.
 
 **`AgentRegistry` singleton:** The current `get_registry()` singleton pattern works for the existing per-process model. In the daemon, the engine creates and owns its own registry instance. The singleton remains for backward compatibility (tests, review command) but is no longer the primary access path.
