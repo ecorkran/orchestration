@@ -4,7 +4,7 @@ project: orchestration
 lld: project-documents/user/slices/112-slice.local-daemon.md
 dependencies: [foundation, agent-registry, cli-foundation, openai-provider-core]
 projectState: M1 complete and published. OpenAI-compatible provider (slice 111) complete. 342 tests passing. Agent persistence gap identified (GitHub issue #4) — agents don't survive between CLI invocations.
-status: in-progress
+status: complete
 dateCreated: 20260228
 dateUpdated: 20260228
 ---
@@ -259,25 +259,25 @@ dateUpdated: 20260228
   - [x] `git add` all new and modified CLI command files, test files
   - [x] Commit: `feat: add serve, message, history commands and refactor CLI to use daemon`
 
-- [ ] **T26: Integration test**
-  - [ ] Create `tests/server/test_integration.py`
-  - [ ] Single test using real `OrchestrationEngine` + `create_app` + `httpx.AsyncClient(ASGITransport)` + mock provider (no real LLM calls):
-    1. [ ] `POST /agents` — spawn agent, verify 200 with agent info
-    2. [ ] `GET /agents` — list shows the agent
-    3. [ ] `POST /agents/{name}/message` — send message, verify response messages returned
-    4. [ ] `GET /agents/{name}/history` — verify history contains both human and agent messages
-    5. [ ] `DELETE /agents/{name}` — shutdown, verify 204
-    6. [ ] `GET /agents/{name}/history` — verify history still accessible after shutdown
-    7. [ ] `GET /agents` — list no longer shows the agent
-    8. [ ] `GET /health` — verify status ok, agent count 0
-  - [ ] Success: integration test passes end-to-end
+- [x] **T26: Integration test**
+  - [x] Create `tests/server/test_integration.py`
+  - [x] Single test using real `OrchestrationEngine` + `create_app` + `httpx.AsyncClient(ASGITransport)` + mock provider (no real LLM calls):
+    1. [x] `POST /agents` — spawn agent, verify 200 with agent info
+    2. [x] `GET /agents` — list shows the agent
+    3. [x] `POST /agents/{name}/message` — send message, verify response messages returned
+    4. [x] `GET /agents/{name}/history` — verify history contains both human and agent messages
+    5. [x] `DELETE /agents/{name}` — shutdown, verify 204
+    6. [x] `GET /agents/{name}/history` — verify history still accessible after shutdown
+    7. [x] `GET /agents` — list no longer shows the agent
+    8. [x] `GET /health` — verify status ok, agent count 0
+  - [x] Success: integration test passes end-to-end
 
-- [ ] **T27: Final commit and validation**
-  - [ ] `pytest` (full suite) — all green
-  - [ ] `ruff check src/` — clean
-  - [ ] `pyright src/` — zero errors
-  - [ ] Commit: `test: add daemon integration test`
-  - [ ] Success: `git status` clean; all checks pass
+- [x] **T27: Final commit and validation**
+  - [x] `pytest` (full suite) — all green
+  - [x] `ruff check src/` — clean
+  - [x] `pyright src/` — zero errors
+  - [x] Commit: `test: add daemon integration test`
+  - [x] Success: `git status` clean; all checks pass
 
 ---
 
