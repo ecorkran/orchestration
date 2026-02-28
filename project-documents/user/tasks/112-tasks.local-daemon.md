@@ -94,24 +94,24 @@ dateUpdated: 20260228
   - [x] Map `AgentNotFoundError` → HTTP 404; `ProviderError` hierarchy → appropriate 4xx/5xx
   - [x] Success: routes importable; pyright clean
 
-- [ ] **T7: Test routes**
-  - [ ] Create `tests/server/test_routes.py`
-  - [ ] `test_health` — `GET /health` returns 200 with `status: "ok"` and agent count
-  - [ ] `test_spawn_agent` — `POST /agents` with valid body returns 200 with agent info
-  - [ ] `test_list_agents` — spawn two, `GET /agents` returns both
-  - [ ] `test_get_agent` — spawn one, `GET /agents/{name}` returns info
-  - [ ] `test_get_agent_not_found` — `GET /agents/nonexistent` returns 404
-  - [ ] `test_send_message` — spawn then `POST /agents/{name}/message` returns response messages
-  - [ ] `test_get_history` — spawn, message, `GET /agents/{name}/history` returns conversation
-  - [ ] `test_shutdown_agent` — spawn then `DELETE /agents/{name}` returns 204
-  - [ ] `test_shutdown_all` — spawn two, `DELETE /agents` returns shutdown report
-  - [ ] All tests use `async_client` fixture (httpx + ASGITransport, no real server)
-  - [ ] Success: all tests pass; ruff clean
+- [x] **T7: Test routes**
+  - [x] Create `tests/server/test_routes.py`
+  - [x] `test_health` — `GET /health` returns 200 with `status: "ok"` and agent count
+  - [x] `test_spawn_agent` — `POST /agents` with valid body returns 200 with agent info
+  - [x] `test_list_agents` — spawn two, `GET /agents` returns both
+  - [x] `test_get_agent` — spawn one, `GET /agents/{name}` returns info
+  - [x] `test_get_agent_not_found` — `GET /agents/nonexistent` returns 404
+  - [x] `test_send_message` — spawn then `POST /agents/{name}/message` returns response messages
+  - [x] `test_get_history` — spawn, message, `GET /agents/{name}/history` returns conversation
+  - [x] `test_shutdown_agent` — spawn then `DELETE /agents/{name}` returns 204
+  - [x] `test_shutdown_all` — spawn two, `DELETE /agents` returns shutdown report
+  - [x] All tests use `async_client` fixture (httpx + ASGITransport, no real server)
+  - [x] Success: all tests pass; ruff clean
 
-- [ ] **T8: Implement app factory**
-  - [ ] Create `src/orchestration/server/app.py`
-  - [ ] `create_app(engine: OrchestrationEngine) -> FastAPI` — stores engine on `app.state.engine`, includes `agents_router` with `/agents` prefix and `health_router`
-  - [ ] Success: `create_app(engine)` returns a FastAPI instance; routes accessible
+- [x] **T8: Implement app factory**
+  - [x] Create `src/orchestration/server/app.py`
+  - [x] `create_app(engine: OrchestrationEngine) -> FastAPI` — stores engine on `app.state.engine`, includes `agents_router` with `/agents` prefix and `health_router`
+  - [x] Success: `create_app(engine)` returns a FastAPI instance; routes accessible
 
 - [ ] **T9: Implement daemon module**
   - [ ] Create `src/orchestration/server/daemon.py`
