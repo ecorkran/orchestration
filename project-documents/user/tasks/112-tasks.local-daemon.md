@@ -113,17 +113,17 @@ dateUpdated: 20260228
   - [x] `create_app(engine: OrchestrationEngine) -> FastAPI` — stores engine on `app.state.engine`, includes `agents_router` with `/agents` prefix and `health_router`
   - [x] Success: `create_app(engine)` returns a FastAPI instance; routes accessible
 
-- [ ] **T9: Implement daemon module**
-  - [ ] Create `src/orchestration/server/daemon.py`
-  - [ ] `DaemonConfig` dataclass — `socket_path` (default `~/.orchestration/daemon.sock`), `port` (default `7862`), `pid_path` (default `~/.orchestration/daemon.pid`)
-  - [ ] `write_pid_file(path)` — write `os.getpid()` to file; create parent directory if needed
-  - [ ] `remove_pid_file(path)` — remove file if it exists
-  - [ ] `read_pid_file(path) -> int | None` — read PID from file, return None if file doesn't exist or is invalid
-  - [ ] `is_daemon_running(pid_path) -> bool` — read PID file, check `os.kill(pid, 0)`; handle stale files (process gone → remove stale PID file, return False)
-  - [ ] `remove_socket_file(path)` — remove Unix socket file if it exists
-  - [ ] `start_server(engine, config)` — create app, configure two `uvicorn.Server` instances (UDS + HTTP), run both in `asyncio.TaskGroup`; register signal handlers for SIGTERM/SIGINT that trigger shutdown
-  - [ ] Signal handler: on signal, call `engine.shutdown_all()`, then set a shutdown event that causes servers to stop
-  - [ ] Success: module importable; all functions present; pyright clean
+- [x] **T9: Implement daemon module**
+  - [x] Create `src/orchestration/server/daemon.py`
+  - [x] `DaemonConfig` dataclass — `socket_path` (default `~/.orchestration/daemon.sock`), `port` (default `7862`), `pid_path` (default `~/.orchestration/daemon.pid`)
+  - [x] `write_pid_file(path)` — write `os.getpid()` to file; create parent directory if needed
+  - [x] `remove_pid_file(path)` — remove file if it exists
+  - [x] `read_pid_file(path) -> int | None` — read PID from file, return None if file doesn't exist or is invalid
+  - [x] `is_daemon_running(pid_path) -> bool` — read PID file, check `os.kill(pid, 0)`; handle stale files (process gone → remove stale PID file, return False)
+  - [x] `remove_socket_file(path)` — remove Unix socket file if it exists
+  - [x] `start_server(engine, config)` — create app, configure two `uvicorn.Server` instances (UDS + HTTP), run both in `asyncio.TaskGroup`; register signal handlers for SIGTERM/SIGINT that trigger shutdown
+  - [x] Signal handler: on signal, call `engine.shutdown_all()`, then set a shutdown event that causes servers to stop
+  - [x] Success: module importable; all functions present; pyright clean
 
 - [ ] **T10: Test daemon module**
   - [ ] Create `tests/server/test_daemon.py`
