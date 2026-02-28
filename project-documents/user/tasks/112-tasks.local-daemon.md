@@ -136,41 +136,41 @@ dateUpdated: 20260228
   - [x] Use `tmp_path` fixture for all file operations (no real `~/.orchestration/`)
   - [x] Success: all tests pass; ruff clean
 
-- [ ] **T11: Commit server core**
-  - [ ] `pytest tests/server/` — all green
-  - [ ] `ruff check src/orchestration/server/` — clean
-  - [ ] `pyright src/orchestration/server/` — zero errors
-  - [ ] Commit: `feat: add OrchestrationEngine, FastAPI routes, and daemon module`
+- [x] **T11: Commit server core**
+  - [x] `pytest tests/server/` — all green
+  - [x] `ruff check src/orchestration/server/` — clean
+  - [x] `pyright src/orchestration/server/` — zero errors
+  - [x] Commit: `feat: add OrchestrationEngine, FastAPI routes, and daemon module`
 
-- [ ] **T12: Implement DaemonClient**
-  - [ ] Create `src/orchestration/client/__init__.py`
-  - [ ] Create `src/orchestration/client/http.py`
-  - [ ] `DaemonNotRunningError(Exception)` — raised when connection to daemon fails
-  - [ ] `DaemonClient.__init__(socket_path, base_url)` — defaults to Unix socket at `~/.orchestration/daemon.sock`; falls back to HTTP at `http://127.0.0.1:7862`
-  - [ ] Internally creates `httpx.AsyncClient` with `AsyncHTTPTransport(uds=socket_path)` for Unix socket, or plain client for HTTP; timeout set to 300s
-  - [ ] Methods: `spawn(request_data)`, `list_agents(state, provider)`, `send_message(agent_name, content)`, `get_history(agent_name, limit)`, `shutdown_agent(name)`, `shutdown_all()`, `health()`, `request_shutdown()`
-  - [ ] Each method makes the appropriate HTTP call, deserializes response, returns domain objects
-  - [ ] Connection errors (`httpx.ConnectError`) → raise `DaemonNotRunningError` with helpful message
-  - [ ] HTTP error responses (4xx/5xx) → raise appropriate errors with detail from response body
-  - [ ] `close()` method to close the underlying httpx client
-  - [ ] Success: module importable; pyright clean
+- [x] **T12: Implement DaemonClient**
+  - [x] Create `src/orchestration/client/__init__.py`
+  - [x] Create `src/orchestration/client/http.py`
+  - [x] `DaemonNotRunningError(Exception)` — raised when connection to daemon fails
+  - [x] `DaemonClient.__init__(socket_path, base_url)` — defaults to Unix socket at `~/.orchestration/daemon.sock`; falls back to HTTP at `http://127.0.0.1:7862`
+  - [x] Internally creates `httpx.AsyncClient` with `AsyncHTTPTransport(uds=socket_path)` for Unix socket, or plain client for HTTP; timeout set to 300s
+  - [x] Methods: `spawn(request_data)`, `list_agents(state, provider)`, `send_message(agent_name, content)`, `get_history(agent_name, limit)`, `shutdown_agent(name)`, `shutdown_all()`, `health()`, `request_shutdown()`
+  - [x] Each method makes the appropriate HTTP call, deserializes response, returns domain objects
+  - [x] Connection errors (`httpx.ConnectError`) → raise `DaemonNotRunningError` with helpful message
+  - [x] HTTP error responses (4xx/5xx) → raise appropriate errors with detail from response body
+  - [x] `close()` method to close the underlying httpx client
+  - [x] Success: module importable; pyright clean
 
-- [ ] **T13: Test DaemonClient**
-  - [ ] Create `tests/client/test_http.py`
-  - [ ] `test_spawn_sends_post` — mock httpx response; verify POST to `/agents` with correct body
-  - [ ] `test_list_agents` — mock response; verify GET to `/agents`
-  - [ ] `test_send_message` — mock response; verify POST to `/agents/{name}/message`
-  - [ ] `test_get_history` — mock response; verify GET to `/agents/{name}/history`
-  - [ ] `test_shutdown_agent` — mock response; verify DELETE to `/agents/{name}`
-  - [ ] `test_connection_error_raises_daemon_not_running` — mock `httpx.ConnectError`; verify `DaemonNotRunningError` raised
-  - [ ] `test_health` — mock response; verify GET to `/health`
-  - [ ] Success: all tests pass; ruff clean
+- [x] **T13: Test DaemonClient**
+  - [x] Create `tests/client/test_http.py`
+  - [x] `test_spawn_sends_post` — mock httpx response; verify POST to `/agents` with correct body
+  - [x] `test_list_agents` — mock response; verify GET to `/agents`
+  - [x] `test_send_message` — mock response; verify POST to `/agents/{name}/message`
+  - [x] `test_get_history` — mock response; verify GET to `/agents/{name}/history`
+  - [x] `test_shutdown_agent` — mock response; verify DELETE to `/agents/{name}`
+  - [x] `test_connection_error_raises_daemon_not_running` — mock `httpx.ConnectError`; verify `DaemonNotRunningError` raised
+  - [x] `test_health` — mock response; verify GET to `/health`
+  - [x] Success: all tests pass; ruff clean
 
-- [ ] **T14: Commit client**
-  - [ ] `pytest tests/client/` — all green
-  - [ ] `ruff check src/orchestration/client/` — clean
-  - [ ] `pyright src/orchestration/client/` — zero errors
-  - [ ] Commit: `feat: add DaemonClient for CLI-to-daemon communication`
+- [x] **T14: Commit client**
+  - [x] `pytest tests/client/` — all green
+  - [x] `ruff check src/orchestration/client/` — clean
+  - [x] `pyright src/orchestration/client/` — zero errors
+  - [x] Commit: `feat: add DaemonClient for CLI-to-daemon communication`
 
 - [ ] **T15: Implement serve command**
   - [ ] Create `src/orchestration/cli/commands/serve.py`
