@@ -4,7 +4,7 @@ project: orchestration
 lld: project-documents/user/slices/112-slice.local-daemon.md
 dependencies: [foundation, agent-registry, cli-foundation, openai-provider-core]
 projectState: M1 complete and published. OpenAI-compatible provider (slice 111) complete. 342 tests passing. Agent persistence gap identified (GitHub issue #4) — agents don't survive between CLI invocations.
-status: not started
+status: in-progress
 dateCreated: 20260228
 dateUpdated: 20260228
 ---
@@ -25,10 +25,10 @@ dateUpdated: 20260228
 
 ## Tasks
 
-- [ ] **T1: Add httpx dependency**
-  - [ ] Add `httpx>=0.27.0` to `pyproject.toml` `[project.dependencies]`
-  - [ ] Run `uv sync` to install
-  - [ ] Success: `python -c "import httpx; print(httpx.__version__)"` prints a version; `uv sync` clean
+- [x] **T1: Add httpx dependency**
+  - [x] Add `httpx>=0.27.0` to `pyproject.toml` `[project.dependencies]`
+  - [x] Run `uv sync` to install
+  - [x] Success: `python -c "import httpx; print(httpx.__version__)"` prints a version; `uv sync` clean
 
 - [ ] **T2: Create test infrastructure for server and client**
   - [ ] Create `tests/server/__init__.py`
