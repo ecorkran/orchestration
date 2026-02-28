@@ -54,18 +54,18 @@ dateUpdated: 20260228
   - [x] Update `src/orchestration/server/__init__.py` — replace stub docstring; export `OrchestrationEngine`
   - [x] Success: module importable; all methods present; pyright clean on this file
 
-- [ ] **T4: Test OrchestrationEngine**
-  - [ ] Create `tests/server/test_engine.py`
-  - [ ] `test_spawn_agent` — spawn via engine, returns `AgentInfo` with correct name
-  - [ ] `test_spawn_agent_loads_provider` — verify `_load_provider` is called with provider name before registry spawn
-  - [ ] `test_list_agents_returns_spawned` — spawn two, list returns both
-  - [ ] `test_send_message_returns_responses` — spawn, send message, get list of response Messages
-  - [ ] `test_send_message_records_history` — after send, `get_history` returns both human and agent messages
-  - [ ] `test_get_history_empty_for_unknown` — returns empty list (not error) for unknown agent name
-  - [ ] `test_history_retained_after_shutdown` — spawn, message, shutdown, history still returns messages
-  - [ ] `test_shutdown_agent` — spawn then shutdown; agent no longer in list
-  - [ ] `test_shutdown_all` — spawn two, shutdown_all returns `ShutdownReport` with both names
-  - [ ] Success: all tests pass; ruff clean
+- [x] **T4: Test OrchestrationEngine**
+  - [x] Create `tests/server/test_engine.py`
+  - [x] `test_spawn_agent` — spawn via engine, returns `AgentInfo` with correct name
+  - [x] `test_spawn_agent_loads_provider` — verify `_load_provider` is called with provider name before registry spawn
+  - [x] `test_list_agents_returns_spawned` — spawn two, list returns both
+  - [x] `test_send_message_returns_responses` — spawn, send message, get list of response Messages
+  - [x] `test_send_message_records_history` — after send, `get_history` returns both human and agent messages
+  - [x] `test_get_history_empty_for_unknown` — returns empty list (not error) for unknown agent name
+  - [x] `test_history_retained_after_shutdown` — spawn, message, shutdown, history still returns messages
+  - [x] `test_shutdown_agent` — spawn then shutdown; agent no longer in list
+  - [x] `test_shutdown_all` — spawn two, shutdown_all returns `ShutdownReport` with both names
+  - [x] Success: all tests pass; ruff clean
 
 - [ ] **T5: Implement server models and health route**
   - [ ] Create `src/orchestration/server/models.py` with Pydantic models:
