@@ -80,19 +80,19 @@ dateUpdated: 20260228
   - [x] Create `src/orchestration/server/routes/health.py` — `health_router` with `GET /health` returning `HealthResponse`
   - [x] Success: models importable; health router importable; pyright clean
 
-- [ ] **T6: Implement agent routes**
-  - [ ] Create `src/orchestration/server/routes/agents.py` — `agents_router` with:
-    - [ ] `POST /` — spawn agent (accepts `SpawnRequest`, returns `AgentInfoOut`)
-    - [ ] `GET /` — list agents (optional `state` and `provider` query params, returns `list[AgentInfoOut]`)
-    - [ ] `GET /{name}` — get single agent info (returns `AgentInfoOut`, 404 if not found)
-    - [ ] `DELETE /{name}` — shutdown single agent (204 on success, 404 if not found)
-    - [ ] `DELETE /` — shutdown all agents (returns `ShutdownReportOut`)
-    - [ ] `POST /{name}/message` — send message (accepts `MessageRequest`, returns `MessageResponse`)
-    - [ ] `POST /{name}/task` — one-shot task (accepts `SpawnRequest` + prompt in body, returns `MessageResponse`; spawns ephemeral agent, messages, shuts down)
-    - [ ] `GET /{name}/history` — get conversation history (optional `limit` query param, returns `MessageResponse`)
-  - [ ] All routes access engine via `request.app.state.engine`
-  - [ ] Map `AgentNotFoundError` → HTTP 404; `ProviderError` hierarchy → appropriate 4xx/5xx
-  - [ ] Success: routes importable; pyright clean
+- [x] **T6: Implement agent routes**
+  - [x] Create `src/orchestration/server/routes/agents.py` — `agents_router` with:
+    - [x] `POST /` — spawn agent (accepts `SpawnRequest`, returns `AgentInfoOut`)
+    - [x] `GET /` — list agents (optional `state` and `provider` query params, returns `list[AgentInfoOut]`)
+    - [x] `GET /{name}` — get single agent info (returns `AgentInfoOut`, 404 if not found)
+    - [x] `DELETE /{name}` — shutdown single agent (204 on success, 404 if not found)
+    - [x] `DELETE /` — shutdown all agents (returns `ShutdownReportOut`)
+    - [x] `POST /{name}/message` — send message (accepts `MessageRequest`, returns `MessageResponse`)
+    - [x] `POST /{name}/task` — one-shot task (accepts `SpawnRequest` + prompt in body, returns `MessageResponse`; spawns ephemeral agent, messages, shuts down)
+    - [x] `GET /{name}/history` — get conversation history (optional `limit` query param, returns `MessageResponse`)
+  - [x] All routes access engine via `request.app.state.engine`
+  - [x] Map `AgentNotFoundError` → HTTP 404; `ProviderError` hierarchy → appropriate 4xx/5xx
+  - [x] Success: routes importable; pyright clean
 
 - [ ] **T7: Test routes**
   - [ ] Create `tests/server/test_routes.py`
