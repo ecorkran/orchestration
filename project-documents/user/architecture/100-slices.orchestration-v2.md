@@ -109,8 +109,8 @@ M1 — SDK Agent Task Execution:
 Post-M1:
   15. Review Workflow Templates                     ✅ complete
   106. M1 Polish & Publish                           ✅ complete
-  111. OpenAI-Compatible Provider Core               (can start now — depends on Foundation only)
-  112. Local Server & CLI Client
+  111. OpenAI-Compatible Provider Core               ✅ complete
+  112. Local Server & CLI Client                     ✅ complete
   113. Provider Variants & Registry                  (after 112)
   114. OAuth & Advanced Auth                         (after 112, parallel with 113)
 

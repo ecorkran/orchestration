@@ -14,6 +14,47 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260228
 
+### Slice 112: Local Server & CLI Client — Phase 7 Implementation Complete
+
+All 27 tasks (T1-T27) implemented. 35 new tests (377 total project tests passing). Zero pyright/ruff errors on src/.
+
+**Key commits:**
+| Hash | Description |
+|------|-------------|
+| `e8350b2` | chore: add httpx dependency |
+| `46c4380` | feat: add test infrastructure for server and client (T2) |
+| `ae55e8b` | feat: implement OrchestrationEngine (T3) |
+| `5301aa5` | test: add OrchestrationEngine tests (T4) |
+| `d0591f6` | feat: add server models and health route (T5) |
+| `73acbd8` | feat: add agent CRUD and messaging routes (T6) |
+| `4a0dccb` | feat: add app factory and route tests (T7, T8) |
+| `51b6f3d` | feat: add daemon module with PID management (T9) |
+| `f6c74af` | feat: server core checkpoint (T11) |
+| `48a5068` | feat: add DaemonClient (T12-T14) |
+| `1733974` | feat: add serve command (T15-T16) |
+| `c908121` | refactor: CLI commands use DaemonClient (T17-T20) |
+| `2079bfd` | feat: add message and history commands (T21-T23) |
+| `1de8866` | feat: validation pass and format fixes (T25) |
+| `ca8b1f5` | test: add daemon integration test (T26-T27) |
+
+**New modules:**
+- `src/orchestration/server/engine.py` — OrchestrationEngine with agent lifecycle and conversation history
+- `src/orchestration/server/models.py` — Pydantic request/response schemas
+- `src/orchestration/server/routes/` — FastAPI agent CRUD, messaging, and health routes
+- `src/orchestration/server/app.py` — Application factory
+- `src/orchestration/server/daemon.py` — PID management, signal handling, dual-transport server
+- `src/orchestration/client/http.py` — DaemonClient with Unix socket / HTTP transport
+- `src/orchestration/cli/commands/serve.py` — `orchestration serve` with --status/--stop
+- `src/orchestration/cli/commands/message.py` — `orchestration message`
+- `src/orchestration/cli/commands/history.py` — `orchestration history` with --limit
+
+**Refactored modules:**
+- `spawn.py`, `list.py`, `task.py`, `shutdown.py` — all use DaemonClient instead of direct registry
+
+**Next:** Slice 113 (Provider Variants & Registry).
+
+---
+
 ### Slice 112: Local Server & CLI Client — Slice Design Complete
 
 **Documents created:**
