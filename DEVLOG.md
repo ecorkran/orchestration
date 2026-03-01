@@ -14,6 +14,21 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260228
 
+### Slice 113: Provider Variants & Registry — Phase 4 Design Complete
+
+Slice design created at `project-documents/user/slices/113-slice.provider-variants.md`.
+
+Key design decisions:
+- **Profiles, not subclasses**: All three variants (OpenRouter, local, Gemini) are configurations of `OpenAICompatibleProvider`, bundled as named `ProviderProfile` entries.
+- **Separate `providers.toml`**: Structured profile data lives in its own file (`~/.config/orchestration/providers.toml`), not in the flat `config.toml`.
+- **`--profile` CLI flag**: New flag on spawn command, separate from `--provider`. Profile provides defaults; CLI flags override.
+- **Localhost auth bypass**: Local model servers get a placeholder API key (`"not-needed"`) instead of raising `ProviderAuthError`.
+- **`models` command**: Direct HTTP query to `/v1/models` for model discovery, bypasses daemon.
+
+| Hash | Description |
+|------|-------------|
+| `e399e5f` | docs: add slice 113 design |
+
 ### Slice 112: Local Server & CLI Client — Phase 7 Implementation Complete
 
 All 27 tasks (T1-T27) implemented. 35 new tests (377 total project tests passing). Zero pyright/ruff errors on src/.
