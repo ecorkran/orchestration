@@ -14,6 +14,14 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260301
 
+### Slice 114: Auth Strategy & Credential Management — Implementation Complete
+
+Implemented all 18 tasks for slice 114. Added `AuthStrategy` protocol and `ApiKeyStrategy` in `providers/auth.py` — direct extraction of existing credential resolution from `OpenAICompatibleProvider`, same behavior. Added `resolve_auth_strategy()` factory and `AUTH_STRATEGIES` registry. Extended `ProviderProfile` with `auth_type` field (default `"api_key"`). Refactored `OpenAICompatibleProvider.create_agent()` to delegate to the strategy. Added `orchestration auth login <profile>` and `orchestration auth status` CLI commands. 435 tests pass; pyright and ruff clean.
+
+New files: `src/orchestration/providers/auth.py`, `src/orchestration/cli/commands/auth.py`, `tests/providers/test_auth.py`, `tests/providers/test_auth_resolution.py`, `tests/cli/test_auth.py`.
+
+---
+
 ### Slice 114: Auth Strategy & Credential Management — Design Complete
 
 Research into OpenAI OAuth revealed the API has no general OAuth2 flow — authentication is purely key-based (project-scoped, service account). OAuth exists only for Codex subscription access (browser-based, ChatGPT Plus/Pro/Teams). This finding reshaped slice 114 from "implement OAuth" to "formalize auth strategy abstraction with API key as concrete implementation."
