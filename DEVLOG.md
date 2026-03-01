@@ -12,6 +12,18 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ---
 
+## 20260301
+
+### Slice 113: Provider Variants & Registry — Post-Merge Fix
+
+Live testing with OpenRouter/Kimi revealed `credentials` dropped at daemon boundary. `SpawnRequest` was missing the field; fixed in `server/models.py` and `routes/agents.py`. Verified working end-to-end with OpenRouter profile.
+
+| Hash | Description |
+|------|-------------|
+| `146ed4b` | fix: pass credentials through SpawnRequest to AgentConfig |
+
+---
+
 ## 20260228
 
 ### Slice 113: Provider Variants & Registry — Complete
