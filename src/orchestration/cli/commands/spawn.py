@@ -10,6 +10,7 @@ from rich import print as rprint
 
 from orchestration.client.http import DaemonClient, DaemonNotRunningError
 from orchestration.config.manager import get_config
+from orchestration.providers.profiles import get_profile
 
 
 def _resolve_spawn_model(flag: str | None) -> str | None:
@@ -18,6 +19,29 @@ def _resolve_spawn_model(flag: str | None) -> str | None:
         return flag
     config_val = get_config("default_model")
     return config_val if isinstance(config_val, str) else None
+
+
+def _resolve_profile(
+    profile_name: str,
+    cli_provider: str | None,
+    cli_base_url: str | None,
+) -> dict[str, Any]:
+    """Load a profile and return fields to merge into request_data.
+
+    CLI flags take precedence over profile fields when explicitly set.
+    """
+    profile = get_profile(profile_name)
+    credentials: dict[str, Any] = {}
+    if profile.api_key_env is not None:
+        credentials["api_key_env"] = profile.api_key_env
+    if profile.default_headers is not None:
+        credentials["default_headers"] = profile.default_headers
+    return {
+        "agent_type": "api",
+        "provider": cli_provider or profile.provider,
+        "base_url": cli_base_url or profile.base_url,
+        "credentials": credentials,
+    }
 
 
 def spawn(
@@ -43,19 +67,32 @@ def spawn(
         "--base-url",
         help="Base URL for OpenAI-compatible endpoints",
     ),
+    profile: str | None = typer.Option(
+        None,
+        "--profile",
+        help="Provider profile (e.g. openrouter, local, gemini)",
+    ),
 ) -> None:
     """Spawn a new agent."""
-    resolved_provider = provider or agent_type
     resolved_model = _resolve_spawn_model(model)
     request_data: dict[str, Any] = {
         "name": name,
         "agent_type": agent_type,
-        "provider": resolved_provider,
+        "provider": provider or agent_type,
         "model": resolved_model,
         "instructions": system_prompt,
         "base_url": base_url,
         "cwd": cwd,
     }
+
+    if profile is not None:
+        try:
+            profile_data = _resolve_profile(profile, provider, base_url)
+        except KeyError as exc:
+            rprint(f"[red]Error: {exc}[/red]")
+            raise typer.Exit(code=1)
+        request_data.update(profile_data)
+
     asyncio.run(_spawn(request_data))
 
 
