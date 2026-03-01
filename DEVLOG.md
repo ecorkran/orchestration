@@ -2,7 +2,7 @@
 docType: devlog
 project: orchestration
 dateCreated: 20260218
-dateUpdated: 20260228
+dateUpdated: 20260301
 ---
 
 # Development Log
@@ -13,6 +13,29 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 ---
 
 ## 20260301
+
+### Slice 114: Auth Strategy & Credential Management — Design Complete
+
+Research into OpenAI OAuth revealed the API has no general OAuth2 flow — authentication is purely key-based (project-scoped, service account). OAuth exists only for Codex subscription access (browser-based, ChatGPT Plus/Pro/Teams). This finding reshaped slice 114 from "implement OAuth" to "formalize auth strategy abstraction with API key as concrete implementation."
+
+Documents created:
+- `project-documents/user/slices/114-slice.oauth-advanced-auth.md` — slice design
+- Updated `100-slices.orchestration-v2.md` — revised slice 114 entry, new slice 116 (Codex Agent Integration)
+
+Key decisions:
+- `AuthStrategy` protocol with `get_credentials()`, `refresh_if_needed()`, `is_valid()`
+- `ApiKeyStrategy` as direct extraction of existing provider credential resolution
+- `auth_type` field on `ProviderProfile` for strategy dispatch
+- CLI `auth login`/`auth status` commands for credential validation
+- Codex agent integration (OAuth) deferred to new slice 116
+
+Scope: `AuthStrategy` protocol, `ApiKeyStrategy`, `ProviderProfile.auth_type`, CLI auth commands, provider refactor
+
+| Hash | Description |
+|------|-------------|
+| `156d78f` | docs: add slice 114 design (auth strategy) and slice 116 entry (codex) |
+
+---
 
 ### Slice 113: Provider Variants & Registry — Post-Merge Fix
 
