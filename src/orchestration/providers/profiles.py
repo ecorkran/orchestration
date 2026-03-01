@@ -17,6 +17,7 @@ class ProviderProfile:
     api_key_env: str | None = None
     default_headers: dict[str, str] | None = None
     description: str = ""
+    auth_type: str = "api_key"
 
 
 BUILT_IN_PROFILES: dict[str, ProviderProfile] = {
@@ -86,6 +87,7 @@ def load_user_profiles() -> dict[str, ProviderProfile]:
                 else None
             ),
             description=str(fields.get("description", "")),
+            auth_type=str(fields.get("auth_type", "api_key")),
         )
     return result
 

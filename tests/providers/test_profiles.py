@@ -13,7 +13,6 @@ from orchestration.providers.profiles import (
     get_all_profiles,
     get_profile,
     load_user_profiles,
-    providers_toml_path,
 )
 
 
@@ -94,3 +93,48 @@ def test_get_profile_known() -> None:
 def test_get_profile_unknown_raises() -> None:
     with pytest.raises(KeyError, match="nonexistent"):
         get_profile("nonexistent")
+
+
+# --- auth_type tests ---
+
+
+def test_builtin_profiles_have_api_key_auth_type() -> None:
+    for name, profile in BUILT_IN_PROFILES.items():
+        assert profile.auth_type == "api_key", f"{name} should have auth_type='api_key'"
+
+
+def test_user_profile_with_custom_auth_type(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    toml_file = tmp_path / "providers.toml"
+    toml_file.write_text(
+        textwrap.dedent("""\
+            [profiles.my-codex]
+            provider = "openai"
+            auth_type = "oauth"
+        """)
+    )
+    monkeypatch.setattr(
+        "orchestration.providers.profiles.providers_toml_path",
+        lambda: toml_file,
+    )
+    result = load_user_profiles()
+    assert result["my-codex"].auth_type == "oauth"
+
+
+def test_user_profile_without_auth_type_defaults(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    toml_file = tmp_path / "providers.toml"
+    toml_file.write_text(
+        textwrap.dedent("""\
+            [profiles.myprofile]
+            provider = "openai"
+        """)
+    )
+    monkeypatch.setattr(
+        "orchestration.providers.profiles.providers_toml_path",
+        lambda: toml_file,
+    )
+    result = load_user_profiles()
+    assert result["myprofile"].auth_type == "api_key"

@@ -112,9 +112,7 @@ def resolve_auth_strategy(
     Reads auth_type from profile (defaults to "api_key" if no profile).
     Raises ProviderAuthError for unknown auth_type values.
     """
-    auth_type: str = (
-        getattr(profile, "auth_type", "api_key") if profile is not None else "api_key"
-    )
+    auth_type: str = profile.auth_type if profile is not None else "api_key"
 
     strategy_cls = AUTH_STRATEGIES.get(auth_type)
     if strategy_cls is None:
