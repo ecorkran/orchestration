@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import os
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from orchestration.providers.errors import ProviderAuthError
+
+if TYPE_CHECKING:
+    from orchestration.core.models import AgentConfig
+    from orchestration.providers.profiles import ProviderProfile
 
 
 @runtime_checkable
@@ -90,3 +94,49 @@ class ApiKeyStrategy:
     def is_valid(self) -> bool:
         """Return True if any key source resolves to a non-empty value."""
         return self._resolve() is not None
+
+
+# Registry mapping auth_type strings to strategy classes.
+AUTH_STRATEGIES: dict[str, type] = {
+    "api_key": ApiKeyStrategy,
+    # Future: "oauth": OAuthStrategy (slice 116)
+}
+
+
+def resolve_auth_strategy(
+    config: AgentConfig,
+    profile: ProviderProfile | None = None,
+) -> AuthStrategy:
+    """Build an AuthStrategy from config and optional profile.
+
+    Reads auth_type from profile (defaults to "api_key" if no profile).
+    Raises ProviderAuthError for unknown auth_type values.
+    """
+    auth_type: str = (
+        getattr(profile, "auth_type", "api_key") if profile is not None else "api_key"
+    )
+
+    strategy_cls = AUTH_STRATEGIES.get(auth_type)
+    if strategy_cls is None:
+        available = ", ".join(sorted(AUTH_STRATEGIES))
+        raise ProviderAuthError(
+            f"Unknown auth_type {auth_type!r}. Available: {available}"
+        )
+
+    if auth_type == "api_key":
+        env_var: str | None
+        if profile is not None:
+            env_var = profile.api_key_env
+        else:
+            raw = config.credentials.get("api_key_env")
+            env_var = str(raw) if raw is not None else None
+
+        return ApiKeyStrategy(
+            explicit_key=config.api_key,
+            env_var=env_var,
+            fallback_env_var="OPENAI_API_KEY",
+            base_url=config.base_url,
+        )
+
+    # Unreachable until additional auth types are added to the registry.
+    raise ProviderAuthError(f"Auth type {auth_type!r} not yet implemented")
