@@ -26,15 +26,38 @@ class OpenAICompatibleProvider:
 
     async def create_agent(self, config: AgentConfig) -> OpenAICompatibleAgent:
         """Resolve credentials, construct AsyncOpenAI client, return agent."""
-        api_key = config.api_key or os.environ.get("OPENAI_API_KEY")
+        api_key = config.api_key
+
+        # Check profile-specified env var before falling back to OPENAI_API_KEY
         if not api_key:
-            raise ProviderAuthError(
-                "No API key found. Set config.api_key or OPENAI_API_KEY env var."
-            )
+            api_key_env = config.credentials.get("api_key_env")
+            if api_key_env:
+                api_key = os.environ.get(str(api_key_env))
+
+        if not api_key:
+            api_key = os.environ.get("OPENAI_API_KEY")
+
+        if not api_key:
+            base_url = config.base_url or ""
+            if base_url.startswith("http://localhost") or base_url.startswith(
+                "http://127.0.0.1"
+            ):
+                api_key = "not-needed"
+            else:
+                raise ProviderAuthError(
+                    "No API key found. Set config.api_key, the profile"
+                    " api_key_env var, or OPENAI_API_KEY."
+                )
+
         if config.model is None:
             raise ProviderError("model is required for OpenAI-compatible agents")
 
-        client = AsyncOpenAI(api_key=api_key, base_url=config.base_url)
+        default_headers = config.credentials.get("default_headers")
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=config.base_url,
+            default_headers=default_headers,  # type: ignore[arg-type]
+        )
 
         from orchestration.providers.openai.agent import OpenAICompatibleAgent
 

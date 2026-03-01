@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -75,6 +75,101 @@ class TestCreateAgent:
             await provider.create_agent(config)
         _, kwargs = mock_cls.call_args
         assert kwargs["base_url"] == "http://localhost:11434/v1"
+
+
+class TestEnhancedCredentialResolution:
+    @pytest.mark.asyncio
+    async def test_api_key_from_credentials_env_var(
+        self, provider: OpenAICompatibleProvider, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MY_CUSTOM_KEY", "sk-custom")
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        creds = {"api_key_env": "MY_CUSTOM_KEY"}
+        config = AgentConfig(**{**_BASE_CONFIG, "credentials": creds})
+        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await provider.create_agent(config)
+        _, kwargs = mock_cls.call_args
+        assert kwargs["api_key"] == "sk-custom"
+
+    @pytest.mark.asyncio
+    async def test_credentials_env_var_takes_precedence_over_default(
+        self, provider: OpenAICompatibleProvider, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MY_CUSTOM_KEY", "sk-custom")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-default")
+        creds = {"api_key_env": "MY_CUSTOM_KEY"}
+        config = AgentConfig(**{**_BASE_CONFIG, "credentials": creds})
+        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await provider.create_agent(config)
+        _, kwargs = mock_cls.call_args
+        assert kwargs["api_key"] == "sk-custom"
+
+    @pytest.mark.asyncio
+    async def test_localhost_placeholder_key(
+        self, provider: OpenAICompatibleProvider, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        config = AgentConfig(
+            **{**_BASE_CONFIG, "api_key": None, "base_url": "http://localhost:11434/v1"}
+        )
+        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await provider.create_agent(config)
+        _, kwargs = mock_cls.call_args
+        assert kwargs["api_key"] == "not-needed"
+
+    @pytest.mark.asyncio
+    async def test_127_0_0_1_placeholder_key(
+        self, provider: OpenAICompatibleProvider, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        config = AgentConfig(
+            **{**_BASE_CONFIG, "api_key": None, "base_url": "http://127.0.0.1:8080/v1"}
+        )
+        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await provider.create_agent(config)
+        _, kwargs = mock_cls.call_args
+        assert kwargs["api_key"] == "not-needed"
+
+    @pytest.mark.asyncio
+    async def test_remote_url_still_raises_without_key(
+        self, provider: OpenAICompatibleProvider, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        config = AgentConfig(
+            **{**_BASE_CONFIG, "api_key": None, "base_url": "https://api.example.com"}
+        )
+        with pytest.raises(ProviderAuthError):
+            await provider.create_agent(config)
+
+    @pytest.mark.asyncio
+    async def test_default_headers_passed_to_client(
+        self, provider: OpenAICompatibleProvider, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-env")
+        config = AgentConfig(
+            **{**_BASE_CONFIG, "credentials": {"default_headers": {"X-Custom": "val"}}}
+        )
+        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await provider.create_agent(config)
+        _, kwargs = mock_cls.call_args
+        assert kwargs["default_headers"] == {"X-Custom": "val"}
+
+    @pytest.mark.asyncio
+    async def test_no_default_headers_passes_none(
+        self, provider: OpenAICompatibleProvider, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-env")
+        config = AgentConfig(**_BASE_CONFIG)
+        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await provider.create_agent(config)
+        _, kwargs = mock_cls.call_args
+        assert kwargs["default_headers"] is None
 
 
 class TestValidateCredentials:
