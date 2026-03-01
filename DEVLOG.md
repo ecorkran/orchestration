@@ -14,6 +14,34 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260228
 
+### Slice 113: Provider Variants & Registry — Complete
+
+All 15 tasks implemented across 4 groups. 408 tests passing (31 new). Zero pyright/ruff errors on src/.
+
+**Key commits:**
+| Hash | Description |
+|------|-------------|
+| `b1831c0` | feat: add provider profile model and TOML loading |
+| `7eb9eff` | feat: enhance credential resolution and default headers support |
+| `45ec6b8` | feat: add --profile flag to spawn and models command |
+
+**What works:**
+- `ProviderProfile` frozen dataclass with 4 built-ins: `openai`, `openrouter`, `local`, `gemini`
+- TOML loading from `~/.config/orchestration/providers.toml`; user profiles override built-ins
+- Credential resolution chain: `config.api_key` → profile env var → `OPENAI_API_KEY` → localhost placeholder
+- OpenRouter `default_headers` via `AsyncOpenAI(default_headers=...)` constructor
+- `orchestration spawn --profile openrouter --model x` fully functional
+- `orchestration models --profile local` for model discovery (direct HTTP, no daemon)
+
+**Key decisions:**
+- Profiles are data (frozen dataclass), not subclasses — all three variants reuse `OpenAICompatibleProvider`
+- Localhost placeholder: `"not-needed"` when no API key and `base_url` starts with `http://localhost` or `http://127.0.0.1`
+- `models` command calls `/v1/models` directly via `httpx`, bypassing daemon
+
+**Next:** Slice 114 (OAuth & Advanced Auth)
+
+---
+
 ### Slice 113: Provider Variants & Registry — Phase 4 Design Complete
 
 Slice design created at `project-documents/user/slices/113-slice.provider-variants.md`.
