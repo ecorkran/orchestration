@@ -111,3 +111,32 @@ async def test_shutdown_all(async_client: httpx.AsyncClient):
     data = resp.json()
     assert "a" in data["succeeded"]
     assert "b" in data["succeeded"]
+
+
+async def test_spawn_credentials_forwarded(
+    async_client: httpx.AsyncClient, mock_provider: Any
+) -> None:
+    """Credentials in SpawnRequest reach AgentConfig (regression: profile bug)."""
+    last_config: list = []
+    original_create = mock_provider.create_agent
+
+    async def capturing_create(config):  # type: ignore[no-untyped-def]
+        last_config.append(config)
+        return await original_create(config)
+
+    mock_provider.create_agent = capturing_create  # type: ignore[method-assign]
+
+    resp = await async_client.post(
+        "/agents/",
+        json={
+            "name": "cred-test",
+            "agent_type": "api",
+            "provider": "mock",
+            "model": "m",
+            "credentials": {"api_key_env": "OPENROUTER_API_KEY", "x": "y"},
+        },
+    )
+    assert resp.status_code == 200
+    assert last_config, "create_agent was never called"
+    config = last_config[0]
+    assert config.credentials == {"api_key_env": "OPENROUTER_API_KEY", "x": "y"}
