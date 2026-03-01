@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SpawnRequest(BaseModel):
@@ -19,6 +19,7 @@ class SpawnRequest(BaseModel):
     base_url: str | None = None
     cwd: str | None = None
     api_key: str | None = None
+    credentials: dict[str, Any] = Field(default_factory=dict)
 
 
 class MessageRequest(BaseModel):

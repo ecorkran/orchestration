@@ -55,6 +55,7 @@ async def spawn_agent(body: SpawnRequest, request: Request) -> AgentInfoOut:
         base_url=body.base_url,
         cwd=body.cwd,
         api_key=body.api_key,
+        credentials=body.credentials,
     )
     try:
         info = await engine.spawn_agent(config)
