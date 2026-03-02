@@ -98,9 +98,16 @@ def test_get_profile_unknown_raises() -> None:
 # --- auth_type tests ---
 
 
-def test_builtin_profiles_have_api_key_auth_type() -> None:
-    for name, profile in BUILT_IN_PROFILES.items():
-        assert profile.auth_type == "api_key", f"{name} should have auth_type='api_key'"
+def test_builtin_profiles_auth_types() -> None:
+    expected = {
+        "openai": "api_key",
+        "openrouter": "api_key",
+        "local": "api_key",
+        "gemini": "api_key",
+        "sdk": "session",
+    }
+    for name, auth_type in expected.items():
+        assert BUILT_IN_PROFILES[name].auth_type == auth_type
 
 
 def test_user_profile_with_custom_auth_type(

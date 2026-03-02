@@ -58,6 +58,7 @@ BUILT_IN_PROFILES: dict[str, ProviderProfile] = {
         provider="sdk",
         api_key_env=None,
         description="Claude Code SDK (uses active Claude Code session credentials)",
+        auth_type="session",
     ),
 }
 
