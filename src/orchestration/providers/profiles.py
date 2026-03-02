@@ -53,6 +53,12 @@ BUILT_IN_PROFILES: dict[str, ProviderProfile] = {
         api_key_env="GEMINI_API_KEY",
         description="Google Gemini via OpenAI-compatible endpoint",
     ),
+    "sdk": ProviderProfile(
+        name="sdk",
+        provider="sdk",
+        api_key_env=None,
+        description="Claude Code SDK (uses active Claude Code session credentials)",
+    ),
 }
 
 
