@@ -6,16 +6,16 @@ from collections.abc import AsyncIterator, Generator
 
 import pytest
 
-from orchestration.core.models import AgentConfig, AgentState, Message
-from orchestration.providers import registry as reg_module
-from orchestration.providers.base import Agent, AgentProvider
-from orchestration.providers.errors import (
+from squadron.core.models import AgentConfig, AgentState, Message
+from squadron.providers import registry as reg_module
+from squadron.providers.base import Agent, AgentProvider
+from squadron.providers.errors import (
     ProviderAPIError,
     ProviderAuthError,
     ProviderError,
     ProviderTimeoutError,
 )
-from orchestration.providers.registry import (
+from squadron.providers.registry import (
     get_provider,
     list_providers,
     register_provider,

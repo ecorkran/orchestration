@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
-from orchestration.review.models import ReviewResult, Verdict
+from squadron.cli.app import app
+from squadron.review.models import ReviewResult, Verdict
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def pass_result() -> ReviewResult:
 @pytest.fixture
 def mock_run_review(pass_result: ReviewResult):
     with patch(
-        "orchestration.cli.commands.review.run_review",
+        "squadron.cli.commands.review.run_review",
         new_callable=AsyncMock,
         return_value=pass_result,
     ) as mock:
@@ -53,7 +53,7 @@ class TestConfigCwd:
             return None
 
         with patch(
-            "orchestration.cli.commands.review.get_config",
+            "squadron.cli.commands.review.get_config",
             side_effect=mock_get_config,
         ):
             result = cli_runner.invoke(app, ["review", "code"])
@@ -76,7 +76,7 @@ class TestConfigCwd:
             return None
 
         with patch(
-            "orchestration.cli.commands.review.get_config",
+            "squadron.cli.commands.review.get_config",
             side_effect=mock_get_config,
         ):
             result = cli_runner.invoke(
@@ -100,7 +100,7 @@ class TestConfigCwd:
             return None
 
         with patch(
-            "orchestration.cli.commands.review.get_config",
+            "squadron.cli.commands.review.get_config",
             side_effect=mock_get_config,
         ):
             result = cli_runner.invoke(app, ["review", "code"])

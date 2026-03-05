@@ -17,17 +17,17 @@ from claude_agent_sdk import (
     TextBlock,
 )
 
-from orchestration.core.models import AgentState, Message, MessageType
-from orchestration.providers.errors import (
+from squadron.core.models import AgentState, Message, MessageType
+from squadron.providers.errors import (
     ProviderAPIError,
     ProviderAuthError,
     ProviderError,
 )
-from orchestration.providers.sdk.agent import SDKAgent
+from squadron.providers.sdk.agent import SDKAgent
 
 # Patch target for the SDK query function.
-_QUERY = "orchestration.providers.sdk.agent.sdk_query"
-_CLIENT = "orchestration.providers.sdk.agent.ClaudeSDKClient"
+_QUERY = "squadron.providers.sdk.agent.sdk_query"
+_CLIENT = "squadron.providers.sdk.agent.ClaudeSDKClient"
 
 # ---------------------------------------------------------------------------
 # Fixtures

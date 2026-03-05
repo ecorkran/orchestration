@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
-from orchestration.client.http import DaemonNotRunningError
+from squadron.cli.app import app
+from squadron.client.http import DaemonNotRunningError
 from tests.cli.conftest import make_agent_dict
 
 
@@ -39,9 +39,7 @@ class TestListCommand:
     def test_daemon_not_running(
         self, cli_runner: CliRunner, patch_daemon_client: MagicMock
     ) -> None:
-        patch_daemon_client.list_agents.side_effect = (
-            DaemonNotRunningError()
-        )
+        patch_daemon_client.list_agents.side_effect = DaemonNotRunningError()
         result = _invoke(cli_runner)
         assert result.exit_code == 1
         assert "not running" in result.output.lower()

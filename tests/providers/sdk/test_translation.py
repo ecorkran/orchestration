@@ -1,4 +1,4 @@
-"""Tests for SDK message → orchestration Message translation."""
+"""Tests for SDK message → squadron Message translation."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from claude_agent_sdk import (
     ToolUseBlock,
 )
 
-from orchestration.core.models import Message, MessageType
-from orchestration.providers.sdk.translation import translate_sdk_message
+from squadron.core.models import Message, MessageType
+from squadron.providers.sdk.translation import translate_sdk_message
 
 SENDER = "test-agent"
 

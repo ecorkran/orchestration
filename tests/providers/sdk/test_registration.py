@@ -6,8 +6,8 @@ from collections.abc import Generator
 
 import pytest
 
-from orchestration.providers import registry as reg_module
-from orchestration.providers.registry import get_provider, list_providers
+from squadron.providers import registry as reg_module
+from squadron.providers.registry import get_provider, list_providers
 
 
 @pytest.fixture(autouse=True)
@@ -22,11 +22,11 @@ def _clean_registry() -> Generator[None]:  # pyright: ignore[reportUnusedFunctio
 
 def _import_sdk_package() -> None:
     """Force the SDK package import and its auto-registration side effect."""
-    import orchestration.providers.sdk  # noqa: F401
-    from orchestration.providers.registry import register_provider
+    import squadron.providers.sdk  # noqa: F401
+    from squadron.providers.registry import register_provider
 
     # Re-register since the fixture clears the registry before each test.
-    from orchestration.providers.sdk.provider import SDKAgentProvider
+    from squadron.providers.sdk.provider import SDKAgentProvider
 
     register_provider("sdk", SDKAgentProvider())
 
@@ -39,7 +39,7 @@ class TestAutoRegistration:
     def test_get_provider_returns_sdk_provider(self) -> None:
         _import_sdk_package()
         provider = get_provider("sdk")
-        from orchestration.providers.sdk.provider import SDKAgentProvider
+        from squadron.providers.sdk.provider import SDKAgentProvider
 
         assert isinstance(provider, SDKAgentProvider)
 
@@ -50,8 +50,8 @@ class TestAutoRegistration:
     @pytest.mark.asyncio
     async def test_full_flow_create_agent(self) -> None:
         _import_sdk_package()
-        from orchestration.core.models import AgentConfig
-        from orchestration.providers.sdk.agent import SDKAgent
+        from squadron.core.models import AgentConfig
+        from squadron.providers.sdk.agent import SDKAgent
 
         provider = get_provider("sdk")
         config = AgentConfig(name="integration-test", agent_type="sdk", provider="sdk")

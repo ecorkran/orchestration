@@ -1,10 +1,10 @@
-"""Shared pytest fixtures for the orchestration test suite."""
+"""Shared pytest fixtures for the squadron test suite."""
 
 from __future__ import annotations
 
 import pytest
 
-from orchestration.config import Settings
+from squadron.config import Settings
 
 
 @pytest.fixture

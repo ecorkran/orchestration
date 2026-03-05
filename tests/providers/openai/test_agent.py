@@ -9,14 +9,14 @@ import httpx
 import openai
 import pytest
 
-from orchestration.core.models import AgentState, Message, MessageType
-from orchestration.providers.errors import (
+from squadron.core.models import AgentState, Message, MessageType
+from squadron.providers.errors import (
     ProviderAPIError,
     ProviderAuthError,
     ProviderError,
     ProviderTimeoutError,
 )
-from orchestration.providers.openai.agent import OpenAICompatibleAgent
+from squadron.providers.openai.agent import OpenAICompatibleAgent
 
 from .conftest import text_chunk, tool_chunk
 
@@ -40,6 +40,7 @@ def _make_agent(
 
 def _async_stream(*chunks: Any) -> AsyncMock:
     """Return an AsyncMock whose __aiter__ yields the given chunks."""
+
     async def _gen() -> Any:
         for chunk in chunks:
             yield chunk
@@ -155,8 +156,11 @@ class TestHandleMessage:
 # Error mapping helpers
 # ---------------------------------------------------------------------------
 
+
 def _mock_response(status_code: int = 401) -> httpx.Response:
-    return httpx.Response(status_code=status_code, request=httpx.Request("GET", "http://test"))
+    return httpx.Response(
+        status_code=status_code, request=httpx.Request("GET", "http://test")
+    )
 
 
 class TestErrorMapping:

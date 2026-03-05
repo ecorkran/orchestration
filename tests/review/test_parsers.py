@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from orchestration.review.models import Severity, Verdict
-from orchestration.review.parsers import parse_review_output
+from squadron.review.models import Severity, Verdict
+from squadron.review.parsers import parse_review_output
 
 WELL_FORMED_PASS = """\
 ## Summary

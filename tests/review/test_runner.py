@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from claude_agent_sdk import ClaudeSDKError
 
-from orchestration.review.models import Verdict
-from orchestration.review.runner import run_review
-from orchestration.review.templates import InputDef, ReviewTemplate
+from squadron.review.models import Verdict
+from squadron.review.runner import run_review
+from squadron.review.templates import InputDef, ReviewTemplate
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ def _make_mock_client() -> MagicMock:
 
 
 class TestRunReview:
-    """Test run_review orchestration logic."""
+    """Test run_review squadron logic."""
 
     @pytest.mark.asyncio
     async def test_options_constructed_from_template(
@@ -75,11 +75,11 @@ class TestRunReview:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ) as mock_cls,
             patch(
-                "orchestration.review.runner._extract_text",
+                "squadron.review.runner._extract_text",
                 return_value="",
             ),
         ):
@@ -101,11 +101,11 @@ class TestRunReview:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ),
             patch(
-                "orchestration.review.runner._extract_text",
+                "squadron.review.runner._extract_text",
                 return_value="",
             ),
         ):
@@ -121,11 +121,11 @@ class TestRunReview:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ),
             patch(
-                "orchestration.review.runner._extract_text",
+                "squadron.review.runner._extract_text",
                 return_value=MOCK_REVIEW_OUTPUT,
             ),
         ):
@@ -145,11 +145,11 @@ class TestRunReview:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ) as mock_cls,
             patch(
-                "orchestration.review.runner._extract_text",
+                "squadron.review.runner._extract_text",
                 return_value="",
             ),
         ):
@@ -177,11 +177,11 @@ class TestRunReview:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ) as mock_cls,
             patch(
-                "orchestration.review.runner._extract_text",
+                "squadron.review.runner._extract_text",
                 return_value="",
             ),
         ):
@@ -207,11 +207,11 @@ class TestRunReview:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ) as mock_cls,
             patch(
-                "orchestration.review.runner._extract_text",
+                "squadron.review.runner._extract_text",
                 return_value="",
             ),
         ):
@@ -225,11 +225,11 @@ class TestRunReview:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ),
             patch(
-                "orchestration.review.runner._extract_text",
+                "squadron.review.runner._extract_text",
                 return_value=MOCK_REVIEW_OUTPUT,
             ),
         ):
@@ -246,11 +246,11 @@ class TestRunReview:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ) as mock_cls,
             patch(
-                "orchestration.review.runner._extract_text",
+                "squadron.review.runner._extract_text",
                 return_value="",
             ),
         ):
@@ -278,11 +278,11 @@ class TestRunReview:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ) as mock_cls,
             patch(
-                "orchestration.review.runner._extract_text",
+                "squadron.review.runner._extract_text",
                 return_value="## Summary\nPASS\n",
             ),
         ):
@@ -318,11 +318,11 @@ class TestRateLimitEventHandling:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ),
             patch(
-                "orchestration.review.runner._extract_text",
+                "squadron.review.runner._extract_text",
                 return_value=MOCK_REVIEW_OUTPUT,
             ),
         ):
@@ -347,7 +347,7 @@ class TestRateLimitEventHandling:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ),
         ):
@@ -373,7 +373,7 @@ class TestRateLimitEventHandling:
 
         with (
             patch(
-                "orchestration.review.runner.ClaudeSDKClient",
+                "squadron.review.runner.ClaudeSDKClient",
                 return_value=mock_client,
             ),
         ):

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from orchestration.review.models import TemplateValidationError
-from orchestration.review.templates import (
+from squadron.review.models import TemplateValidationError
+from squadron.review.templates import (
     InputDef,
     ReviewTemplate,
     clear_registry,
@@ -68,7 +68,7 @@ allowed_tools: [Read]
 permission_mode: bypassPermissions
 inputs:
   required: []
-prompt_builder: orchestration.review.tests_helpers.sample_builder
+prompt_builder: squadron.review.tests_helpers.sample_builder
 """
 
 
@@ -139,11 +139,11 @@ class TestLoadTemplate:
         import types
 
         # Create a temporary module with a sample builder
-        mod = types.ModuleType("orchestration.review.tests_helpers")
+        mod = types.ModuleType("squadron.review.tests_helpers")
         mod.sample_builder = lambda inputs: f"reviewing {inputs.get('cwd', '.')}"  # type: ignore[attr-defined]
         import sys
 
-        monkeypatch.setitem(sys.modules, "orchestration.review.tests_helpers", mod)
+        monkeypatch.setitem(sys.modules, "squadron.review.tests_helpers", mod)
 
         path = _write_yaml(tmp_path, BUILDER_YAML)
         t = load_template(path)

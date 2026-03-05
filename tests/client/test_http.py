@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from orchestration.client.http import DaemonClient, DaemonNotRunningError
+from squadron.client.http import DaemonClient, DaemonNotRunningError
 
 
 @pytest.fixture
@@ -62,9 +62,7 @@ async def test_list_agents(client: DaemonClient):
 
 async def test_send_message(client: DaemonClient):
     """Verify POST to /agents/{name}/message."""
-    mock_resp = _mock_response(
-        200, {"messages": [{"content": "hi", "sender": "a"}]}
-    )
+    mock_resp = _mock_response(200, {"messages": [{"content": "hi", "sender": "a"}]})
     with patch.object(
         httpx.AsyncClient, "request", new_callable=AsyncMock, return_value=mock_resp
     ) as mock_req:

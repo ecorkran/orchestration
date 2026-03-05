@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import tomli_w
 
-from orchestration.config.manager import (
+from squadron.config.manager import (
     get_config,
     load_config,
     resolve_config_source,
@@ -106,12 +106,12 @@ class TestSetConfig:
         deep_path = tmp_path / "a" / "b" / "c" / "config.toml"
         with (
             mock_patch(
-                "orchestration.config.manager.user_config_path",
+                "squadron.config.manager.user_config_path",
                 return_value=deep_path,
             ),
             mock_patch(
-                "orchestration.config.manager.project_config_path",
-                return_value=tmp_path / "proj" / ".orchestration.toml",
+                "squadron.config.manager.project_config_path",
+                return_value=tmp_path / "proj" / ".squadron.toml",
             ),
         ):
             set_config("cwd", "/test")

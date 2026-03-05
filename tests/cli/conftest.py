@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from orchestration.core.models import AgentInfo, AgentState, Message
+from squadron.core.models import AgentInfo, AgentState, Message
 
 
 @pytest.fixture
@@ -35,10 +35,10 @@ def mock_daemon_client() -> MagicMock:
 def patch_daemon_client(mock_daemon_client: MagicMock):  # type: ignore[no-untyped-def]
     """Patch DaemonClient() in all command modules to return mock."""
     targets = [
-        "orchestration.cli.commands.spawn.DaemonClient",
-        "orchestration.cli.commands.list.DaemonClient",
-        "orchestration.cli.commands.task.DaemonClient",
-        "orchestration.cli.commands.shutdown.DaemonClient",
+        "squadron.cli.commands.spawn.DaemonClient",
+        "squadron.cli.commands.list.DaemonClient",
+        "squadron.cli.commands.task.DaemonClient",
+        "squadron.cli.commands.shutdown.DaemonClient",
     ]
     patches = []
     for t in targets:

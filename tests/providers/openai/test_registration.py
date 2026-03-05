@@ -6,8 +6,8 @@ from collections.abc import Generator
 
 import pytest
 
-from orchestration.providers import registry as reg_module
-from orchestration.providers.registry import get_provider, list_providers
+from squadron.providers import registry as reg_module
+from squadron.providers.registry import get_provider, list_providers
 
 
 @pytest.fixture(autouse=True)
@@ -24,10 +24,10 @@ def _import_openai_package() -> None:
     """Force the OpenAI package import and its auto-registration side effect."""
     import importlib
 
-    import orchestration.providers.openai  # noqa: F401
+    import squadron.providers.openai  # noqa: F401
 
     # Re-register since the fixture clears the registry before each test.
-    importlib.reload(orchestration.providers.openai)
+    importlib.reload(squadron.providers.openai)
 
 
 class TestAutoRegistration:
@@ -37,7 +37,7 @@ class TestAutoRegistration:
 
     def test_get_provider_returns_openai_provider(self) -> None:
         _import_openai_package()
-        from orchestration.providers.openai.provider import OpenAICompatibleProvider
+        from squadron.providers.openai.provider import OpenAICompatibleProvider
 
         assert isinstance(get_provider("openai"), OpenAICompatibleProvider)
 

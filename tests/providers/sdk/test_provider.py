@@ -6,11 +6,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from orchestration.core.models import AgentConfig
-from orchestration.providers.sdk.provider import SDKAgentProvider
+from squadron.core.models import AgentConfig
+from squadron.providers.sdk.provider import SDKAgentProvider
 
 # Patch target: the deferred import inside create_agent resolves from this module.
-_AGENT_PATCH = "orchestration.providers.sdk.agent.SDKAgent"
+_AGENT_PATCH = "squadron.providers.sdk.agent.SDKAgent"
 
 
 @pytest.fixture

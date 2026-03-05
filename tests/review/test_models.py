@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from orchestration.review.models import (
+from squadron.review.models import (
     ReviewFinding,
     ReviewResult,
     Severity,

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from orchestration.core.models import MessageType
-from orchestration.providers.openai.translation import (
+from squadron.core.models import MessageType
+from squadron.providers.openai.translation import (
     build_messages,
     build_text_message,
     build_tool_call_message,

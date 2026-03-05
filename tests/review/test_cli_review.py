@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
-from orchestration.review.models import (
+from squadron.cli.app import app
+from squadron.review.models import (
     ReviewFinding,
     ReviewResult,
     Severity,
@@ -49,7 +49,7 @@ def mock_review_result() -> ReviewResult:
 def patch_run_review(mock_review_result: ReviewResult):  # type: ignore[no-untyped-def]
     """Patch run_review to return mock result without SDK calls."""
     with patch(
-        "orchestration.cli.commands.review.run_review",
+        "squadron.cli.commands.review.run_review",
         new_callable=AsyncMock,
         return_value=mock_review_result,
     ) as mock:

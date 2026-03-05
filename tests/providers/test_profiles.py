@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from orchestration.providers.profiles import (
+from squadron.providers.profiles import (
     BUILT_IN_PROFILES,
     ProviderProfile,
     get_all_profiles,
@@ -32,17 +32,21 @@ def test_built_in_local_has_no_api_key_env() -> None:
     assert BUILT_IN_PROFILES["local"].api_key_env is None
 
 
-def test_load_user_profiles_missing_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_user_profiles_missing_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Returns empty dict when providers.toml does not exist."""
     monkeypatch.setattr(
-        "orchestration.providers.profiles.providers_toml_path",
+        "squadron.providers.profiles.providers_toml_path",
         lambda: tmp_path / "nonexistent.toml",
     )
     result = load_user_profiles()
     assert result == {}
 
 
-def test_load_user_profiles_from_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_user_profiles_from_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     toml_file = tmp_path / "providers.toml"
     toml_file.write_text(
         textwrap.dedent("""\
@@ -54,7 +58,7 @@ def test_load_user_profiles_from_toml(tmp_path: Path, monkeypatch: pytest.Monkey
         """)
     )
     monkeypatch.setattr(
-        "orchestration.providers.profiles.providers_toml_path",
+        "squadron.providers.profiles.providers_toml_path",
         lambda: toml_file,
     )
     result = load_user_profiles()
@@ -67,7 +71,9 @@ def test_load_user_profiles_from_toml(tmp_path: Path, monkeypatch: pytest.Monkey
     assert profile.description == "A custom profile"
 
 
-def test_user_profile_overrides_builtin(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_user_profile_overrides_builtin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     toml_file = tmp_path / "providers.toml"
     toml_file.write_text(
         textwrap.dedent("""\
@@ -77,7 +83,7 @@ def test_user_profile_overrides_builtin(tmp_path: Path, monkeypatch: pytest.Monk
         """)
     )
     monkeypatch.setattr(
-        "orchestration.providers.profiles.providers_toml_path",
+        "squadron.providers.profiles.providers_toml_path",
         lambda: toml_file,
     )
     profiles = get_all_profiles()
@@ -122,7 +128,7 @@ def test_user_profile_with_custom_auth_type(
         """)
     )
     monkeypatch.setattr(
-        "orchestration.providers.profiles.providers_toml_path",
+        "squadron.providers.profiles.providers_toml_path",
         lambda: toml_file,
     )
     result = load_user_profiles()
@@ -140,7 +146,7 @@ def test_user_profile_without_auth_type_defaults(
         """)
     )
     monkeypatch.setattr(
-        "orchestration.providers.profiles.providers_toml_path",
+        "squadron.providers.profiles.providers_toml_path",
         lambda: toml_file,
     )
     result = load_user_profiles()

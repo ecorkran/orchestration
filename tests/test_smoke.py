@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import orchestration
+import squadron
 
 
 def test_package_importable() -> None:
-    """The orchestration package must be importable with a version string."""
-    assert orchestration.__version__ == "0.1.0"
+    """The squadron package must be importable with a version string."""
+    assert squadron.__version__ == "0.1.0"

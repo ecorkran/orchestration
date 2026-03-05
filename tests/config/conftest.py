@@ -11,7 +11,7 @@ import pytest
 @pytest.fixture
 def user_config_dir(tmp_path: Path) -> Path:
     """Temporary directory for user-level config."""
-    config_dir = tmp_path / "user_config" / ".config" / "orchestration"
+    config_dir = tmp_path / "user_config" / ".config" / "squadron"
     config_dir.mkdir(parents=True)
     return config_dir
 
@@ -31,15 +31,15 @@ def patch_config_paths(
 ):
     """Patch config path functions to use temporary directories."""
     user_file = user_config_dir / "config.toml"
-    project_file = project_dir / ".orchestration.toml"
+    project_file = project_dir / ".squadron.toml"
 
     targets = [
-        "orchestration.config.manager.user_config_path",
-        "orchestration.cli.commands.config.user_config_path",
+        "squadron.config.manager.user_config_path",
+        "squadron.cli.commands.config.user_config_path",
     ]
     project_targets = [
-        "orchestration.config.manager.project_config_path",
-        "orchestration.cli.commands.config.project_config_path",
+        "squadron.config.manager.project_config_path",
+        "squadron.cli.commands.config.project_config_path",
     ]
 
     patches = [patch(t, return_value=user_file) for t in targets]

@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
+from squadron.cli.app import app
 
-_PATCH_TARGET = "orchestration.cli.commands.models.httpx.AsyncClient"
+_PATCH_TARGET = "squadron.cli.commands.models.httpx.AsyncClient"
 
 
 def _invoke(runner: CliRunner, *args: str):  # type: ignore[no-untyped-def]
@@ -61,9 +61,7 @@ class TestModelsCommand:
 
     def test_models_connection_error(self, cli_runner: CliRunner) -> None:
         err_client = AsyncMock()
-        err_client.get = AsyncMock(
-            side_effect=httpx.ConnectError("connection refused")
-        )
+        err_client.get = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
         err_client.__aenter__ = AsyncMock(return_value=err_client)
         err_client.__aexit__ = AsyncMock(return_value=False)
 

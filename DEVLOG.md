@@ -14,12 +14,15 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260305
 
-### Slice 115: Project Rename — squadron — Task Breakdown Complete
+### Slice 115: Project Rename — orchestration → squadron — Complete
 
-- Created `user/tasks/115-tasks.project-rename-squadron.md` (14 tasks, 161 lines)
-- Tasks cover: directory rename, pyproject.toml update, import updates (61 src + 66 test files), config path migration logic, daemon paths, logger names, user-facing strings, documentation, validation, and atomic commit
-- Only new logic: config migration (`~/.config/orchestration/` → `~/.config/squadron/` with `MIGRATED.txt`)
-- Slice design status updated to `tasks_complete`
+- Renamed `src/orchestration/` → `src/squadron/`, updated pyproject.toml (name, dual entry points: `sq` + `squadron`)
+- Updated all imports across 127 .py files (61 src + 66 tests)
+- Config paths: `~/.config/squadron/`, `.squadron.toml`, `~/.squadron/` for daemon
+- Added config migration logic in `config/manager.py` — copies old config dir on first run, writes `MIGRATED.txt`
+- Renamed `OrchestrationEngine` → `SquadronEngine`
+- Updated README.md, docs/COMMANDS.md, docs/TEMPLATES.md
+- 435 tests pass, `sq --help` and `squadron --help` both work
 
 ---
 

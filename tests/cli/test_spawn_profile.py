@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
-from orchestration.cli.commands.spawn import _resolve_profile
+from squadron.cli.app import app
+from squadron.cli.commands.spawn import _resolve_profile
 from tests.cli.conftest import make_agent_dict
 
 
@@ -88,10 +88,14 @@ class TestSpawnProfileFlag:
         )
         result = _invoke(
             cli_runner,
-            "--name", "bot",
-            "--profile", "local",
-            "--base-url", "http://other:11434/v1",
-            "--model", "x",
+            "--name",
+            "bot",
+            "--profile",
+            "local",
+            "--base-url",
+            "http://other:11434/v1",
+            "--model",
+            "x",
         )
         assert result.exit_code == 0, result.output
         call_kwargs = patch_daemon_client.spawn.call_args[0][0]

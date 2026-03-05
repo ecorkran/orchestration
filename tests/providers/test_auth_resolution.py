@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from orchestration.core.models import AgentConfig
-from orchestration.providers.auth import ApiKeyStrategy, resolve_auth_strategy
-from orchestration.providers.errors import ProviderAuthError
+from squadron.core.models import AgentConfig
+from squadron.providers.auth import ApiKeyStrategy, resolve_auth_strategy
+from squadron.providers.errors import ProviderAuthError
 
 
 def _make_config(**kwargs: object) -> AgentConfig:

@@ -43,7 +43,7 @@ def sample_review_result() -> dict[str, Any]:
 
     Returns a dict that can be unpacked into ReviewResult() once models exist.
     """
-    from orchestration.review.models import (
+    from squadron.review.models import (
         ReviewFinding,
         ReviewResult,
         Severity,
@@ -57,7 +57,7 @@ def sample_review_result() -> dict[str, Any]:
                 severity=Severity.CONCERN,
                 title="Missing error handling",
                 description="The runner does not handle SDK timeout errors.",
-                file_ref="src/orchestration/review/runner.py:42",
+                file_ref="src/squadron/review/runner.py:42",
             ),
             ReviewFinding(
                 severity=Severity.PASS,
@@ -77,7 +77,7 @@ def builtin_templates_dir() -> Path:
     return (
         Path(__file__).resolve().parent.parent.parent
         / "src"
-        / "orchestration"
+        / "squadron"
         / "review"
         / "templates"
         / "builtin"

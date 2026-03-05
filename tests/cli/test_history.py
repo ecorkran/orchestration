@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
-from orchestration.client.http import DaemonNotRunningError
+from squadron.cli.app import app
+from squadron.client.http import DaemonNotRunningError
 from tests.cli.conftest import make_message_dict
 
 
@@ -18,7 +18,7 @@ def _invoke(runner: CliRunner, *args: str):  # type: ignore[no-untyped-def]
 def _patch_history_client(mock_client: MagicMock):  # type: ignore[no-untyped-def]
     """Patch DaemonClient in history command module."""
     return patch(
-        "orchestration.cli.commands.history.DaemonClient",
+        "squadron.cli.commands.history.DaemonClient",
         return_value=mock_client,
     )
 
@@ -40,9 +40,7 @@ class TestHistoryCommand:
     def test_history_daemon_not_running(
         self, cli_runner: CliRunner, patch_daemon_client: MagicMock
     ) -> None:
-        patch_daemon_client.get_history.side_effect = (
-            DaemonNotRunningError()
-        )
+        patch_daemon_client.get_history.side_effect = DaemonNotRunningError()
         with _patch_history_client(patch_daemon_client):
             result = _invoke(cli_runner, "agent1")
         assert result.exit_code == 1
@@ -51,12 +49,8 @@ class TestHistoryCommand:
     def test_history_with_limit(
         self, cli_runner: CliRunner, patch_daemon_client: MagicMock
     ) -> None:
-        patch_daemon_client.get_history.return_value = [
-            make_message_dict("latest")
-        ]
+        patch_daemon_client.get_history.return_value = [make_message_dict("latest")]
         with _patch_history_client(patch_daemon_client):
             result = _invoke(cli_runner, "agent1", "--limit", "5")
         assert result.exit_code == 0, result.output
-        patch_daemon_client.get_history.assert_called_once_with(
-            "agent1", limit=5
-        )
+        patch_daemon_client.get_history.assert_called_once_with("agent1", limit=5)

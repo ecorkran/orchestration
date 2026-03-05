@@ -7,9 +7,7 @@ from typing import Any
 import httpx
 
 
-def _spawn_body(
-    name: str, provider: str = "mock", model: str = "m"
-) -> dict[str, Any]:
+def _spawn_body(name: str, provider: str = "mock", model: str = "m") -> dict[str, Any]:
     """Build a spawn request body."""
     return {
         "name": name,
@@ -19,9 +17,7 @@ def _spawn_body(
     }
 
 
-async def _spawn(
-    client: httpx.AsyncClient, name: str
-) -> httpx.Response:
+async def _spawn(client: httpx.AsyncClient, name: str) -> httpx.Response:
     """Spawn a mock agent via the API."""
     return await client.post("/agents/", json=_spawn_body(name))
 
@@ -72,9 +68,7 @@ async def test_get_agent_not_found(async_client: httpx.AsyncClient):
 async def test_send_message(async_client: httpx.AsyncClient):
     """Spawn then POST message returns response messages."""
     await _spawn(async_client, "agent1")
-    resp = await async_client.post(
-        "/agents/agent1/message", json={"content": "hello"}
-    )
+    resp = await async_client.post("/agents/agent1/message", json={"content": "hello"})
     assert resp.status_code == 200
     messages = resp.json()["messages"]
     assert len(messages) >= 1
@@ -84,9 +78,7 @@ async def test_send_message(async_client: httpx.AsyncClient):
 async def test_get_history(async_client: httpx.AsyncClient):
     """Spawn, message, GET history returns conversation."""
     await _spawn(async_client, "agent1")
-    await async_client.post(
-        "/agents/agent1/message", json={"content": "hello"}
-    )
+    await async_client.post("/agents/agent1/message", json={"content": "hello"})
     resp = await async_client.get("/agents/agent1/history")
     assert resp.status_code == 200
     messages = resp.json()["messages"]

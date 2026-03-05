@@ -6,11 +6,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from orchestration.core.models import AgentConfig
-from orchestration.providers.errors import ProviderAuthError, ProviderError
-from orchestration.providers.openai.provider import OpenAICompatibleProvider
+from squadron.core.models import AgentConfig
+from squadron.providers.errors import ProviderAuthError, ProviderError
+from squadron.providers.openai.provider import OpenAICompatibleProvider
 
-_BASE_CONFIG = dict(name="agent", agent_type="api", provider="openai", model="gpt-4o-mini")
+_BASE_CONFIG = dict(
+    name="agent", agent_type="api", provider="openai", model="gpt-4o-mini"
+)
 
 
 @pytest.fixture
@@ -25,9 +27,11 @@ class TestProviderType:
 
 class TestCreateAgent:
     @pytest.mark.asyncio
-    async def test_uses_config_api_key(self, provider: OpenAICompatibleProvider) -> None:
+    async def test_uses_config_api_key(
+        self, provider: OpenAICompatibleProvider
+    ) -> None:
         config = AgentConfig(**{**_BASE_CONFIG, "api_key": "sk-config"})
-        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+        with patch("squadron.providers.openai.provider.AsyncOpenAI") as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
         mock_cls.assert_called_once()
@@ -40,7 +44,7 @@ class TestCreateAgent:
     ) -> None:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-env")
         config = AgentConfig(**{**_BASE_CONFIG, "api_key": None})
-        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+        with patch("squadron.providers.openai.provider.AsyncOpenAI") as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
         _, kwargs = mock_cls.call_args
@@ -69,8 +73,10 @@ class TestCreateAgent:
         self, provider: OpenAICompatibleProvider, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-env")
-        config = AgentConfig(**{**_BASE_CONFIG, "base_url": "http://localhost:11434/v1"})
-        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+        config = AgentConfig(
+            **{**_BASE_CONFIG, "base_url": "http://localhost:11434/v1"}
+        )
+        with patch("squadron.providers.openai.provider.AsyncOpenAI") as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
         _, kwargs = mock_cls.call_args
@@ -86,7 +92,7 @@ class TestEnhancedCredentialResolution:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         creds = {"api_key_env": "MY_CUSTOM_KEY"}
         config = AgentConfig(**{**_BASE_CONFIG, "credentials": creds})
-        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+        with patch("squadron.providers.openai.provider.AsyncOpenAI") as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
         _, kwargs = mock_cls.call_args
@@ -100,7 +106,7 @@ class TestEnhancedCredentialResolution:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-default")
         creds = {"api_key_env": "MY_CUSTOM_KEY"}
         config = AgentConfig(**{**_BASE_CONFIG, "credentials": creds})
-        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+        with patch("squadron.providers.openai.provider.AsyncOpenAI") as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
         _, kwargs = mock_cls.call_args
@@ -114,7 +120,7 @@ class TestEnhancedCredentialResolution:
         config = AgentConfig(
             **{**_BASE_CONFIG, "api_key": None, "base_url": "http://localhost:11434/v1"}
         )
-        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+        with patch("squadron.providers.openai.provider.AsyncOpenAI") as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
         _, kwargs = mock_cls.call_args
@@ -128,7 +134,7 @@ class TestEnhancedCredentialResolution:
         config = AgentConfig(
             **{**_BASE_CONFIG, "api_key": None, "base_url": "http://127.0.0.1:8080/v1"}
         )
-        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+        with patch("squadron.providers.openai.provider.AsyncOpenAI") as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
         _, kwargs = mock_cls.call_args
@@ -153,7 +159,7 @@ class TestEnhancedCredentialResolution:
         config = AgentConfig(
             **{**_BASE_CONFIG, "credentials": {"default_headers": {"X-Custom": "val"}}}
         )
-        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+        with patch("squadron.providers.openai.provider.AsyncOpenAI") as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
         _, kwargs = mock_cls.call_args
@@ -165,7 +171,7 @@ class TestEnhancedCredentialResolution:
     ) -> None:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-env")
         config = AgentConfig(**_BASE_CONFIG)
-        with patch("orchestration.providers.openai.provider.AsyncOpenAI") as mock_cls:
+        with patch("squadron.providers.openai.provider.AsyncOpenAI") as mock_cls:
             mock_cls.return_value = MagicMock()
             await provider.create_agent(config)
         _, kwargs = mock_cls.call_args

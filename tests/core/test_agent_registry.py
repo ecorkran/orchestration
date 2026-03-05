@@ -6,19 +6,19 @@ from collections.abc import AsyncIterator, Generator
 
 import pytest
 
-from orchestration.core.agent_registry import (
+from squadron.core.agent_registry import (
     AgentAlreadyExistsError,
     AgentNotFoundError,
     AgentRegistry,
     get_registry,
     reset_registry,
 )
-from orchestration.core.models import AgentConfig, AgentState, Message
-from orchestration.providers.errors import ProviderError
-from orchestration.providers.registry import (
+from squadron.core.models import AgentConfig, AgentState, Message
+from squadron.providers.errors import ProviderError
+from squadron.providers.registry import (
     _REGISTRY as _PROVIDER_REGISTRY,  # pyright: ignore[reportPrivateUsage]
 )
-from orchestration.providers.registry import register_provider
+from squadron.providers.registry import register_provider
 
 # ---------------------------------------------------------------------------
 # Mock implementations satisfying Agent and AgentProvider Protocols

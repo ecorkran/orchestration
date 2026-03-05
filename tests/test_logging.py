@@ -8,8 +8,8 @@ from collections.abc import Generator
 
 import pytest
 
-from orchestration.config import Settings
-from orchestration.logging import get_logger, setup_logging
+from squadron.config import Settings
+from squadron.logging import get_logger, setup_logging
 
 
 def _make_settings(**overrides: object) -> Settings:
@@ -29,9 +29,9 @@ def _reset_root_logger() -> Generator[None]:  # pyright: ignore[reportUnusedFunc
 
 
 def test_get_logger_returns_logger_instance() -> None:
-    logger = get_logger("orchestration.test")
+    logger = get_logger("squadron.test")
     assert isinstance(logger, logging.Logger)
-    assert logger.name == "orchestration.test"
+    assert logger.name == "squadron.test"
 
 
 def test_json_formatter_produces_valid_json(capfd: pytest.CaptureFixture[str]) -> None:

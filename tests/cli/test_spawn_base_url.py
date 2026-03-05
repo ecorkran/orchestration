@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
+from squadron.cli.app import app
 from tests.cli.conftest import make_agent_dict
 
 

@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from orchestration.core.models import (
+from squadron.core.models import (
     AgentConfig,
     AgentInfo,
     AgentState,

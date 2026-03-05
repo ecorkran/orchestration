@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from orchestration.providers.auth import ApiKeyStrategy, AuthStrategy
-from orchestration.providers.errors import ProviderAuthError
+from squadron.providers.auth import ApiKeyStrategy, AuthStrategy
+from squadron.providers.errors import ProviderAuthError
 
 
 def test_explicit_key_wins(monkeypatch: pytest.MonkeyPatch) -> None:

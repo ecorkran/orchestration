@@ -9,11 +9,11 @@ import pytest
 from rich.console import Console
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
-from orchestration.cli.commands.review import (
+from squadron.cli.app import app
+from squadron.cli.commands.review import (
     _display_terminal,  # pyright: ignore[reportPrivateUsage]
 )
-from orchestration.review.models import (
+from squadron.review.models import (
     ReviewFinding,
     ReviewResult,
     Severity,
@@ -53,7 +53,7 @@ def _capture_terminal(result: ReviewResult, verbosity: int) -> str:
     """Capture _display_terminal output as plain text."""
     buf = StringIO()
     console = Console(file=buf, force_terminal=True, width=120)
-    with patch("orchestration.cli.commands.review.Console", return_value=console):
+    with patch("squadron.cli.commands.review.Console", return_value=console):
         _display_terminal(result, verbosity)
     return buf.getvalue()
 
@@ -135,7 +135,7 @@ class TestVerboseFlag:
     @pytest.fixture
     def mock_review(self, sample_result: ReviewResult):
         with patch(
-            "orchestration.cli.commands.review.run_review",
+            "squadron.cli.commands.review.run_review",
             new_callable=AsyncMock,
             return_value=sample_result,
         ) as mock:
@@ -158,7 +158,7 @@ class TestVerboseFlag:
         mock_review: AsyncMock,
     ) -> None:
         with patch(
-            "orchestration.cli.commands.review.get_config",
+            "squadron.cli.commands.review.get_config",
             return_value=0,
         ):
             result = cli_runner.invoke(
@@ -174,7 +174,7 @@ class TestConfigDefaultVerbosity:
     @pytest.fixture
     def mock_review(self, sample_result: ReviewResult):
         with patch(
-            "orchestration.cli.commands.review.run_review",
+            "squadron.cli.commands.review.run_review",
             new_callable=AsyncMock,
             return_value=sample_result,
         ) as mock:
@@ -186,7 +186,7 @@ class TestConfigDefaultVerbosity:
         mock_review: AsyncMock,
     ) -> None:
         with patch(
-            "orchestration.cli.commands.review.get_config",
+            "squadron.cli.commands.review.get_config",
             return_value=1,
         ):
             result = cli_runner.invoke(

@@ -78,7 +78,7 @@ prompt_template: |
 A dotted path to a Python function for complex prompt logic. The function receives a `dict[str, str]` of inputs and returns a string.
 
 ```yaml
-prompt_builder: orchestration.review.builders.code.code_review_prompt
+prompt_builder: squadron.review.builders.code.code_review_prompt
 ```
 
 The corresponding Python function:
@@ -175,7 +175,7 @@ PASS | CONCERNS | FAIL
 Description of the finding.
 ```
 
-The parser (`orchestration.review.parsers`) extracts:
+The parser (`squadron.review.parsers`) extracts:
 - **Verdict** from the `## Summary` section
 - **Findings** from `### [SEVERITY] Title` blocks
 
@@ -186,11 +186,11 @@ Both bracketed (`### [PASS] Title`) and unbracketed (`### PASS Title`) formats a
 Templates are registered in the template registry at runtime:
 
 ```python
-from orchestration.review.templates import register_template, load_template
+from squadron.review.templates import register_template, load_template
 
 # Load from YAML file
 template = load_template(Path("my-template.yaml"))
 register_template(template)
 ```
 
-Built-in templates are loaded automatically from `src/orchestration/review/templates/builtin/` when any review command runs.
+Built-in templates are loaded automatically from `src/squadron/review/templates/builtin/` when any review command runs.

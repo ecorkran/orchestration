@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from orchestration.review.templates import load_template
+from squadron.review.templates import load_template
 
 
 def _tasks_yaml() -> Path:
     return (
         Path(__file__).resolve().parent.parent.parent
         / "src"
-        / "orchestration"
+        / "squadron"
         / "review"
         / "templates"
         / "builtin"

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
+from squadron.cli.app import app
 
 
 @pytest.fixture

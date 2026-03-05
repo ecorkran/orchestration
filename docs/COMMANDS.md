@@ -1,6 +1,6 @@
 # Command Reference
 
-Complete reference for all orchestration CLI commands.
+Complete reference for all squadron CLI commands.
 
 ## review
 
@@ -11,7 +11,7 @@ Run structured reviews using built-in templates.
 Run an architectural review comparing a document against an architecture reference.
 
 ```
-orchestration review arch <INPUT_FILE> --against <ARCH_DOC> [OPTIONS]
+sq review arch <INPUT_FILE> --against <ARCH_DOC> [OPTIONS]
 ```
 
 | Argument/Option | Type | Required | Default | Description |
@@ -25,9 +25,9 @@ orchestration review arch <INPUT_FILE> --against <ARCH_DOC> [OPTIONS]
 | `--output-path` | string | no | — | File path (required when `--output file`) |
 
 ```bash
-orchestration review arch slice-design.md --against hld.md -v
-orchestration review arch spec.md --against arch.md --output json
-orchestration review arch spec.md --against arch.md --model sonnet
+sq review arch slice-design.md --against hld.md -v
+sq review arch spec.md --against arch.md --output json
+sq review arch spec.md --against arch.md --model sonnet
 ```
 
 ### review tasks
@@ -35,7 +35,7 @@ orchestration review arch spec.md --against arch.md --model sonnet
 Run a task plan review comparing a task breakdown against its parent slice design.
 
 ```
-orchestration review tasks <INPUT_FILE> --against <SLICE_DOC> [OPTIONS]
+sq review tasks <INPUT_FILE> --against <SLICE_DOC> [OPTIONS]
 ```
 
 | Argument/Option | Type | Required | Default | Description |
@@ -49,7 +49,7 @@ orchestration review tasks <INPUT_FILE> --against <SLICE_DOC> [OPTIONS]
 | `--output-path` | string | no | — | File path for `--output file` |
 
 ```bash
-orchestration review tasks 105-tasks.md --against 105-slice.md -v
+sq review tasks 105-tasks.md --against 105-slice.md -v
 ```
 
 ### review code
@@ -57,7 +57,7 @@ orchestration review tasks 105-tasks.md --against 105-slice.md -v
 Run a code review against the current project.
 
 ```
-orchestration review code [OPTIONS]
+sq review code [OPTIONS]
 ```
 
 | Option | Type | Required | Default | Description |
@@ -73,16 +73,16 @@ orchestration review code [OPTIONS]
 
 ```bash
 # Review all code in current directory
-orchestration review code
+sq review code
 
 # Review changes against main
-orchestration review code --diff main -v
+sq review code --diff main -v
 
 # Review specific files with custom rules
-orchestration review code --files "src/**/*.py" --rules rules/python.md -vv
+sq review code --files "src/**/*.py" --rules rules/python.md -vv
 
 # Output JSON
-orchestration review code --diff main --output json > review.json
+sq review code --diff main --output json > review.json
 ```
 
 ### review list
@@ -90,7 +90,7 @@ orchestration review code --diff main --output json > review.json
 List all available review templates.
 
 ```
-orchestration review list
+sq review list
 ```
 
 No options. Outputs template names and descriptions.
@@ -104,7 +104,7 @@ Manage persistent configuration.
 Set a configuration value.
 
 ```
-orchestration config set <KEY> <VALUE> [OPTIONS]
+sq config set <KEY> <VALUE> [OPTIONS]
 ```
 
 | Argument/Option | Type | Required | Default | Description |
@@ -115,10 +115,10 @@ orchestration config set <KEY> <VALUE> [OPTIONS]
 | `--cwd` | string | no | `.` | Working directory (for project config location) |
 
 ```bash
-orchestration config set cwd ~/source/repos/myproject
-orchestration config set verbosity 1
-orchestration config set default_rules ./rules/python.md --project
-orchestration config set default_model opus
+sq config set cwd ~/source/repos/myproject
+sq config set verbosity 1
+sq config set default_rules ./rules/python.md --project
+sq config set default_model opus
 ```
 
 ### config get
@@ -126,7 +126,7 @@ orchestration config set default_model opus
 Show the resolved value of a configuration key and its source.
 
 ```
-orchestration config get <KEY> [OPTIONS]
+sq config get <KEY> [OPTIONS]
 ```
 
 | Argument/Option | Type | Required | Default | Description |
@@ -135,7 +135,7 @@ orchestration config get <KEY> [OPTIONS]
 | `--cwd` | string | no | `.` | Working directory |
 
 ```bash
-$ orchestration config get cwd
+$ sq config get cwd
 cwd = ~/source/repos/myproject  (user)
 ```
 
@@ -144,7 +144,7 @@ cwd = ~/source/repos/myproject  (user)
 Show all configuration keys with their resolved values and sources.
 
 ```
-orchestration config list [OPTIONS]
+sq config list [OPTIONS]
 ```
 
 | Option | Type | Required | Default | Description |
@@ -152,7 +152,7 @@ orchestration config list [OPTIONS]
 | `--cwd` | string | no | `.` | Working directory |
 
 ```bash
-$ orchestration config list
+$ sq config list
   cwd            ~/source/repos/myproject  (user)
   default_rules  ./rules/python.md         (project)
   verbosity      0                         (default)
@@ -163,7 +163,7 @@ $ orchestration config list
 Show configuration file locations and whether they exist.
 
 ```
-orchestration config path [OPTIONS]
+sq config path [OPTIONS]
 ```
 
 | Option | Type | Required | Default | Description |
@@ -171,9 +171,9 @@ orchestration config path [OPTIONS]
 | `--cwd` | string | no | `.` | Working directory |
 
 ```bash
-$ orchestration config path
-  User:    ~/.config/orchestration/config.toml  exists
-  Project: ./.orchestration.toml                not found
+$ sq config path
+  User:    ~/.config/squadron/config.toml  exists
+  Project: ./.squadron.toml                not found
 ```
 
 ## spawn
@@ -181,7 +181,7 @@ $ orchestration config path
 Spawn a new agent instance.
 
 ```
-orchestration spawn --name <NAME> [OPTIONS]
+sq spawn --name <NAME> [OPTIONS]
 ```
 
 | Option | Type | Required | Default | Description |
@@ -199,7 +199,7 @@ orchestration spawn --name <NAME> [OPTIONS]
 List running agents.
 
 ```
-orchestration list [OPTIONS]
+sq list [OPTIONS]
 ```
 
 | Option | Type | Required | Default | Description |
@@ -212,7 +212,7 @@ orchestration list [OPTIONS]
 Send a task prompt to an agent.
 
 ```
-orchestration task <AGENT_NAME> <PROMPT>
+sq task <AGENT_NAME> <PROMPT>
 ```
 
 | Argument | Type | Required | Description |
@@ -225,8 +225,8 @@ orchestration task <AGENT_NAME> <PROMPT>
 Shutdown agents.
 
 ```
-orchestration shutdown <AGENT_NAME>
-orchestration shutdown --all
+sq shutdown <AGENT_NAME>
+sq shutdown --all
 ```
 
 | Argument/Option | Type | Required | Description |

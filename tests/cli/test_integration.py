@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
+from squadron.cli.app import app
 
 
 def test_spawn_list_task_shutdown_sequence() -> None:
@@ -48,10 +48,10 @@ def test_spawn_list_task_shutdown_sequence() -> None:
     mock_client.close = AsyncMock()
 
     targets = [
-        "orchestration.cli.commands.spawn.DaemonClient",
-        "orchestration.cli.commands.list.DaemonClient",
-        "orchestration.cli.commands.task.DaemonClient",
-        "orchestration.cli.commands.shutdown.DaemonClient",
+        "squadron.cli.commands.spawn.DaemonClient",
+        "squadron.cli.commands.list.DaemonClient",
+        "squadron.cli.commands.task.DaemonClient",
+        "squadron.cli.commands.shutdown.DaemonClient",
     ]
     patches = [patch(t, return_value=mock_client) for t in targets]
     for p in patches:
@@ -59,9 +59,7 @@ def test_spawn_list_task_shutdown_sequence() -> None:
 
     try:
         # 1. Spawn agent
-        result = runner.invoke(
-            app, ["spawn", "--name", "test-agent", "--type", "sdk"]
-        )
+        result = runner.invoke(app, ["spawn", "--name", "test-agent", "--type", "sdk"])
         assert result.exit_code == 0, f"spawn failed:\n{result.output}"
         assert "test-agent" in result.output
 

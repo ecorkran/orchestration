@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
-from orchestration.review.models import ReviewResult, Verdict
+from squadron.cli.app import app
+from squadron.review.models import ReviewResult, Verdict
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def pass_result() -> ReviewResult:
 def mock_run_review(pass_result: ReviewResult):
     """Patch run_review so we can inspect the system prompt it receives."""
     with patch(
-        "orchestration.cli.commands.review.run_review",
+        "squadron.cli.commands.review.run_review",
         new_callable=AsyncMock,
         return_value=pass_result,
     ) as mock:
@@ -76,7 +76,7 @@ class TestRulesFlag:
         mock_run_review: AsyncMock,
     ) -> None:
         with patch(
-            "orchestration.cli.commands.review.get_config",
+            "squadron.cli.commands.review.get_config",
             return_value=None,
         ):
             result = cli_runner.invoke(app, ["review", "code"])
@@ -104,7 +104,7 @@ class TestRulesFlag:
             return None
 
         with patch(
-            "orchestration.cli.commands.review.get_config",
+            "squadron.cli.commands.review.get_config",
             side_effect=mock_get_config,
         ):
             result = cli_runner.invoke(
@@ -135,7 +135,7 @@ class TestConfigDefaultRules:
             return None
 
         with patch(
-            "orchestration.cli.commands.review.get_config",
+            "squadron.cli.commands.review.get_config",
             side_effect=mock_get_config,
         ):
             result = cli_runner.invoke(app, ["review", "code"])
@@ -148,7 +148,7 @@ class TestRunnerRulesInjection:
     """Test that rules content is appended to system prompt in runner."""
 
     def test_rules_appended_to_system_prompt(self) -> None:
-        from orchestration.review.templates import ReviewTemplate
+        from squadron.review.templates import ReviewTemplate
 
         template = ReviewTemplate(
             name="test",

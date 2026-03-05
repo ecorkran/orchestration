@@ -7,12 +7,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
-from orchestration.cli.commands.review import (
+from squadron.cli.app import app
+from squadron.cli.commands.review import (
     _resolve_model,  # pyright: ignore[reportPrivateUsage]
 )
-from orchestration.review.models import ReviewResult, Verdict
-from orchestration.review.templates import ReviewTemplate
+from squadron.review.models import ReviewResult, Verdict
+from squadron.review.templates import ReviewTemplate
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def mock_run_review() -> AsyncMock:
         model="opus",
     )
     with patch(
-        "orchestration.cli.commands.review.run_review",
+        "squadron.cli.commands.review.run_review",
         new_callable=AsyncMock,
         return_value=result,
     ) as mock:
@@ -59,30 +59,26 @@ class TestResolveModel:
 
     def test_flag_wins_over_all(self) -> None:
         template = _make_template(model="sonnet")
-        with patch(
-            "orchestration.cli.commands.review.get_config", return_value="haiku"
-        ):
+        with patch("squadron.cli.commands.review.get_config", return_value="haiku"):
             assert _resolve_model("opus", template) == "opus"
 
     def test_config_wins_over_template(self) -> None:
         template = _make_template(model="sonnet")
-        with patch(
-            "orchestration.cli.commands.review.get_config", return_value="haiku"
-        ):
+        with patch("squadron.cli.commands.review.get_config", return_value="haiku"):
             assert _resolve_model(None, template) == "haiku"
 
     def test_template_wins_over_none(self) -> None:
         template = _make_template(model="sonnet")
-        with patch("orchestration.cli.commands.review.get_config", return_value=None):
+        with patch("squadron.cli.commands.review.get_config", return_value=None):
             assert _resolve_model(None, template) == "sonnet"
 
     def test_all_absent_returns_none(self) -> None:
         template = _make_template(model=None)
-        with patch("orchestration.cli.commands.review.get_config", return_value=None):
+        with patch("squadron.cli.commands.review.get_config", return_value=None):
             assert _resolve_model(None, template) is None
 
     def test_no_template_falls_through(self) -> None:
-        with patch("orchestration.cli.commands.review.get_config", return_value=None):
+        with patch("squadron.cli.commands.review.get_config", return_value=None):
             assert _resolve_model(None) is None
 
 

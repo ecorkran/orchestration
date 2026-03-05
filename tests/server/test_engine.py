@@ -1,4 +1,4 @@
-"""Tests for OrchestrationEngine — agent lifecycle and conversation history."""
+"""Tests for SquadronEngine — agent lifecycle and conversation history."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from orchestration.core.models import AgentConfig
+from squadron.core.models import AgentConfig
 
 
 @pytest.fixture
@@ -30,19 +30,15 @@ async def test_spawn_agent(engine, spawn_config):
 
 async def test_spawn_agent_loads_provider(engine, spawn_config):
     """spawn_agent calls _load_provider with provider name before registry spawn."""
-    with patch("orchestration.server.engine._load_provider") as mock_load:
+    with patch("squadron.server.engine._load_provider") as mock_load:
         await engine.spawn_agent(spawn_config)
         mock_load.assert_called_once_with("mock")
 
 
 async def test_list_agents_returns_spawned(engine):
     """Spawn two agents, list returns both."""
-    config1 = AgentConfig(
-        name="agent-a", agent_type="api", provider="mock", model="m"
-    )
-    config2 = AgentConfig(
-        name="agent-b", agent_type="api", provider="mock", model="m"
-    )
+    config1 = AgentConfig(name="agent-a", agent_type="api", provider="mock", model="m")
+    config2 = AgentConfig(name="agent-b", agent_type="api", provider="mock", model="m")
     await engine.spawn_agent(config1)
     await engine.spawn_agent(config2)
 
@@ -104,12 +100,8 @@ async def test_shutdown_agent(engine, spawn_config):
 
 async def test_shutdown_all(engine):
     """Spawn two, shutdown_all returns ShutdownReport with both names."""
-    config1 = AgentConfig(
-        name="agent-a", agent_type="api", provider="mock", model="m"
-    )
-    config2 = AgentConfig(
-        name="agent-b", agent_type="api", provider="mock", model="m"
-    )
+    config1 = AgentConfig(name="agent-a", agent_type="api", provider="mock", model="m")
+    config2 = AgentConfig(name="agent-b", agent_type="api", provider="mock", model="m")
     await engine.spawn_agent(config1)
     await engine.spawn_agent(config2)
 

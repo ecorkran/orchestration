@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from orchestration.cli.app import app
-from orchestration.client.http import DaemonNotRunningError
+from squadron.cli.app import app
+from squadron.client.http import DaemonNotRunningError
 from tests.cli.conftest import make_message_dict
 
 
@@ -24,7 +24,7 @@ class TestMessageCommand:
         ]
         # Need to also patch message command's DaemonClient
         with patch(
-            "orchestration.cli.commands.message.DaemonClient",
+            "squadron.cli.commands.message.DaemonClient",
             return_value=patch_daemon_client,
         ):
             result = _invoke(cli_runner, "myagent", "say hello")
@@ -34,11 +34,9 @@ class TestMessageCommand:
     def test_message_daemon_not_running(
         self, cli_runner: CliRunner, patch_daemon_client: MagicMock
     ) -> None:
-        patch_daemon_client.send_message.side_effect = (
-            DaemonNotRunningError()
-        )
+        patch_daemon_client.send_message.side_effect = DaemonNotRunningError()
         with patch(
-            "orchestration.cli.commands.message.DaemonClient",
+            "squadron.cli.commands.message.DaemonClient",
             return_value=patch_daemon_client,
         ):
             result = _invoke(cli_runner, "myagent", "hello")

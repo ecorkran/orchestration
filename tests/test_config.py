@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from orchestration.config import Settings
+from squadron.config import Settings
 
 
 def _settings(**overrides: object) -> Settings:

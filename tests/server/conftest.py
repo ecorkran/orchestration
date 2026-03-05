@@ -8,16 +8,16 @@ from typing import Any
 import httpx
 import pytest
 
-from orchestration.core.models import (
+from squadron.core.models import (
     AgentConfig,
     AgentState,
     Message,
     MessageType,
 )
-from orchestration.providers import registry as reg_module
-from orchestration.providers.base import Agent, AgentProvider
-from orchestration.server.app import create_app
-from orchestration.server.engine import OrchestrationEngine
+from squadron.providers import registry as reg_module
+from squadron.providers.base import Agent, AgentProvider
+from squadron.server.app import create_app
+from squadron.server.engine import SquadronEngine
 
 
 class MockAgent:
@@ -97,15 +97,15 @@ def mock_provider() -> MockProvider:
 
 
 @pytest.fixture
-def engine(mock_provider: MockProvider) -> OrchestrationEngine:
-    """OrchestrationEngine with mock provider registered."""
-    eng = OrchestrationEngine()
+def engine(mock_provider: MockProvider) -> SquadronEngine:
+    """SquadronEngine with mock provider registered."""
+    eng = SquadronEngine()
     reg_module.register_provider("mock", mock_provider)
     return eng
 
 
 @pytest.fixture
-def app(engine: OrchestrationEngine) -> Any:
+def app(engine: SquadronEngine) -> Any:
     """FastAPI test app backed by the engine fixture."""
     return create_app(engine)
 
