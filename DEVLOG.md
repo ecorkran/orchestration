@@ -14,6 +14,14 @@ Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
 
 ## 20260306
 
+### Slice 117: PyPI Publishing & Global Install — Design Complete
+
+Slice design created at `project-documents/user/slices/117-slice.pypi.md`.
+
+Scope: Publish `squadron` to PyPI for global install via `pipx install squadron` / `uv tool install squadron`. SemVer versioning (start at 0.1.0, single-sourced in pyproject.toml). `sq --version` via `importlib.metadata`. pyproject.toml metadata polish (classifiers, license, project-urls). GitHub Actions CI workflow (lint+test on push, publish to TestPyPI+PyPI on version tag). README install instructions.
+
+Key decisions: SemVer over CalVer, tag-driven manual releases, `pypa/gh-action-pypi-publish` with OIDC trusted publisher preferred, TestPyPI dry-run before real publish, `astral-sh/setup-uv` for CI.
+
 ### Slice 116: Claude Code Commands — Implementation Complete
 
 All 15 tasks complete. Eight command files in `commands/sq/` (`spawn.md`, `task.md`, `list.md`, `shutdown.md`, `review-arch.md`, `review-tasks.md`, `review-code.md`, `auth-status.md`). `pyproject.toml` updated with `force-include` for wheel bundling. `install.py` with `install_commands`/`uninstall_commands` wired into Typer app. 11 tests (8 install/uninstall + 3 source verification). 446 total tests pass, pyright clean, ruff clean.
