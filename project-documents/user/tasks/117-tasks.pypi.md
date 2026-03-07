@@ -1,0 +1,141 @@
+---
+slice: pypi
+project: squadron
+lld: user/slices/117-slice.pypi.md
+dependencies: [sq-slash-command]
+projectState: Slice 116 complete. CLI entry points `sq`/`squadron` working. Wheel bundles command files via force-include. pyproject.toml has name, version (0.1.0), description, readme, requires-python, dependencies, scripts, build-system. Missing classifiers, license field, project-urls. No CI workflow. No --version flag.
+dateCreated: 20260307
+dateUpdated: 20260307
+status: not_started
+---
+
+## Context Summary
+
+- Working on `pypi` slice — publish squadron to PyPI for global install
+- Slice 116 (Claude Code Commands) is complete; wheel bundling works
+- `pyproject.toml` has basic metadata but needs classifiers, license, project-urls
+- CLI app has no `--version` flag
+- No GitHub Actions CI workflow exists
+- README has a Quickstart section but no global install instructions
+- Both `claude-agent-sdk` (on PyPI) and the `squadron` name (available) are confirmed
+- Next planned slice: 118 (Composed Workflows)
+
+---
+
+## Tasks
+
+### T1: Add `--version` flag to CLI
+
+- [ ] Add a `version_callback` function and `@app.callback()` to `src/squadron/cli/app.py`
+  - [ ] Use `importlib.metadata.version("squadron")` for the version string
+  - [ ] Output format: `squadron X.Y.Z`
+  - [ ] `--version` is an eager option (fires before any subcommand)
+  - [ ] Refer to slice design "Version Output" section for implementation pattern
+  - [ ] `sq --version` prints version and exits with code 0
+  - [ ] `sq squadron --version` also works (both entry points)
+
+### T2: Test `--version` flag
+
+- [ ] Add test(s) in `tests/cli/test_version.py`
+  - [ ] Test `sq --version` via `CliRunner` — assert output contains `squadron` and a version string
+  - [ ] Test that version matches `importlib.metadata.version("squadron")`
+  - [ ] Test exit code is 0
+  - [ ] `pytest` passes, `pyright` clean, `ruff` clean
+
+### T3: Commit — version flag
+
+- [ ] Commit T1-T2 work
+  - [ ] Message: `feat: add --version flag to CLI`
+
+### T4: Add `pyproject.toml` metadata
+
+- [ ] Update `pyproject.toml` `[project]` section
+  - [ ] Add `license = {file = "LICENSE"}`
+  - [ ] Add `classifiers` list per slice design (Development Status :: 3 - Alpha, Environment :: Console, Intended Audience :: Developers, License :: OSI Approved :: MIT License, Programming Language :: Python :: 3, Programming Language :: Python :: 3.12, Programming Language :: Python :: 3.13, Topic :: Software Development :: Quality Assurance, Topic :: Software Development :: Testing, Typing :: Typed)
+  - [ ] Add `[project.urls]` section with Homepage, Repository, Issues pointing to the GitHub repo
+  - [ ] Verify existing fields are correct (name, version, description, readme, requires-python)
+  - [ ] Run `uv sync` to confirm pyproject.toml parses correctly
+
+### T5: Verify wheel metadata
+
+- [ ] Build wheel and verify metadata includes new fields
+  - [ ] Run `hatch build` (or `uv run hatch build`)
+  - [ ] Inspect the built wheel (zipfile or `unzip -l`) — confirm `METADATA` file contains classifiers, license, project-urls
+  - [ ] Confirm `commands/` directory is still included in the wheel (force-include from slice 116)
+  - [ ] Clean up dist/ after verification
+
+### T6: Commit — metadata polish
+
+- [ ] Commit T4-T5 work
+  - [ ] Message: `package: add classifiers, license, and project-urls to pyproject.toml`
+
+### T7: Create GitHub Actions CI workflow — test job
+
+- [ ] Create `.github/workflows/ci.yml` with the `test` job
+  - [ ] Trigger on push to `main` and pull requests to `main`, and on `v*` tags
+  - [ ] Python version matrix: 3.12, 3.13
+  - [ ] Use `actions/checkout@v4`
+  - [ ] Use `astral-sh/setup-uv@v4`
+  - [ ] Steps: `uv python install`, `uv sync --dev`, `uv run ruff check`, `uv run ruff format --check`, `uv run pyright`, `uv run pytest`
+  - [ ] Refer to slice design "GitHub Actions Workflow" section for the full YAML structure
+
+### T8: Create GitHub Actions CI workflow — publish job
+
+- [ ] Add the `publish` job to `.github/workflows/ci.yml`
+  - [ ] Runs only on `v*` tags: `if: startsWith(github.ref, 'refs/tags/v')`
+  - [ ] Depends on `test` job: `needs: test`
+  - [ ] Set `permissions: id-token: write` for OIDC trusted publisher support
+  - [ ] Steps: checkout, setup-uv, install Python, sync, `hatch build`
+  - [ ] Upload to TestPyPI first with `skip-existing: true`
+  - [ ] Upload to PyPI
+  - [ ] Uses `pypa/gh-action-pypi-publish@release/v1`
+  - [ ] Refer to slice design "GitHub Actions Workflow" section for the full YAML
+
+### T9: Commit — CI workflow
+
+- [ ] Commit T7-T8 work
+  - [ ] Message: `chore: add GitHub Actions CI workflow`
+
+### T10: Update README with install instructions
+
+- [ ] Update `README.md` with global install section
+  - [ ] Add an "Install" section before the existing "Quickstart" section
+  - [ ] Include "Global install (recommended)" with `pipx install squadron` and `uv tool install squadron`
+  - [ ] Include post-install examples: `sq --version`, `sq install-commands`, `sq review code --diff main -v`
+  - [ ] Add "Development install" subsection with clone + `uv sync --dev`
+  - [ ] Rework existing Quickstart to avoid duplicating install steps (reference the Install section or remove redundant install info)
+  - [ ] Refer to slice design "README Install Section" for content
+
+### T11: Commit — README updates
+
+- [ ] Commit T10 work
+  - [ ] Message: `docs: add global install instructions to README`
+
+### T12: Validation pass
+
+- [ ] Full project validation
+  - [ ] `uv run ruff check` — clean
+  - [ ] `uv run ruff format --check` — clean
+  - [ ] `uv run pyright` — zero errors
+  - [ ] `uv run pytest` — all tests pass
+  - [ ] `sq --version` outputs correct version
+  - [ ] `hatch build` produces a valid wheel with correct metadata
+  - [ ] `.github/workflows/ci.yml` exists with both `test` and `publish` jobs
+  - [ ] README contains global install instructions
+
+### T13: Commit — validation pass
+
+- [ ] Commit any fixes from T12
+  - [ ] Message: `chore: slice 117 validation pass`
+  - [ ] Skip commit if no changes needed
+
+---
+
+## Post-Implementation (Manual — Project Manager)
+
+These are not AI-automatable tasks. They are documented here for the PM's reference.
+
+- [ ] **PyPI account setup**: Create account at pypi.org, configure trusted publisher for the GitHub repo (or generate API token and add as `PYPI_API_TOKEN` secret)
+- [ ] **TestPyPI account setup**: Create account at test.pypi.org, configure similarly
+- [ ] **First publish**: Bump version if needed, tag `v0.1.0`, push tag, verify CI publishes successfully
+- [ ] **Smoke test**: `pipx install squadron` from PyPI, verify `sq --version`, `sq --help`, `sq install-commands --target /tmp/test`

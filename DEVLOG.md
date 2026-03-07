@@ -2,13 +2,21 @@
 docType: devlog
 project: orchestration
 dateCreated: 20260218
-dateUpdated: 20260306
+dateUpdated: 20260307
 ---
 
 # Development Log
 
 A lightweight, append-only record of development activity. Newest entries first.
 Format: `## YYYYMMDD` followed by brief notes (1-3 lines per session).
+
+---
+
+## 20260307
+
+### Slice 117: PyPI Publishing & Global Install — Task Breakdown Complete
+
+Task file created at `project-documents/user/tasks/117-tasks.pypi.md` (13 tasks: T1-T13). T1-T2 version flag + test, T3 commit. T4-T5 metadata polish + wheel verification, T6 commit. T7-T8 GitHub Actions CI (test + publish jobs), T9 commit. T10 README install section, T11 commit. T12-T13 validation pass + commit. Post-implementation section documents manual PM steps (PyPI account, first publish, smoke test).
 
 ---
 
