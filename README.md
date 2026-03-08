@@ -31,10 +31,10 @@ The template system is extensible — each template is a YAML file, and adding n
 
 ```bash
 # Using pipx (recommended)
-pipx install squadron
+pipx install squadron-ai
 
 # Or using uv
-uv tool install squadron
+uv tool install squadron-ai
 ```
 
 After install, `sq` is available on PATH:

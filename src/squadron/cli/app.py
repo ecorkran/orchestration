@@ -42,7 +42,7 @@ app.command("uninstall-commands")(uninstall_commands)
 
 def version_callback(value: bool) -> None:
     if value:
-        print(f"squadron {importlib.metadata.version('squadron')}")
+        print(f"squadron {importlib.metadata.version('squadron-ai')}")
         raise typer.Exit()
 
 
