@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib.metadata
+
 import typer
 
 from squadron.cli.commands.auth import auth_app
@@ -36,3 +38,22 @@ app.add_typer(config_app, name="config")
 app.add_typer(auth_app, name="auth")
 app.command("install-commands")(install_commands)
 app.command("uninstall-commands")(uninstall_commands)
+
+
+def version_callback(value: bool) -> None:
+    if value:
+        print(f"squadron {importlib.metadata.version('squadron')}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version and exit.",
+    ),
+) -> None:
+    """Multi-agent squadron CLI."""
