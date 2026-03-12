@@ -2,7 +2,7 @@
 docType: architecture
 layer: project
 project: orchestration
-archIndex: 160
+archIndex: 140
 component: automated-dev-pipeline
 dateCreated: 20260221
 dateUpdated: 20260221
