@@ -39,8 +39,6 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 
 4. [x] **(103) CLI Foundation & SDK Agent Tasks** — Typer app with commands: `spawn` (create agent with --type, --provider, --cwd), `list` (show agents with type and state), `task` (send a one-shot task to a named agent, display streaming output), `shutdown` (stop agent). Wire the full path: CLI → Agent Registry → SDK Agent Provider → claude-agent-sdk → response displayed. Dependencies: [Agent Registry]. Risk: Low. Effort: 2/5
 
-5. [DEFERRED] **(104) SDK Client Warm Pool** — Deferred during design. SDK research revealed that `ClaudeSDKClient` does not maintain persistent connectable processes — each `query()` spawns a fresh subprocess with options baked in at creation. The original pool concept (pre-initialized clients handed out on demand) is not viable. To be revisited as a **session cache with agent profile management** once review workflows (slice 105) establish usage patterns. See `104-slice.sdk-client-warm-pool.md` for full rationale and future design direction. Dependencies: [CLI Foundation]. Risk: Medium. Effort: 3/5
-
 **M1 is complete at slice 103 (CLI Foundation).** The M1 value proposition — spawn an SDK agent, give it a task, see structured output from the terminal — is fully delivered. Review Workflow Templates (slice 105, pulled forward below) is the immediate next priority.
 
 ### Post-M1
@@ -105,6 +103,12 @@ These milestones define the priority ordering. Slices are sequenced to reach eac
 28. [ ] **(132) Subprocess Agent Support** — Extend agent registry to spawn agents as OS processes (`asyncio.create_subprocess_exec`). Stdout/stderr streaming piped back through message bus. PID tracking in agent registry. Graceful and forced termination. Orphan cleanup on restart (PID file strategy). Primary use case: spawning non-SDK CLI tools as agent participants. Dependencies: [Agent Registry, Message Bus Core]. Risk: Medium. Effort: 2/5
 
 29. [ ] **(133) End-to-End Testing & Documentation** — Integration tests for core flows (SDK agent task, API agent chat, multi-agent conversation, human-in-the-loop, topology switching, review workflows). CLI help text and usage examples. README with quickstart (install, configure credentials, spawn first agent). Deployment documentation (local dev, MCP config, server mode). Dependencies: [all prior slices]. Risk: Low. Effort: 2/5
+
+---
+
+## Future Work
+
+5. [DEFERRED] **(104) SDK Client Warm Pool** — Deferred during design. SDK research revealed that `ClaudeSDKClient` does not maintain persistent connectable processes — each `query()` spawns a fresh subprocess with options baked in at creation. The original pool concept (pre-initialized clients handed out on demand) is not viable. To be revisited as a **session cache with agent profile management** once review workflows (slice 105) establish usage patterns. See `104-slice.sdk-client-warm-pool.md` for full rationale and future design direction. Dependencies: [CLI Foundation]. Risk: Medium. Effort: 3/5
 
 ---
 
