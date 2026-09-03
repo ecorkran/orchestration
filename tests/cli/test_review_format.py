@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
 import yaml
 
+from squadron.cli.commands.review import _display_terminal
 from squadron.review.models import (
     ReviewFinding,
     ReviewResult,
@@ -162,3 +164,50 @@ class TestYamlEscape:
 
     def test_escapes_backslash(self) -> None:
         assert yaml_escape("path\\to\\file") == "path\\\\to\\\\file"
+
+
+class TestTerminalDegradedOutput:
+    """A degraded parse must not read as a clean review in the terminal (issue #72)."""
+
+    @staticmethod
+    def _result(*, fallback_used: bool) -> ReviewResult:
+        return ReviewResult(
+            verdict=Verdict.CONCERNS,
+            findings=[],
+            raw_output="the model's prose findings live here",
+            template_name="code",
+            input_files={},
+            timestamp=datetime(2026, 3, 30, 12, 0, 0),
+            model="opus",
+            fallback_used=fallback_used,
+        )
+
+    def test_degraded_review_does_not_claim_no_findings(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _display_terminal(self._result(fallback_used=True))
+        out = capsys.readouterr().out
+        assert "No specific findings" not in out
+        assert "degraded" in out.lower()
+
+    def test_degraded_review_points_at_the_raw_response(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _display_terminal(self._result(fallback_used=True))
+        assert "raw response" in capsys.readouterr().out.lower()
+
+    def test_genuinely_clean_review_still_reports_no_findings(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _display_terminal(self._result(fallback_used=False))
+        out = capsys.readouterr().out
+        assert "No specific findings" in out
+        assert "degraded" not in out.lower()
+
+    def test_review_with_findings_is_never_marked_degraded(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _display_terminal(_make_result_with_structured_findings())
+        out = capsys.readouterr().out
+        assert "Missing error handling" in out
+        assert "degraded" not in out.lower()
