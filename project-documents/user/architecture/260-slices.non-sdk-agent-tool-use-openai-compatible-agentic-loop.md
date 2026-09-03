@@ -3,7 +3,7 @@ docType: slice-plan
 parent: 260-arch.non-sdk-agent-tool-use-openai-compatible-agentic-loop.md
 project: squadron
 dateCreated: 20260505
-dateUpdated: 20260901
+dateUpdated: 20260903
 status: not_started
 ---
 
@@ -68,7 +68,7 @@ This initiative has no separate foundation phase — slice 261 is itself the fou
 
   (e) **Split `builtin.py` (F003).** ~614 lines against the project's ~300-line convention, and it is the file (a)-(d) all edit. The registry pattern makes this a pure move: `builtin/file_tools.py` (`read_file`, `write_file`, `list_files`) and `builtin/search_tools.py` (`grep`), re-registered from `builtin/__init__.py`. Cheaper now than after the next tool lands.
 
-Which bounds become configurable (i.e. move into `limits.py` alongside `GREP_TIMEOUT_S`) versus fixed is a slice-design decision — `limits.py` already records that making its constants configurable is this slice's job. Item (a) is a security fix and should land first within the slice regardless of how the config question resolves. Tests: a symlinked candidate pointing outside the jail is refused by both `grep` and `list_files`; an oversized pattern is rejected before compilation; a single oversized tool result is truncated rather than consuming the history budget; a wide tree bounds `list_files` work, not just its output. Dependencies: [265]. Risk: Low. Effort: 3/5 (raised from 1/5 by the bounds work)
+Which bounds become configurable (i.e. move into `limits.py` alongside `GREP_TIMEOUT_S`) versus fixed is a slice-design decision — `limits.py` already records that making its constants configurable is this slice's job. Item (a) is a security fix and should land first within the slice regardless of how the config question resolves. Tests: a symlinked candidate pointing outside the jail is refused by both `grep` and `list_files`; an oversized pattern is rejected before compilation; a single oversized tool result is truncated rather than consuming the history budget; a wide tree bounds `list_files` work, not just its output. Dependencies: [265]. Risk: Low. Effort: 3/5 (raised from 1/5 by the bounds work) Design: `266-slice.tool-use-configuration-and-limits.md`
 
 ---
 

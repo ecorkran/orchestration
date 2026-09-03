@@ -2,13 +2,62 @@
 docType: devlog
 project: squadron
 dateCreated: 20260218
-dateUpdated: 20260901
+dateUpdated: 20260903
 
 ---
 
 # Development Log
 
 A lightweight, append-only record of development activity. Newest entries first.
+
+---
+
+## 20260903
+
+### Slice 266: Phase 4 Slice Design Complete
+
+Design written to `project-documents/user/slices/266-slice.tool-use-configuration-and-limits.md`;
+slice plan entry 6 updated with the materialized index. Effort 3/5, confirming the slice plan's
+20260903 raise from 1/5.
+
+The slice carries two halves that share a boundary rather than a mechanism. The **configuration**
+half adds a `tool_use` bool to models.toml aliases and a `--no-tools` flag to `sq review`. The
+**bounds** half closes five instances of one shape found by reviewing and running slice 265:
+a model-supplied value reaching a tool with nothing checking it.
+
+Three decisions settled with the PM during design:
+
+- **The capability gate applies everywhere tools are offered, not review-only** (D1). `tool_use`
+  describes the model, not the review — a model that mishandles tool-call protocol mishandles it
+  on dispatch too. Enforcement sits at `OpenAICompatibleAgent.__init__`, the single point where
+  `allowed_tools` becomes materialized executors, so review, pipeline review/summary, and
+  `sq run` dispatch are all covered without per-caller changes.
+- **`--no-tools` stays review-scoped and stays a flag** (D2). Persistence records the resolved
+  model, so two aliases of one model would be indistinguishable in an A/B pair; the flag is what
+  makes baseline-vs-tools runs readable afterward. Pipelines already control tools by declaring
+  or omitting `allowed_tools` per step.
+- **New limits are fixed constants in `limits.py`, not config keys** (D4). `limits.py`'s
+  docstring flagged configurability as this slice's call; the call is *not yet*. Eight config
+  keys nobody has asked to tune is complexity to resist. The docstring gets updated to record
+  that this was decided rather than overlooked.
+
+The security item is (a): `grep` resolves only its initial `path` against the jail, then opens
+every candidate `_grep_candidates` yields with no further check. A symlinked file inside the jail
+pointing outside it satisfies `is_file()` and returns contents `read_file` would refuse for the
+same target; on Python ≤3.12 `rglob` also recurses into symlinked directories, letting the walk
+leave entirely. Fix goes inside `_grep_candidates` so both cases are covered at the one point
+candidates are produced, and `list_files` shares the guard. It lands first within the slice; the
+`builtin.py` package split lands last so earlier diffs stay legible against the current file.
+
+Item (b') is a self-inflicted one worth naming: slice 265 bounded `grep`'s per-file read at
+`MAX_READ_BYTES` to close an unbounded read, and in doing so traded it for a *silent* one — a
+match past 256KB is dropped with no marker, which the no-silent-fallback rule forbids. The fix is
+a visible per-file truncation marker rather than line-wise scanning, which would disturb the
+per-line timeout accounting.
+
+Two walkthrough commands were corrected against the real code before the design was committed:
+`load_aliases` does not exist (the function is `get_all_aliases`), and the step-1 command was
+verified to run. The descriptor export names used in step 8 were confirmed present.
 
 ---
 
