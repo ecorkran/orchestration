@@ -20,6 +20,12 @@ MAX_OUTPUT_BYTES = 64_000
 # Wall-clock seconds a ``bash`` command may run before its process group is killed.
 BASH_TIMEOUT_S = 120.0
 
+# Maximum directory entries ``list_files`` will walk. Bounds the *work*: without it a wide
+# tree is fully materialized by ``sorted()`` before the byte-level output cap ever applies,
+# so a large enough tree costs the full walk no matter how little is returned. Distinct from
+# MAX_OUTPUT_BYTES, which bounds the rendered listing; both apply.
+MAX_LIST_ENTRIES = 10_000
+
 # Maximum characters of a single tool result admitted into agent history. Applied per
 # result, before the append: the whole-conversation ``agent.max_history_chars`` guard is a
 # backstop, and one oversized result must not be able to exhaust it on its own.

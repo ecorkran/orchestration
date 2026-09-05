@@ -439,11 +439,29 @@ def _list_files_factory(cwd: Path) -> ToolExecutor:
                     return _error(LIST_FILES_NAME, f"path is not a directory: {path}")
 
                 matches = target.rglob(pattern) if recursive else target.glob(pattern)
-                lines = sorted(
-                    _format_entry(entry, cwd)
-                    for entry in matches
-                    if _contained_in_jail(cwd, entry, tool=LIST_FILES_NAME)
-                )
+                # Consumption stops at the cap, so a wide tree costs a bounded walk rather
+                # than a full materialization. sorted() below would otherwise drain the
+                # whole iterator before the byte-level cap could apply to anything.
+                max_entries = limits.MAX_LIST_ENTRIES
+                collected: list[str] = []
+                capped = False
+                for entry in matches:
+                    if len(collected) >= max_entries:
+                        capped = True
+                        break
+                    if _contained_in_jail(cwd, entry, tool=LIST_FILES_NAME):
+                        collected.append(_format_entry(entry, cwd))
+
+                lines = sorted(collected)
+                if capped:
+                    _logger.warning(
+                        "%s: walk stopped at the %d-entry cap under %s",
+                        LIST_FILES_NAME,
+                        max_entries,
+                        path,
+                    )
+                    # A short listing must stay distinguishable from a truncated one.
+                    lines.append(f"[stopped after {max_entries} entries; the listing is partial]")
                 body = "\n".join(lines)
                 # Read the limit at call time (module attribute), never captured at import.
                 return ToolResult(content=_truncate(body.encode(), limits.MAX_OUTPUT_BYTES, "listing"))
