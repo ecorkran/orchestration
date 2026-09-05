@@ -27,6 +27,7 @@ from squadron.review.persistence import (
     save_review_result,
     yaml_escape,
 )
+from squadron.tools import SuppressionReason
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -662,3 +663,60 @@ class TestArchiveIsNonDestructive:
         generations = list((path.parent / "archive").glob(f"{path.stem}.*{path.suffix}"))
         surviving = [p for p in generations if "the good review" in p.read_text()]
         assert surviving, "the good review was destroyed by a second overwrite"
+
+
+class TestFormatReviewMarkdownSuppressionReason:
+    """Slice 266: suppression is the third state slice 265's two fields cannot express."""
+
+    def test_three_tool_states_are_distinguishable(self) -> None:
+        """offered-and-used, offered-and-unused, and suppressed must not collapse."""
+        used = _make_result()
+        used.tools_given = ["read_file"]
+        used.tool_calls_made = 3
+
+        unused = _make_result()
+        unused.tools_given = ["read_file"]
+        unused.tool_calls_made = 0
+
+        suppressed = _make_result()
+        suppressed.tools_suppressed_reason = SuppressionReason.MODEL_CAPABILITY.value
+
+        frames = [
+            yaml.safe_load(format_review_markdown(r, "code", _make_slice_info()).split("---")[1])
+            for r in (used, unused, suppressed)
+        ]
+        assert frames[0]["toolCallsMade"] == 3
+        assert frames[1]["toolCallsMade"] == 0
+        assert "toolsGiven" not in frames[2]
+        assert frames[2]["toolsSuppressedReason"] == SuppressionReason.MODEL_CAPABILITY.value
+        # And the suppressed frame is not mistakable for either of the others.
+        assert "toolsSuppressedReason" not in frames[0]
+        assert "toolsSuppressedReason" not in frames[1]
+
+    def test_reasons_are_distinct_in_persisted_text(self) -> None:
+        """SC4: capability denial and --no-tools must be told apart from the field alone."""
+        capability = _make_result()
+        capability.tools_suppressed_reason = SuppressionReason.MODEL_CAPABILITY.value
+        run = _make_result()
+        run.tools_suppressed_reason = SuppressionReason.RUN_SUPPRESSED.value
+
+        rendered = [
+            yaml.safe_load(format_review_markdown(r, "code", _make_slice_info()).split("---")[1])[
+                "toolsSuppressedReason"
+            ]
+            for r in (capability, run)
+        ]
+        assert rendered[0] != rendered[1]
+
+    def test_ungated_review_artifact_is_unchanged(self) -> None:
+        """A run that never declared tools must not grow the field."""
+        result = _make_result()
+        md = format_review_markdown(result, "code", _make_slice_info())
+        assert re.search(r"^toolsSuppressedReason:", md, re.MULTILINE) is None
+
+    def test_to_dict_carries_the_reason_and_omits_it_otherwise(self) -> None:
+        """Both persistence forms, not JSON only — issue #72's shape."""
+        suppressed = _make_result()
+        suppressed.tools_suppressed_reason = SuppressionReason.RUN_SUPPRESSED.value
+        assert suppressed.to_dict()["tools_suppressed_reason"] == SuppressionReason.RUN_SUPPRESSED.value
+        assert "tools_suppressed_reason" not in _make_result().to_dict()
