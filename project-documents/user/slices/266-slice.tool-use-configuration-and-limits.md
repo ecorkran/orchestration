@@ -4,9 +4,15 @@ project: squadron
 slice: 266-slice.tool-use-configuration-and-limits
 parent: 260-slices.non-sdk-agent-tool-use-openai-compatible-agentic-loop.md
 dependencies: [261, 262, 263, 265]
-interfaces: []
+interfaces:
+  - name: resolve_effective_tools
+    module: squadron.tools
+    contract: >-
+      Sole gate for tool-use capability. Every AgentConfig construction site that passes
+      a non-empty allowed_tools must route through it; see Architecture, "The call sites
+      that must use it". Enforced by SC1a.
 dateCreated: 20260903
-dateUpdated: 20260903
+dateUpdated: 20260905
 status: not_started
 ---
 
@@ -62,8 +68,9 @@ slice's job.
 
 1. `tool_use: bool` optional field on models.toml aliases (default `true`), parsed alongside
    `private` / `cost_tier` / `notes`.
-2. Capability enforcement at the agent construction edge, so it covers `sq review`, the
-   pipeline `review` / `summary` actions, and `sq run` dispatch alike.
+2. Capability enforcement via a shared `resolve_effective_tools` helper, applied at all four
+   tool-passing call sites so it covers `sq review`, the pipeline `summary` action, `sq run`
+   dispatch, and the metrology audit alike.
 3. `--no-tools` flag on `sq review` (both subcommands that accept `--model`), emptying the
    effective tool set for one run.
 4. Effective-tools resolution recorded and logged so a suppressed tool set is visible, not
@@ -94,39 +101,63 @@ slice's job.
 
 ### Where the capability gate lives
 
-The gate belongs at the point where `allowed_tools` becomes materialized executors, not at each
-caller. `OpenAICompatibleAgent.__init__`
-([agent.py:114-140](src/squadron/providers/openai/agent.py#L114-L140)) is that point: it takes
-`allowed_tools`, validates the names, and calls `tools.materialize`. Every path — review client,
-pipeline actions, dispatch — funnels through it.
+The gate is `resolve_effective_tools` — a single function in the tools package — and it sits in
+the **caller**, not the agent. `OpenAICompatibleAgent.__init__`
+([agent.py:114-140](src/squadron/providers/openai/agent.py#L114-L140)) is where `allowed_tools`
+becomes materialized executors, but it cannot be the gate: it receives an already-resolved model
+id and must not read models.toml (D3). It materializes whatever list it is handed and has no way
+to tell a gated list from an un-gated one.
 
-Placing the gate there rather than in each caller means: one enforcement site, no caller can
-forget it, and the `sq run` dispatch path is covered without a separate change. This is what
-makes the gate "everywhere tools are offered" rather than review-only.
+So the enforcement site is one *function*, and the obligation is that every caller which passes
+`allowed_tools` into `AgentConfig` routes through it. That obligation is not self-enforcing, so
+this slice makes it explicit rather than assumed:
 
-The agent, however, must not read models.toml — it receives a resolved model id, and alias
-resolution is a config-layer concern. So the capability is resolved *by the caller* and passed
-down as part of the existing config, not looked up inside the agent.
+- The call sites are **enumerated**, not left to be discovered (below).
+- A test asserts the enumeration is complete, so a new site added later fails loudly rather than
+  silently skipping the gate (SC1a).
 
 ```
 models.toml alias            template.allowed_tools        --no-tools
   tool_use: bool                (or step YAML)                 flag
         \                            |                          /
          \                           |                         /
-          +----> effective tool resolution (one helper) <------+
+          +----> resolve_effective_tools()  <-------------------+
+                  (the gate — every caller below uses it)
                               |
                               v
                    AgentConfig.allowed_tools
                               |
                               v
               OpenAICompatibleAgent.__init__  --> tools.materialize
+                  (materializes; does not gate)
 ```
 
 Effective tools = `declared ∩ (capability allows)` , emptied entirely by `--no-tools`.
 
-The resolution helper is a single function so all three inputs combine in exactly one place.
-Scattering the `∩` across the review client and dispatch would be the "comparison values
-scattered across code" the project rules forbid.
+The resolution is a single function so all three inputs combine in exactly one place. Scattering
+the `∩` across the review client and dispatch would be the "comparison values scattered across
+code" the project rules forbid.
+
+### The call sites that must use it
+
+Four `AgentConfig` construction sites pass a non-empty `allowed_tools` today. All four are in
+scope; none may be left to a later slice:
+
+| Site | Line | Tools come from | Notes |
+|---|---|---|---|
+| `review/review_client.py` | [138](src/squadron/review/review_client.py#L138) | `resolved_allowed_tools` from the template | also the `--no-tools` entry point |
+| `pipeline/actions/dispatch.py` | [109](src/squadron/pipeline/actions/dispatch.py#L109) | step YAML `allowed_tools` | **already populates `allowed_tools`** — this is a change to an existing path, not a new one |
+| `pipeline/summary_oneshot.py` | [68](src/squadron/pipeline/summary_oneshot.py#L68) | step `allowed_tools` | the pipeline `summary` action |
+| `metrology/audit.py` | [608](src/squadron/metrology/audit.py#L608) | module constant `_AUDIT_ALLOWED_TOOLS` | fixed list, but a `tool_use = false` model must still be gated |
+
+The remaining three sites (`providers/auth.py:234`, `server/routes/agents.py:49` and `:179`) pass
+no `allowed_tools` at all and are therefore out of scope — the completeness test must recognize
+them as legitimately un-gated rather than flagging them.
+
+**SC1a's test is what keeps this list honest.** It enumerates `AgentConfig(...)` constructions
+that set `allowed_tools` and asserts each is on the sanctioned list — so adding a fifth site
+without routing it through `resolve_effective_tools` fails the suite instead of silently
+un-gating `tool_use = false`.
 
 ### Suppression must be visible
 
@@ -148,6 +179,15 @@ something expensive or privileged:
 | (b') | *(none — internal)* | truncated file read | visible marker or line-wise scan |
 | (c) | tool result content | history budget | per-result byte cap |
 | (d) | `path`, `pattern`, `recursive` | full tree materialization | entry cap during walk |
+
+**Every bound is observable.** Item (a) logs at WARNING (SC5/D6) because a jail escape is a
+security event. Items (b), (b'), (c) and (d) return a model-visible error result or truncation
+marker, and each additionally trips the architecture's baseline tool logging — the tool call and
+its result are logged at DEBUG, with per-run summaries at INFO under `-vv`. So an operator
+scanning `-vv` output can tell "the model keeps hitting the pattern cap" from routine tool use,
+satisfying the project's Failure-Mode Enumeration rule that a failure mode be observable rather
+than silent. No bound trips without leaving a trace in both channels: the model sees the marker,
+the operator sees the log.
 
 ### The jail re-check (item a)
 
@@ -188,11 +228,19 @@ the chosen fix. The model can then narrow its own search.
   parses it. Follows the existing `private` bool precedent exactly.
 - **`src/squadron/data/models.toml`** — header comment documents the field. No alias sets it
   (default `true` preserves current behavior); operators set it on their own aliases.
-- **`src/squadron/providers/openai/agent.py`** — construction-time gate; telemetry records
-  suppression.
+- **`src/squadron/tools/`** — new `resolve_effective_tools` helper (the gate).
+- **`src/squadron/providers/openai/agent.py`** — telemetry records suppression. The agent
+  materializes; it does not gate.
 - **`src/squadron/review/review_client.py`** — `run_review_with_profile` routes its
   `resolved_allowed_tools` ([review_client.py:79](src/squadron/review/review_client.py#L79))
   through the resolution helper.
+- **`src/squadron/pipeline/actions/dispatch.py`** — routes the step's `allowed_tools`
+  ([dispatch.py:117](src/squadron/pipeline/actions/dispatch.py#L117)) through the helper. The
+  field is already populated here; this changes an existing assignment.
+- **`src/squadron/pipeline/summary_oneshot.py`** — same, for the `summary` action
+  ([summary_oneshot.py:79](src/squadron/pipeline/summary_oneshot.py#L79)).
+- **`src/squadron/metrology/audit.py`** — same, for `_AUDIT_ALLOWED_TOOLS`
+  ([audit.py:621](src/squadron/metrology/audit.py#L621)).
 - **`src/squadron/cli/commands/review.py`** — `--no-tools` on both review subcommands.
 - **`src/squadron/tools/limits.py`** — new constants: pattern cap, tool-result cap, list-files
   entry cap. Docstring's "slice 266's job" note updated to record the decision taken.
@@ -237,7 +285,11 @@ without the caller re-deriving why.
 ## Success Criteria
 
 - **SC1** — An alias with `tool_use = false` is never offered tool schemas, even when the
-  template or step declares `allowed_tools`. Verified on both a review path and the dispatch path.
+  template or step declares `allowed_tools`. Verified at each of the four sanctioned call sites:
+  review client, dispatch, summary one-shot, and metrology audit.
+- **SC1a** — A test enumerates every `AgentConfig` construction that sets `allowed_tools` and
+  fails if one is not among the sanctioned sites, so a future un-gated caller is caught by the
+  suite rather than shipping a silent capability bypass.
 - **SC2** — An alias with `tool_use` absent behaves exactly as today (tools passed through).
 - **SC3** — `sq review code <slice> --no-tools` runs with an empty effective tool set, and the
   persisted review records tools as disabled.
@@ -264,7 +316,9 @@ without the caller re-deriving why.
 The slice plan mentions the field in a review context, but `tool_use` describes the *model*, not
 the review. A model that mishandles tool-call protocol mishandles it on the dispatch path too;
 gating only reviews would leave `sq run` handing schemas to a model already marked broken.
-Enforcing at the agent construction edge covers all callers with one site.
+Coverage is achieved by one shared helper plus an enumerated list of the four callers that pass
+tools, not by a single structural chokepoint — D3 rules that out, since the agent cannot see the
+alias. SC1a's enumeration test is what substitutes for the chokepoint the layering denies us.
 *(Confirmed with PM 20260903.)*
 
 **D2 — `--no-tools` is review-only and is a flag, not a second alias.**
@@ -328,11 +382,12 @@ alias in `~/.config/squadron/models.toml` and confirm it reads back `False`.
 ### 2. A `tool_use = false` model is never offered schemas
 
 ```bash
-uv run pytest tests/ -k "tool_use_capability" -v
+uv run pytest tests/tools/test_effective_tools.py -v
 ```
 
-Expect the gate tests green, including the dispatch-path case (SC1) and the pass-through
-default (SC2).
+Expect the gate tests green: one case per sanctioned call site — review client, dispatch,
+summary one-shot, metrology audit (SC1) — plus the pass-through default (SC2), plus the
+call-site enumeration test that fails on an un-gated construction (SC1a).
 
 ### 3. `--no-tools` empties the effective set *(manual, live model)*
 
