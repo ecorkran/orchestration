@@ -337,7 +337,9 @@ Keeping the lookup in the config layer preserves that boundary.
 yet*. All caps live in `limits.py` as module attributes — one home, monkeypatchable, read at
 call time — but no config plumbing ships until someone needs to tune one. Adding eight config
 keys speculatively is complexity the project rules tell us to resist. The docstring is updated
-to record that this was decided, not overlooked. *(Confirmed with PM 20260903.)*
+to record that this was decided, not overlooked. Tracked for later as
+[issue #76](https://github.com/ecorkran/squadron/issues/76), which records the constraints any
+future config surface must preserve. *(Confirmed with PM 20260903.)*
 
 **D5 — Item (a) lands first within the slice.** It is the only security item. The rest is
 hardening and can follow in any order; the `builtin.py` split lands last so earlier diffs stay

@@ -32,6 +32,17 @@ status: not_started
   because Part A's helper is the slice's central contract.
 - **Effort 3/5** overall. Raised from the slice plan's 1/5 by the bounds work.
 
+### Commit checkpoints
+
+The standing CLAUDE.md rule (commit per task) applies throughout. Three points
+must be **isolated commits** rather than folded into neighbouring work, because
+each is a diff someone will need to read on its own:
+
+- **T13-T14** (the jail re-check) — the only security fix in the slice.
+- **T23** (the `builtin.py` split) — a pure move; any logic change sharing this
+  commit defeats the review that the ordering exists to enable.
+- **T10a** (the suppression field) — touches five files across four layers.
+
 ### Grounding notes (read before starting — verified against the code 20260905)
 
 Facts established while resolving the design review. Some correct earlier
@@ -127,7 +138,9 @@ statements in the architecture doc:
     (review_client.py:138).
   - [ ] Read the alias's `tool_use` in this layer — the config layer is where
     alias lookup belongs (D3). The agent must remain unchanged.
-  - [ ] When the reason is non-`None`, log at INFO (SC4).
+  - [ ] When the reason is non-`None`, log at INFO (SC4) **and** pass it onto
+    `AgentConfig` for T10a to persist. The log alone does not satisfy SC4 —
+    telemetry must carry it too.
   - [ ] **Success:** a `tool_use = false` model produces an empty
     `allowed_tools` on the constructed `AgentConfig` even when the template
     declares tools; an alias without the field is unaffected.
@@ -199,20 +212,66 @@ combined task would hide a missed one.
     fails the suite (verify by temporarily adding one, then removing it).
   - Effort: 3/5
 
+- [ ] **T10a. Persist *why* a tool set is empty**
+  - [ ] **There is no existing field for this.** Slice 265 distinguished two
+    states — offered-but-unused (`tools_given=[...]`, `tool_calls_made=0`) and
+    never-offered (both `None`). Suppression is a **third** state 265 never
+    needed, and it currently collapses into the second: `_stamp_tool_telemetry`
+    returns early on an empty `_tools_given`
+    ([agent.py:398](src/squadron/providers/openai/agent.py#L398)), so a
+    suppressed run and a no-tools-declared run persist identically. SC3 and SC4
+    cannot be met without this task.
+  - [ ] Thread `resolve_effective_tools`'s `reason` along the path 265 used for
+    `tools_given`, so the mechanism stays uniform:
+    1. Carry it on `AgentConfig` (`core/models.py:40-62`), beside
+       `allowed_tools`.
+    2. Stamp it into the final message's metadata in `_stamp_tool_telemetry`
+       (agent.py:393-401). This branch must run **even when `_tools_given` is
+       empty** — that is the whole point, and the existing early return at
+       agent.py:398 is what currently prevents it.
+    3. Read it back in `review_client.py` (~line 188, next to the `tools_given`
+       read) onto a new `ReviewResult` field (`review/models.py:76`, beside the
+       265 telemetry fields).
+    4. Emit it in **both** persistence forms: the markdown frontmatter
+       (`persistence.py:213`, beside `toolsGiven`) and `to_dict()`
+       (`review/models.py:83`). A JSON-only field repeats issue #72's shape,
+       where the artifact people actually read carried no evidence.
+  - [ ] Absent when nothing was suppressed. A run that simply declared no tools
+    must stay byte-for-byte unchanged — this field appears only when a
+    non-empty declared set was emptied.
+  - [ ] **Success:** three states are distinguishable in the persisted artifact:
+    offered-and-used, offered-and-unused, and **suppressed with its reason**. A
+    never-declared run's output is unchanged.
+  - Effort: 3/5
+
+- [ ] **T10b. Test the suppression field** *(test-with T10a)*
+  - [ ] Assert all three states persist distinguishably, in **both** the markdown
+    frontmatter and `to_dict()`.
+  - [ ] Assert a never-declared run's artifact is unchanged against the
+    pre-T10a output — this field must not leak into runs that were never gated.
+  - [ ] Assert the capability-denied and `--no-tools` reasons are distinct in
+    the persisted text, not merely both non-empty (SC4).
+  - [ ] **Success:** all cases green; existing slice 265 telemetry tests pass
+    untouched.
+  - Effort: 2/5
+
 - [ ] **T11. Add `--no-tools` to the review CLI**
   - [ ] In `src/squadron/cli/commands/review.py`, add the flag to both review
     subcommands that accept `--model`, threading it to the helper's
     `suppressed` argument.
-  - [ ] Record tools-disabled in the persisted review, reusing slice 265's
-    tools-enabled field rather than adding a parallel one (SC3).
+  - [ ] Record the suppression via the T10a field (SC3). Do **not** try to reuse
+    `tools_given` — an empty list there is indistinguishable from an absent one
+    once it reaches persistence.
   - [ ] **Success:** `--no-tools` empties the effective set for one run and the
-    persisted artifact records it; omitting the flag changes nothing.
+    persisted artifact records it as suppressed, with the reason; omitting the
+    flag changes nothing.
   - Effort: 2/5
 
 - [ ] **T12. Test `--no-tools` end to end** *(test-with T11)*
   - [ ] Assert the flag reaches the helper, that the persisted review records
-    tools as disabled (SC3), and that the run is distinguishable from a
-    no-tools-declared run by the recorded field — not by model prose (SC4).
+    the suppression via the T10a field (SC3), and that the run is
+    distinguishable from a no-tools-declared run by that field — not by model
+    prose (SC4).
   - [ ] **Success:** both subcommands covered.
   - Effort: 2/5
 
@@ -412,7 +471,9 @@ combined task would hide a missed one.
     the decision was **taken**, not skipped: constants stay module attributes
     with no config keys until someone needs to tune one (D4).
   - [ ] The wording must not read as unfinished work, or a future reader
-    reopens a closed decision.
+    reopens a closed decision. Point it at
+    [issue #76](https://github.com/ecorkran/squadron/issues/76), where the
+    enhancement and its constraints are tracked.
   - [ ] **Success:** the docstring records the decision and its reasoning.
   - Effort: 1/5
 
