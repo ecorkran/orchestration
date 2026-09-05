@@ -17,7 +17,7 @@ from pathlib import Path
 
 from squadron.config.manager import get_config
 from squadron.core.models import SDK_RESULT_TYPE, AgentConfig, Message, MessageType
-from squadron.models.aliases import model_allows_tools
+from squadron.models.aliases import model_allows_tools as _alias_allows_tools
 from squadron.providers.loader import ensure_provider_loaded
 from squadron.providers.profiles import get_profile
 from squadron.providers.registry import get_provider
@@ -65,6 +65,7 @@ async def run_review_with_profile(
     verbosity: int = 0,
     allowed_tools: list[str] | None = None,
     no_tools: bool = False,
+    model_allows_tools: bool | None = None,
 ) -> ReviewResult:
     """Execute a review through the specified provider profile.
 
@@ -115,9 +116,15 @@ async def run_review_with_profile(
     # The capability gate (slice 266). Runs before the injection check below, because
     # that check keys on the tools this run was *actually* given: a gated run must fall
     # back to injected file bodies rather than getting neither tools nor contents.
+    # The caller's value wins when supplied: the CLI reads the capability while the alias
+    # name is still known, and by the time a resolved model id reaches here the alias
+    # metadata is unrecoverable. Callers that pass an alias can leave it None.
+    allows_tools = (
+        model_allows_tools if model_allows_tools is not None else _alias_allows_tools(resolved_model)
+    )
     resolved_allowed_tools, tools_suppressed_reason = resolve_effective_tools(
         resolved_allowed_tools,
-        model_allows_tools=model_allows_tools(resolved_model),
+        model_allows_tools=allows_tools,
         suppressed=no_tools,
     )
     if tools_suppressed_reason is not None:

@@ -16,15 +16,15 @@ import regex
 from squadron.tools import limits
 from squadron.tools.builtin._shared import (
     GREP_NAME,
-    _contained_in_jail,
-    _error,
-    _guarded,
-    _jail_violation,
-    _optional_int,
-    _optional_str,
-    _require_str,
-    _resolve_in_jail,
-    _truncate,
+    contained_in_jail,
+    error,
+    guarded,
+    jail_violation,
+    optional_int,
+    optional_str,
+    require_str,
+    resolve_in_jail,
+    truncate,
 )
 from squadron.tools.models import ToolDescriptor, ToolExecutor, ToolResult
 from squadron.tools.registry import register
@@ -69,14 +69,14 @@ def _grep_candidates(cwd: Path, target: Path, glob: str | None) -> Iterator[Path
     candidates pass through, so both symlink escape routes close here.
     """
     if target.is_file():
-        if _contained_in_jail(cwd, target, tool=GREP_NAME):
+        if contained_in_jail(cwd, target, tool=GREP_NAME):
             yield target
         return
     for entry in target.rglob(glob or "*"):
         # Containment is checked before is_file(): on Python 3.13+ rglob yields a symlinked
         # directory without descending into it, and is_file() is False for that entry — so
         # testing is_file() first would skip the escape silently instead of logging it.
-        if not _contained_in_jail(cwd, entry, tool=GREP_NAME):
+        if not contained_in_jail(cwd, entry, tool=GREP_NAME):
             continue
         if entry.is_file():
             yield entry
@@ -85,29 +85,29 @@ def _grep_candidates(cwd: Path, target: Path, glob: str | None) -> Iterator[Path
 def _grep_factory(cwd: Path) -> ToolExecutor:
     async def execute(args: dict[str, object]) -> ToolResult:
         async def run() -> ToolResult:
-            pattern = _require_str(args, "pattern")
-            path = _optional_str(args, "path", ".")
+            pattern = require_str(args, "pattern")
+            path = optional_str(args, "path", ".")
             glob = args.get("glob")
             if glob is not None and not isinstance(glob, str):
                 raise ValueError(f"argument 'glob' must be a string, got {type(glob).__name__}")
-            max_results = _optional_int(args, "max_results")
+            max_results = optional_int(args, "max_results")
 
             # The whole walk — resolve, directory expansion, every file read, and all regex
             # matching — runs in one worker thread. Matching is CPU-bound by construction (the
             # timeout exists precisely because a model-supplied pattern can backtrack
             # catastrophically), so it must never run on the event loop.
             def _search() -> ToolResult:
-                target = _resolve_in_jail(cwd, path)
+                target = resolve_in_jail(cwd, path)
                 if target is None:
-                    return _jail_violation(GREP_NAME, path)
+                    return jail_violation(GREP_NAME, path)
                 if not target.exists():
-                    return _error(GREP_NAME, f"path does not exist: {path}")
+                    return error(GREP_NAME, f"path does not exist: {path}")
 
                 # Checked before compile(), not after: an unbounded pattern must never
                 # reach the engine at all. Returned rather than raised, matching the
                 # invalid-regex branch below — the model supplied it and must correct it.
                 if len(pattern) > limits.MAX_PATTERN_CHARS:
-                    return _error(
+                    return error(
                         GREP_NAME,
                         f"pattern is {len(pattern)} characters, over the "
                         f"{limits.MAX_PATTERN_CHARS}-character limit; shorten it.",
@@ -118,7 +118,7 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                 except regex.error as exc:
                     # Returned, never raised: the model supplied the pattern and is the one
                     # that has to correct it.
-                    return _error(GREP_NAME, f"invalid regular expression {pattern!r}: {exc}")
+                    return error(GREP_NAME, f"invalid regular expression {pattern!r}: {exc}")
 
                 # Read the limit at call time (module attribute), never captured at import.
                 budget = limits.GREP_TIMEOUT_S
@@ -180,11 +180,11 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                     for name in truncated_files
                 )
                 body = "\n".join(lines)
-                return ToolResult(content=_truncate(body.encode(), limits.MAX_OUTPUT_BYTES, "matches"))
+                return ToolResult(content=truncate(body.encode(), limits.MAX_OUTPUT_BYTES, "matches"))
 
             return await asyncio.to_thread(_search)
 
-        return await _guarded(GREP_NAME, run)
+        return await guarded(GREP_NAME, run)
 
     return execute
 

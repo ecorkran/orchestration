@@ -22,7 +22,7 @@ GREP_NAME = "grep"
 _logger = logging.getLogger(__name__)
 
 
-def _resolve_in_jail(cwd: Path, path: str) -> Path | None:
+def resolve_in_jail(cwd: Path, path: str) -> Path | None:
     """Resolve model-supplied *path* against jail root *cwd*, or return None if it escapes.
 
     ``cwd / path`` covers relative inputs, absolute inputs (``Path.__truediv__`` with an
@@ -39,7 +39,7 @@ def _resolve_in_jail(cwd: Path, path: str) -> Path | None:
     return candidate
 
 
-def _contained_in_jail(cwd: Path, entry: Path, *, tool: str) -> bool:
+def contained_in_jail(cwd: Path, entry: Path, *, tool: str) -> bool:
     """Return whether *entry* really lies inside jail root *cwd*, logging refusals.
 
     A walk yields entries that were never checked against the jail: ``Path.is_file()``
@@ -58,7 +58,7 @@ def _contained_in_jail(cwd: Path, entry: Path, *, tool: str) -> bool:
     return False
 
 
-def _reject_special_file(tool: str, target: Path) -> ToolResult | None:
+def reject_special_file(tool: str, target: Path) -> ToolResult | None:
     """Return an error result if *target* exists and is not a regular file, else None.
 
     A read or write against a FIFO, device node, or socket blocks in the thread pool with no
@@ -74,11 +74,11 @@ def _reject_special_file(tool: str, target: Path) -> ToolResult | None:
     if not target.exists() or target.is_dir():
         return None
     if not target.is_file():
-        return _error(tool, f"path is not a regular file: {target.name}")
+        return error(tool, f"path is not a regular file: {target.name}")
     return None
 
 
-def _jail_violation(tool: str, path: str) -> ToolResult:
+def jail_violation(tool: str, path: str) -> ToolResult:
     """Build the error result for a rejected path and log it at WARNING.
 
     The working directory is the trust boundary, so an escape attempt must be visible without
@@ -91,7 +91,7 @@ def _jail_violation(tool: str, path: str) -> ToolResult:
     )
 
 
-def _error(tool: str, message: str) -> ToolResult:
+def error(tool: str, message: str) -> ToolResult:
     """Build a routine error result and log it at INFO.
 
     These are outcomes the model probes for and reacts to — a missing file, a permission
@@ -102,7 +102,7 @@ def _error(tool: str, message: str) -> ToolResult:
     return ToolResult(content=f"Error: {message}", is_error=True)
 
 
-async def _guarded(tool: str, run: Callable[[], Awaitable[ToolResult]]) -> ToolResult:
+async def guarded(tool: str, run: Callable[[], Awaitable[ToolResult]]) -> ToolResult:
     """Run *run*, converting expected failures into error results.
 
     Every executor routes through this wrapper. From slice 262 onward the caller is a model
@@ -112,23 +112,23 @@ async def _guarded(tool: str, run: Callable[[], Awaitable[ToolResult]]) -> ToolR
     try:
         return await run()
     except FileNotFoundError as exc:
-        return _error(tool, f"file not found: {exc.filename or exc}")
+        return error(tool, f"file not found: {exc.filename or exc}")
     except IsADirectoryError as exc:
-        return _error(tool, f"path is a directory: {exc.filename or exc}")
+        return error(tool, f"path is a directory: {exc.filename or exc}")
     except NotADirectoryError as exc:
-        return _error(tool, f"path component is not a directory: {exc.filename or exc}")
+        return error(tool, f"path component is not a directory: {exc.filename or exc}")
     except PermissionError as exc:
-        return _error(tool, f"permission denied: {exc.filename or exc}")
+        return error(tool, f"permission denied: {exc.filename or exc}")
     except UnicodeDecodeError as exc:
-        return _error(tool, f"could not decode content: {exc}")
+        return error(tool, f"could not decode content: {exc}")
     except TimeoutError as exc:
-        return _error(tool, f"operation timed out: {exc}")
+        return error(tool, f"operation timed out: {exc}")
     except Exception as exc:  # noqa: BLE001
         _logger.exception("%s: unexpected failure", tool)
         return ToolResult(content=f"Error: unexpected failure in {tool}: {exc}", is_error=True)
 
 
-def _require_str(args: dict[str, object], key: str) -> str:
+def require_str(args: dict[str, object], key: str) -> str:
     """Return ``args[key]`` as a string, or raise ValueError describing what was wrong.
 
     Arguments arrive from a model and are untyped by construction, so they are narrowed at the
@@ -142,7 +142,7 @@ def _require_str(args: dict[str, object], key: str) -> str:
     return value
 
 
-def _truncate(data: bytes, limit: int, label: str) -> str:
+def truncate(data: bytes, limit: int, label: str) -> str:
     """Decode *data*, truncating to *limit* bytes with a visible trailing marker.
 
     Truncation is never silent: the model has to know it did not see everything. Decoding
@@ -155,10 +155,10 @@ def _truncate(data: bytes, limit: int, label: str) -> str:
     return f"{kept}\n[truncated: {label} is {len(data)} bytes, showing first {limit}]"
 
 
-def _optional_str(args: dict[str, object], key: str, default: str) -> str:
+def optional_str(args: dict[str, object], key: str, default: str) -> str:
     """Return ``args[key]`` as a string, falling back to *default* when absent or null.
 
-    Same boundary-narrowing rationale as ``_require_str``: model-supplied arguments are
+    Same boundary-narrowing rationale as ``require_str``: model-supplied arguments are
     untyped, and an optional argument that arrives with the wrong type is a caller error the
     model can correct, not something to coerce silently.
     """
@@ -170,7 +170,7 @@ def _optional_str(args: dict[str, object], key: str, default: str) -> str:
     return value
 
 
-def _optional_bool(args: dict[str, object], key: str, default: bool) -> bool:
+def optional_bool(args: dict[str, object], key: str, default: bool) -> bool:
     """Return ``args[key]`` as a bool, falling back to *default* when absent or null."""
     value = args.get(key)
     if value is None:
@@ -180,13 +180,13 @@ def _optional_bool(args: dict[str, object], key: str, default: bool) -> bool:
     return value
 
 
-def _format_entry(entry: Path, root: Path) -> str:
+def format_entry(entry: Path, root: Path) -> str:
     """Render *entry* relative to jail root *root*, marking directories with a trailing slash."""
     rendered = str(entry.relative_to(root))
     return f"{rendered}/" if entry.is_dir() else rendered
 
 
-def _optional_int(args: dict[str, object], key: str) -> int | None:
+def optional_int(args: dict[str, object], key: str) -> int | None:
     """Return ``args[key]`` as an int, or None when absent or null.
 
     ``bool`` is rejected explicitly: it is a subclass of ``int``, so a model passing ``true``

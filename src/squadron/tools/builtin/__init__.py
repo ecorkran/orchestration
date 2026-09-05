@@ -22,7 +22,7 @@ from squadron.tools.builtin._shared import (
     LIST_FILES_NAME,
     READ_FILE_NAME,
     WRITE_FILE_NAME,
-    _resolve_in_jail,
+    resolve_in_jail,
 )
 from squadron.tools.builtin.bash_tool import BASH, BASH_PARAMETERS
 from squadron.tools.builtin.file_tools import (
@@ -35,9 +35,12 @@ from squadron.tools.builtin.file_tools import (
 )
 from squadron.tools.builtin.search_tools import GREP, GREP_PARAMETERS
 
+# The jail helper was ``builtin._resolve_in_jail`` before the split, and the jail's own
+# tests import it under that name. The split is a pure move, so the old name keeps
+# resolving; ``resolve_in_jail`` is the same object under the package-internal spelling.
+_resolve_in_jail = resolve_in_jail
+
 __all__ = [
-    # _resolve_in_jail is re-exported because the jail's own tests import it from here.
-    # The split is a pure move: what resolved before the split still resolves.
     "BASH",
     "BASH_NAME",
     "BASH_PARAMETERS",
@@ -54,4 +57,5 @@ __all__ = [
     "WRITE_FILE_NAME",
     "WRITE_FILE_PARAMETERS",
     "_resolve_in_jail",
+    "resolve_in_jail",
 ]

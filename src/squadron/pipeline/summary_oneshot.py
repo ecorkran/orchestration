@@ -93,7 +93,8 @@ async def capture_summary_via_profile_with_telemetry(
         # A tool-capable agent needs a working directory to jail its tools to; both stay
         # at today's no-tools defaults when the step declares nothing (slice 265).
         cwd=cwd if allowed_tools else None,
-        allowed_tools=allowed_tools if allowed_tools is not None else [],
+        # Always a list after the gate above, which normalizes None to [].
+        allowed_tools=allowed_tools,
         tools_suppressed_reason=tools_suppressed_reason,
         permission_mode="default",
         setting_sources=[],

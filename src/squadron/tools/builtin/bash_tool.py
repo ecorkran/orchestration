@@ -12,7 +12,7 @@ import signal
 from pathlib import Path
 
 from squadron.tools import limits
-from squadron.tools.builtin._shared import BASH_NAME, _error, _guarded, _require_str, _truncate
+from squadron.tools.builtin._shared import BASH_NAME, error, guarded, require_str, truncate
 from squadron.tools.models import ToolDescriptor, ToolExecutor, ToolResult
 from squadron.tools.registry import register
 
@@ -45,7 +45,7 @@ async def _kill_process_group(proc: asyncio.subprocess.Process) -> None:
 def _bash_factory(cwd: Path) -> ToolExecutor:
     async def execute(args: dict[str, object]) -> ToolResult:
         async def run() -> ToolResult:
-            command = _require_str(args, "command")
+            command = require_str(args, "command")
 
             proc = await asyncio.create_subprocess_shell(
                 command,
@@ -75,17 +75,17 @@ def _bash_factory(cwd: Path) -> ToolExecutor:
                 )
 
             limit = limits.MAX_OUTPUT_BYTES
-            stdout = _truncate(stdout_bytes, limit, "stdout")
-            stderr = _truncate(stderr_bytes, limit, "stderr")
+            stdout = truncate(stdout_bytes, limit, "stdout")
+            stderr = truncate(stderr_bytes, limit, "stderr")
             body = f"stdout:\n{stdout}\nstderr:\n{stderr}"
             exit_code = proc.returncode
 
             if exit_code != 0:
                 # The model needs the captured output to react, so it travels with the error.
-                return _error(BASH_NAME, f"command exited with code {exit_code}.\n{body}")
+                return error(BASH_NAME, f"command exited with code {exit_code}.\n{body}")
             return ToolResult(content=body)
 
-        return await _guarded(BASH_NAME, run)
+        return await guarded(BASH_NAME, run)
 
     return execute
 

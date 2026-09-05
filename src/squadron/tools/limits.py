@@ -5,8 +5,15 @@ implementations reference these constants by module attribute (``limits.MAX_READ
 rather than importing the values, so tests can monkeypatch them and the executor sees the
 patched value at call time.
 
-Making these configurable is slice 266's job — this module deliberately has no config
-plumbing.
+Slice 266 considered making these configurable and decided against it (design D4): they
+stay module attributes with no config keys until someone actually needs to tune one. A
+config surface for values nobody has had to change would be plumbing maintained for its
+own sake, and it would split each limit's definition across two places.
+
+The decision is settled, not deferred. If a limit does need tuning, the constraints any
+config surface must preserve are recorded in
+https://github.com/ecorkran/squadron/issues/76 — chiefly that a constant must resolve
+*from* config rather than sit beside it, or this module stops being one home for a value.
 """
 
 from __future__ import annotations
