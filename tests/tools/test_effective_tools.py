@@ -14,7 +14,9 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from typer.testing import CliRunner
 
+from squadron.cli.app import app
 from squadron.core.models import AgentConfig, AgentState, Message, MessageType
 from squadron.metrology.audit import _AUDIT_ALLOWED_TOOLS
 from squadron.models.aliases import get_all_aliases, load_builtin_aliases
@@ -22,7 +24,7 @@ from squadron.pipeline.actions.dispatch import one_shot_dispatch_with_telemetry
 from squadron.pipeline.summary_oneshot import capture_summary_via_profile_with_telemetry
 from squadron.providers.base import ProviderCapabilities
 from squadron.providers.profiles import ProviderProfile
-from squadron.review.models import ReviewResult
+from squadron.review.models import ReviewResult, Verdict
 from squadron.review.review_client import run_review_with_profile
 from squadron.review.templates import ReviewTemplate
 from squadron.tools import SuppressionReason, resolve_effective_tools
@@ -468,3 +470,84 @@ def test_untooled_agent_config_sites_are_not_flagged() -> None:
     found = _agent_config_tool_sites()
     for untooled in ("providers/auth.py", "server/routes/agents.py"):
         assert untooled not in found
+
+
+# ---------------------------------------------------------------------------
+# T11/T12 — the --no-tools review flag, end to end through the CLI
+# ---------------------------------------------------------------------------
+
+
+def _invoke_review(
+    tmp_path: Path, *, args: list[str], aliases_toml: str
+) -> tuple[object, dict[str, object]]:
+    """Invoke `sq review` with run_review_with_profile mocked, returning its kwargs."""
+    target = tmp_path / "design.md"
+    target.write_text("body")
+    toml_file = tmp_path / "models.toml"
+    toml_file.write_text(aliases_toml)
+
+    captured: dict[str, object] = {}
+
+    async def _fake_run(*_args: object, **kwargs: object) -> ReviewResult:
+        captured.update(kwargs)
+        return ReviewResult(
+            verdict=Verdict.PASS,
+            findings=[],
+            raw_output="## Summary\nPASS\n",
+            template_name="code",
+            input_files={"cwd": str(tmp_path)},
+        )
+
+    with (
+        patch("squadron.cli.commands.review.run_review_with_profile", new=_fake_run),
+        patch("squadron.models.aliases.models_toml_path", return_value=toml_file),
+    ):
+        result = CliRunner().invoke(app, args)
+    return result, captured
+
+
+def test_no_tools_flag_reaches_the_review_client(tmp_path: Path) -> None:
+    """T12: the flag threads to the helper's suppressed argument."""
+    _, captured = _invoke_review(
+        tmp_path,
+        args=["review", "code", "--files", "**/*", "--cwd", str(tmp_path), "--no-tools"],
+        aliases_toml=_PLAIN_TOML,
+    )
+    assert captured["no_tools"] is True
+
+
+def test_omitting_the_flag_changes_nothing(tmp_path: Path) -> None:
+    """The default path is unchanged: no suppression, capability still allowed."""
+    _, captured = _invoke_review(
+        tmp_path,
+        args=["review", "code", "--files", "**/*", "--cwd", str(tmp_path)],
+        aliases_toml=_PLAIN_TOML,
+    )
+    assert captured["no_tools"] is False
+    assert captured["model_allows_tools"] is True
+
+
+def test_cli_reads_capability_before_alias_resolution(tmp_path: Path) -> None:
+    """The CLI resolves the alias to a model id; the capability must be read first.
+
+    Regression guard: reading tool_use after resolve_model_alias would look up a
+    model id in a table keyed by alias name, silently never match, and leave every
+    gated model un-gated.
+    """
+    _, captured = _invoke_review(
+        tmp_path,
+        args=[
+            "review",
+            "code",
+            "--files",
+            "**/*",
+            "--cwd",
+            str(tmp_path),
+            "--model",
+            "gated",
+        ],
+        aliases_toml=_GATED_TOML,
+    )
+    assert captured["model_allows_tools"] is False
+    # And the alias really was resolved away, which is what makes this a trap.
+    assert captured["model"] == "m"
