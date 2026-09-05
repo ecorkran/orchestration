@@ -52,6 +52,25 @@ def _resolve_in_jail(cwd: Path, path: str) -> Path | None:
     return candidate
 
 
+def _contained_in_jail(cwd: Path, entry: Path, *, tool: str) -> bool:
+    """Return whether *entry* really lies inside jail root *cwd*, logging refusals.
+
+    A walk yields entries that were never checked against the jail: ``Path.is_file()``
+    follows symlinks, so a link inside the jail pointing outside it looks like an ordinary
+    file, and on Python <= 3.12 ``rglob`` also recurses *into* symlinked directories.
+    Re-resolving each candidate closes both routes at the point candidates are produced.
+
+    The refusal is silent to the model (design D6) — a skipped entry is indistinguishable
+    from one that did not match, whereas "you were denied" invites probing for the jail
+    boundary. It is logged at WARNING so the refusal is observable to an operator.
+    """
+    resolved = entry.resolve(strict=False)
+    if resolved.is_relative_to(cwd):
+        return True
+    _logger.warning("%s: refusing jail escape via %s -> %s (outside %s)", tool, entry, resolved, cwd)
+    return False
+
+
 def _reject_special_file(tool: str, target: Path) -> ToolResult | None:
     """Return an error result if *target* exists and is not a regular file, else None.
 
@@ -420,7 +439,11 @@ def _list_files_factory(cwd: Path) -> ToolExecutor:
                     return _error(LIST_FILES_NAME, f"path is not a directory: {path}")
 
                 matches = target.rglob(pattern) if recursive else target.glob(pattern)
-                lines = sorted(_format_entry(entry, cwd) for entry in matches)
+                lines = sorted(
+                    _format_entry(entry, cwd)
+                    for entry in matches
+                    if _contained_in_jail(cwd, entry, tool=LIST_FILES_NAME)
+                )
                 body = "\n".join(lines)
                 # Read the limit at call time (module attribute), never captured at import.
                 return ToolResult(content=_truncate(body.encode(), limits.MAX_OUTPUT_BYTES, "listing"))
@@ -486,17 +509,26 @@ def _optional_int(args: dict[str, object], key: str) -> int | None:
     return value
 
 
-def _grep_candidates(target: Path, glob: str | None) -> Iterator[Path]:
+def _grep_candidates(cwd: Path, target: Path, glob: str | None) -> Iterator[Path]:
     """Yield the files *target* expands to, filtered by *glob* when it is a directory.
 
     Deliberately lazy and unsorted: a sorted list would walk and materialize the entire tree
     before the caller's first deadline check, so a large enough tree could blow the whole-walk
     budget during traversal alone — before a single line was ever matched.
+
+    Every candidate is re-checked against jail root *cwd*: this is the single point all
+    candidates pass through, so both symlink escape routes close here.
     """
     if target.is_file():
-        yield target
+        if _contained_in_jail(cwd, target, tool=GREP_NAME):
+            yield target
         return
     for entry in target.rglob(glob or "*"):
+        # Containment is checked before is_file(): on Python 3.13+ rglob yields a symlinked
+        # directory without descending into it, and is_file() is False for that entry — so
+        # testing is_file() first would skip the escape silently instead of logging it.
+        if not _contained_in_jail(cwd, entry, tool=GREP_NAME):
+            continue
         if entry.is_file():
             yield entry
 
@@ -534,7 +566,7 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                 deadline = time.monotonic() + budget
 
                 matches: list[str] = []
-                for candidate in _grep_candidates(target, glob):
+                for candidate in _grep_candidates(cwd, target, glob):
                     # Checked per candidate as well as per line: traversal of a large tree and
                     # the reads themselves consume wall time the per-line check never sees.
                     if time.monotonic() >= deadline:
