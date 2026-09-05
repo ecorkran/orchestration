@@ -20,6 +20,16 @@ MAX_OUTPUT_BYTES = 64_000
 # Wall-clock seconds a ``bash`` command may run before its process group is killed.
 BASH_TIMEOUT_S = 120.0
 
+# Maximum characters of a single tool result admitted into agent history. Applied per
+# result, before the append: the whole-conversation ``agent.max_history_chars`` guard is a
+# backstop, and one oversized result must not be able to exhaust it on its own.
+MAX_TOOL_RESULT_CHARS = 100_000
+
+# Maximum length of a model-supplied ``grep`` pattern. Checked before compilation: the
+# point is to never hand an unbounded pattern to the regex engine at all, since compilation
+# itself is where a pathological pattern does its damage.
+MAX_PATTERN_CHARS = 1_000
+
 # Wall-clock seconds the ``grep`` tool's regex matching may consume across an entire
 # walk before the search is abandoned. Bounds catastrophic backtracking on
 # model-supplied patterns; the ``regex`` package enforces it at the engine level.

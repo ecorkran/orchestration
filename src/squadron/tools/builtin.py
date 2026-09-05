@@ -554,6 +554,16 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                 if not target.exists():
                     return _error(GREP_NAME, f"path does not exist: {path}")
 
+                # Checked before compile(), not after: an unbounded pattern must never
+                # reach the engine at all. Returned rather than raised, matching the
+                # invalid-regex branch below — the model supplied it and must correct it.
+                if len(pattern) > limits.MAX_PATTERN_CHARS:
+                    return _error(
+                        GREP_NAME,
+                        f"pattern is {len(pattern)} characters, over the "
+                        f"{limits.MAX_PATTERN_CHARS}-character limit; shorten it.",
+                    )
+
                 try:
                     compiled = regex.compile(pattern)
                 except regex.error as exc:
@@ -566,6 +576,10 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                 deadline = time.monotonic() + budget
 
                 matches: list[str] = []
+                # Files whose search covered only the first MAX_READ_BYTES. A match past
+                # that point is invisible to the scan, so reporting "no match" without
+                # saying so would be a silent failure.
+                truncated_files: list[str] = []
                 for candidate in _grep_candidates(cwd, target, glob):
                     # Checked per candidate as well as per line: traversal of a large tree and
                     # the reads themselves consume wall time the per-line check never sees.
@@ -576,6 +590,9 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                         # budget (or the process's memory) inside a single unbounded read.
                         with candidate.open("rb") as handle:
                             raw = handle.read(limits.MAX_READ_BYTES)
+                            # One extra byte distinguishes "exactly at the cap" from
+                            # "there is more" without a second stat or a full read.
+                            truncated = handle.read(1) != b""
                         text = raw.decode(errors="replace")
                     except (OSError, UnicodeDecodeError):
                         # An unreadable or undecodable file inside the tree is normal input for
@@ -584,6 +601,8 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                         continue
 
                     relative = candidate.relative_to(cwd)
+                    if truncated:
+                        truncated_files.append(str(relative))
                     for number, line in enumerate(text.splitlines(), start=1):
                         remaining = deadline - time.monotonic()
                         if remaining <= 0:
@@ -603,7 +622,15 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                     if max_results is not None and len(matches) >= max_results:
                         break
 
-                body = "\n".join(matches)
+                lines = list(matches)
+                # Named per file so the model can narrow its own search rather than
+                # concluding the pattern is absent from a file it only partly saw.
+                lines.extend(
+                    f"[searched only the first {limits.MAX_READ_BYTES} bytes of {name}; "
+                    "a match beyond that was not seen]"
+                    for name in truncated_files
+                )
+                body = "\n".join(lines)
                 return ToolResult(content=_truncate(body.encode(), limits.MAX_OUTPUT_BYTES, "matches"))
 
             return await asyncio.to_thread(_search)

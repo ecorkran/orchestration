@@ -12,7 +12,7 @@ projectState: >
   observability. Final slice of the 260 initiative (5/6 complete).
 dateCreated: 20260905
 dateUpdated: 20260905
-status: not_started
+status: in_progress
 ---
 
 ## Context Summary
@@ -75,30 +75,30 @@ statements in the architecture doc:
 
 ## Part A — The capability gate (do first)
 
-- [ ] **T1. Add `tool_use` to the alias schema**
-  - [ ] In `src/squadron/models/aliases.py`, add `tool_use: bool` to the
+- [x] **T1. Add `tool_use` to the alias schema**
+  - [x] In `src/squadron/models/aliases.py`, add `tool_use: bool` to the
     `ModelAlias` TypedDict (aliases.py:33-43), beside `private` / `cost_tier`.
-  - [ ] In `_extract_metadata` (aliases.py:51), parse it with the same
+  - [x] In `_extract_metadata` (aliases.py:51), parse it with the same
     `isinstance(val, bool)` guard the `private` field uses (aliases.py:58-60).
     Do not invent a new validation style.
-  - [ ] Absent means default-allow. Do **not** write a default into the dict —
+  - [x] Absent means default-allow. Do **not** write a default into the dict —
     absence must stay distinguishable from an explicit `true` so the SC2
     pass-through test can assert on it.
-  - [ ] **Success:** an alias table with `tool_use = false` reads back `False`;
+  - [x] **Success:** an alias table with `tool_use = false` reads back `False`;
     an alias without the field has no `tool_use` key at all.
   - Effort: 1/5
 
-- [ ] **T2. Document the field in shipped models.toml**
-  - [ ] In `src/squadron/data/models.toml`, document `tool_use` in the header
+- [x] **T2. Document the field in shipped models.toml**
+  - [x] In `src/squadron/data/models.toml`, document `tool_use` in the header
     comment alongside the other optional metadata fields.
-  - [ ] Set it on **no** shipped alias — default-true preserves current behavior
+  - [x] Set it on **no** shipped alias — default-true preserves current behavior
     for every existing user (SC2).
-  - [ ] **Success:** the header documents the field; `grep 'tool_use' models.toml`
+  - [x] **Success:** the header documents the field; `grep 'tool_use' models.toml`
     returns only comment lines.
   - Effort: 1/5
 
-- [ ] **T3. Write `resolve_effective_tools`**
-  - [ ] New module in the tools package (not the review package — dispatch and
+- [x] **T3. Write `resolve_effective_tools`**
+  - [x] New module in the tools package (not the review package — dispatch and
     the audit use it too). Signature per the design's Implementation Details:
     ```python
     def resolve_effective_tools(
@@ -108,52 +108,52 @@ statements in the architecture doc:
         suppressed: bool,
     ) -> tuple[list[str], str | None]:
     ```
-  - [ ] Returns `(effective names, reason emptied or None)`. The reason string is
+  - [x] Returns `(effective names, reason emptied or None)`. The reason string is
     what lets a call site announce suppression without re-deriving why.
-  - [ ] Formula: `declared ∩ (capability allows)`, emptied entirely by
+  - [x] Formula: `declared ∩ (capability allows)`, emptied entirely by
     `suppressed`. An already-empty or `None` `declared` yields `([], None)` —
     "nothing was declared" is not a suppression and must not be announced as one.
-  - [ ] Export it from `squadron.tools` (`__init__.py`'s `__all__`, alongside
+  - [x] Export it from `squadron.tools` (`__init__.py`'s `__all__`, alongside
     `materialize` / `lookup`).
-  - [ ] **Success:** the function is importable as
+  - [x] **Success:** the function is importable as
     `from squadron.tools import resolve_effective_tools`; each of the three
     inputs independently empties a non-empty declared set with a distinct reason.
   - Effort: 2/5
 
-- [ ] **T4. Test `resolve_effective_tools`** *(test-with T3)*
-  - [ ] New `tests/tools/test_effective_tools.py`.
-  - [ ] Cover the truth table: declared-only (pass through), capability denies,
+- [x] **T4. Test `resolve_effective_tools`** *(test-with T3)*
+  - [x] New `tests/tools/test_effective_tools.py`.
+  - [x] Cover the truth table: declared-only (pass through), capability denies,
     `--no-tools` suppresses, both deny at once, and `declared=None` / `[]`.
-  - [ ] Assert the reason is `None` exactly when nothing was emptied, and
+  - [x] Assert the reason is `None` exactly when nothing was emptied, and
     non-`None` with distinguishable text for capability-denial vs suppression —
     SC4 requires telemetry to tell those apart.
-  - [ ] **Success:** all cases pass; no case returns a non-empty list when either
+  - [x] **Success:** all cases pass; no case returns a non-empty list when either
     denial applies.
   - Effort: 1/5
 
-- [ ] **T5. Route the review client through the gate**
-  - [ ] In `src/squadron/review/review_client.py`, pass
+- [x] **T5. Route the review client through the gate**
+  - [x] In `src/squadron/review/review_client.py`, pass
     `resolved_allowed_tools` (review_client.py:79) through
     `resolve_effective_tools` before it reaches `AgentConfig`
     (review_client.py:138).
-  - [ ] Read the alias's `tool_use` in this layer — the config layer is where
+  - [x] Read the alias's `tool_use` in this layer — the config layer is where
     alias lookup belongs (D3). The agent must remain unchanged.
-  - [ ] When the reason is non-`None`, log at INFO (SC4) **and** pass it onto
+  - [x] When the reason is non-`None`, log at INFO (SC4) **and** pass it onto
     `AgentConfig` for T10a to persist. The log alone does not satisfy SC4 —
     telemetry must carry it too.
-  - [ ] **Success:** a `tool_use = false` model produces an empty
+  - [x] **Success:** a `tool_use = false` model produces an empty
     `allowed_tools` on the constructed `AgentConfig` even when the template
     declares tools; an alias without the field is unaffected.
   - Effort: 2/5
 
-- [ ] **T6. Test the review-path gate** *(test-with T5)*
-  - [ ] In `tests/tools/test_effective_tools.py`, the module T4 created. **This
+- [x] **T6. Test the review-path gate** *(test-with T5)*
+  - [x] In `tests/tools/test_effective_tools.py`, the module T4 created. **This
     task owns the review-client gate case**; T10 covers the other three sites and
     must not restate this one.
-  - [ ] Assert SC1 for the review path and SC2 for the absent-field default.
-  - [ ] Assert the INFO log fires on suppression and does **not** fire when
+  - [x] Assert SC1 for the review path and SC2 for the absent-field default.
+  - [x] Assert the INFO log fires on suppression and does **not** fire when
     nothing was declared.
-  - [ ] **Success:** both cases green.
+  - [x] **Success:** both cases green.
   - Effort: 1/5
 
 ---
@@ -163,62 +163,62 @@ statements in the architecture doc:
 Each site is its own task: they construct `AgentConfig` differently and a single
 combined task would hide a missed one.
 
-- [ ] **T7. Route dispatch through the gate**
-  - [ ] In `src/squadron/pipeline/actions/dispatch.py`, route the step's
+- [x] **T7. Route dispatch through the gate**
+  - [x] In `src/squadron/pipeline/actions/dispatch.py`, route the step's
     `allowed_tools` (dispatch.py:117) through the helper.
-  - [ ] The field is **already populated** here — this edits an existing
+  - [x] The field is **already populated** here — this edits an existing
     assignment. Do not add a new code path.
-  - [ ] Note the pre-existing SDK-profile guard on `allowed_tools` (issue #75);
+  - [x] Note the pre-existing SDK-profile guard on `allowed_tools` (issue #75);
     leave it alone, it is out of scope.
-  - [ ] **Success:** `sq run` with a `tool_use = false` model offers no schemas;
+  - [x] **Success:** `sq run` with a `tool_use = false` model offers no schemas;
     an unmarked model is unaffected.
   - Effort: 2/5
 
-- [ ] **T8. Route the summary one-shot through the gate**
-  - [ ] In `src/squadron/pipeline/summary_oneshot.py`, route `allowed_tools`
+- [x] **T8. Route the summary one-shot through the gate**
+  - [x] In `src/squadron/pipeline/summary_oneshot.py`, route `allowed_tools`
     (summary_oneshot.py:79) through the helper.
-  - [ ] Preserve the existing `cwd=cwd if allowed_tools else None` coupling
+  - [x] Preserve the existing `cwd=cwd if allowed_tools else None` coupling
     (summary_oneshot.py:78) — if the gate empties the set, `cwd` must go to
     `None` with it, or the agent's own `allowed_tools`/`cwd` consistency check
     (agent.py:115-119) reasons about a stale pairing.
-  - [ ] **Success:** the pipeline `summary` action gates correctly and the
+  - [x] **Success:** the pipeline `summary` action gates correctly and the
     cwd pairing still holds in both directions.
   - Effort: 2/5
 
-- [ ] **T9. Route the metrology audit through the gate**
-  - [ ] In `src/squadron/metrology/audit.py`, route `_AUDIT_ALLOWED_TOOLS`
+- [x] **T9. Route the metrology audit through the gate**
+  - [x] In `src/squadron/metrology/audit.py`, route `_AUDIT_ALLOWED_TOOLS`
     (audit.py:621) through the helper.
-  - [ ] The list is a fixed module constant, but a `tool_use = false` model must
+  - [x] The list is a fixed module constant, but a `tool_use = false` model must
     still be gated — the capability describes the *model*, not the caller (D1).
-  - [ ] **Success:** the audit path gates on capability; the constant itself is
+  - [x] **Success:** the audit path gates on capability; the constant itself is
     unchanged.
   - Effort: 2/5
 
-- [ ] **T10. Test the remaining call sites plus the enumeration guard** *(test-with T7-T9)*
-  - [ ] In `tests/tools/test_effective_tools.py`, one gate test per site for the
+- [x] **T10. Test the remaining call sites plus the enumeration guard** *(test-with T7-T9)*
+  - [x] In `tests/tools/test_effective_tools.py`, one gate test per site for the
     three sites T7-T9 added: **dispatch, summary one-shot, metrology audit**
     (SC1). The review-client case is T6's and is already present — do not
     duplicate or rewrite it.
-  - [ ] **The SC1a enumeration test.** Statically enumerate `AgentConfig(...)`
+  - [x] **The SC1a enumeration test.** Statically enumerate `AgentConfig(...)`
     constructions across `src/` that set `allowed_tools`, and assert the set
     equals the four sanctioned sites. Use AST parsing, not a regex over source
     text — a regex here would be the fragile-pattern-matching the project rules
     warn about.
-  - [ ] The three no-tools sites (`providers/auth.py:234`,
+  - [x] The three no-tools sites (`providers/auth.py:234`,
     `server/routes/agents.py:49` and `:179`) must **not** be flagged: the test
     keys on the presence of the `allowed_tools` keyword, not on `AgentConfig`
     alone.
-  - [ ] Give the failure message an explicit instruction — a future author must
+  - [x] Give the failure message an explicit instruction — a future author must
     learn from the failure that the new site has to route through
     `resolve_effective_tools`, not merely that a count changed.
-  - [ ] **Success:** all four sanctioned sites are covered across T6 and T10 —
+  - [x] **Success:** all four sanctioned sites are covered across T6 and T10 —
     three added here, plus T6's review-client case, which must still pass.
     Adding a fifth tool-passing site fails the suite (verify by temporarily
     adding one, then removing it).
   - Effort: 3/5
 
-- [ ] **T10a. Persist *why* a tool set is empty**
-  - [ ] **There is no existing field for this.** Slice 265 distinguished two
+- [x] **T10a. Persist *why* a tool set is empty**
+  - [x] **There is no existing field for this.** Slice 265 distinguished two
     states — offered-but-unused (`tools_given=[...]`, `tool_calls_made=0`) and
     never-offered (both `None`). Suppression is a **third** state 265 never
     needed, and it currently collapses into the second: `_stamp_tool_telemetry`
@@ -226,7 +226,7 @@ combined task would hide a missed one.
     ([agent.py:398](src/squadron/providers/openai/agent.py#L398)), so a
     suppressed run and a no-tools-declared run persist identically. SC3 and SC4
     cannot be met without this task.
-  - [ ] Thread `resolve_effective_tools`'s `reason` along the path 265 used for
+  - [x] Thread `resolve_effective_tools`'s `reason` along the path 265 used for
     `tools_given`, so the mechanism stays uniform:
     1. Carry it on `AgentConfig` (`core/models.py:40-62`), beside
        `allowed_tools`.
@@ -241,94 +241,94 @@ combined task would hide a missed one.
        (`persistence.py:213`, beside `toolsGiven`) and `to_dict()`
        (`review/models.py:83`). A JSON-only field repeats issue #72's shape,
        where the artifact people actually read carried no evidence.
-  - [ ] Absent when nothing was suppressed. A run that simply declared no tools
+  - [x] Absent when nothing was suppressed. A run that simply declared no tools
     must stay byte-for-byte unchanged — this field appears only when a
     non-empty declared set was emptied.
-  - [ ] **Success:** three states are distinguishable in the persisted artifact:
+  - [x] **Success:** three states are distinguishable in the persisted artifact:
     offered-and-used, offered-and-unused, and **suppressed with its reason**. A
     never-declared run's output is unchanged.
   - Effort: 3/5
 
-- [ ] **T10b. Test the suppression field** *(test-with T10a)*
-  - [ ] Assert all three states persist distinguishably, in **both** the markdown
+- [x] **T10b. Test the suppression field** *(test-with T10a)*
+  - [x] Assert all three states persist distinguishably, in **both** the markdown
     frontmatter and `to_dict()`.
-  - [ ] Assert a never-declared run's artifact is unchanged against the
+  - [x] Assert a never-declared run's artifact is unchanged against the
     pre-T10a output — this field must not leak into runs that were never gated.
-  - [ ] Assert the capability-denied and `--no-tools` reasons are distinct in
+  - [x] Assert the capability-denied and `--no-tools` reasons are distinct in
     the persisted text, not merely both non-empty (SC4).
-  - [ ] **Success:** all cases green; existing slice 265 telemetry tests pass
+  - [x] **Success:** all cases green; existing slice 265 telemetry tests pass
     untouched.
   - Effort: 2/5
 
-- [ ] **T11. Add `--no-tools` to the review CLI**
-  - [ ] In `src/squadron/cli/commands/review.py`, add the flag to both review
+- [x] **T11. Add `--no-tools` to the review CLI**
+  - [x] In `src/squadron/cli/commands/review.py`, add the flag to both review
     subcommands that accept `--model`, threading it to the helper's
     `suppressed` argument.
-  - [ ] Record the suppression via the T10a field (SC3). Do **not** try to reuse
+  - [x] Record the suppression via the T10a field (SC3). Do **not** try to reuse
     `tools_given` — an empty list there is indistinguishable from an absent one
     once it reaches persistence.
-  - [ ] **Success:** `--no-tools` empties the effective set for one run and the
+  - [x] **Success:** `--no-tools` empties the effective set for one run and the
     persisted artifact records it as suppressed, with the reason; omitting the
     flag changes nothing.
   - Effort: 2/5
 
-- [ ] **T12. Test `--no-tools` end to end** *(test-with T11)*
-  - [ ] Assert the flag reaches the helper, that the persisted review records
+- [x] **T12. Test `--no-tools` end to end** *(test-with T11)*
+  - [x] Assert the flag reaches the helper, that the persisted review records
     the suppression via the T10a field (SC3), and that the run is
     distinguishable from a no-tools-declared run by that field — not by model
     prose (SC4).
-  - [ ] **Success:** both subcommands covered.
+  - [x] **Success:** both subcommands covered.
   - Effort: 2/5
 
 ---
 
 ## Part C — The jail re-check (security; first of the bounds)
 
-- [ ] **T13. Re-resolve every grep candidate against the jail**
-  - [ ] In `src/squadron/tools/builtin.py`, inside `_grep_candidates`
+- [x] **T13. Re-resolve every grep candidate against the jail**
+  - [x] In `src/squadron/tools/builtin.py`, inside `_grep_candidates`
     (builtin.py:489-501), resolve each yielded entry and skip any that is not
     `is_relative_to` the jail root.
-  - [ ] Placed inside the generator so both escape routes close at the single
+  - [x] Placed inside the generator so both escape routes close at the single
     point candidates are produced: (1) a symlinked **file** whose target is
     outside the jail — `entry.is_file()` follows the link and returns true;
     (2) on Python ≤3.12, `rglob` recursing into symlinked **directories**.
-  - [ ] `_grep_candidates` will need the jail root — it currently takes only
+  - [x] `_grep_candidates` will need the jail root — it currently takes only
     `target` and `glob`. Thread `cwd` in from `_grep_factory` (builtin.py:503)
     rather than re-deriving it.
-  - [ ] Keep the generator lazy. Its docstring records why it must not
+  - [x] Keep the generator lazy. Its docstring records why it must not
     materialize the tree; a `sorted()` or list build here reintroduces the
     budget bug it warns about.
-  - [ ] A refused candidate is **skipped silently to the model** (D6) — it looks
+  - [x] A refused candidate is **skipped silently to the model** (D6) — it looks
     like a file that did not match; surfacing "you were denied" invites probing
     for the boundary.
-  - [ ] Log the refusal at WARNING, mirroring `_grep_timeout`'s treatment. This
+  - [x] Log the refusal at WARNING, mirroring `_grep_timeout`'s treatment. This
     is the operator-visible half (SC5).
-  - [ ] **Success:** a symlink inside the jail pointing outside it yields no
+  - [x] **Success:** a symlink inside the jail pointing outside it yields no
     content through `grep`, and logs at WARNING.
   - Effort: 3/5
 
-- [ ] **T14. Apply the same guard to `list_files`**
-  - [ ] In `_list_files_factory`'s `_walk` (builtin.py:404-430), filter the
+- [x] **T14. Apply the same guard to `list_files`**
+  - [x] In `_list_files_factory`'s `_walk` (builtin.py:404-430), filter the
     `rglob`/`glob` results (builtin.py:422) through the same containment check.
-  - [ ] Share the check with T13 — extract it as a helper beside
+  - [x] Share the check with T13 — extract it as a helper beside
     `_resolve_in_jail` (builtin.py:38). Two copies of a containment test is
     exactly the scattered-comparison the project rules forbid.
-  - [ ] **Success:** `list_files` does not name entries outside the jail (SC6),
+  - [x] **Success:** `list_files` does not name entries outside the jail (SC6),
     with the same WARNING.
   - Effort: 2/5
 
-- [ ] **T15. Test the jail against symlinks** *(test-with T13-T14)*
-  - [ ] In `tests/tools/`, cover four cases: symlinked-file and
+- [x] **T15. Test the jail against symlinks** *(test-with T13-T14)*
+  - [x] In `tests/tools/`, cover four cases: symlinked-file and
     symlinked-directory, each for `grep` and `list_files` (SC5, SC6).
-  - [ ] Assert the WARNING is logged in each.
-  - [ ] **The directory case must not pass vacuously.** `rglob`'s symlink
+  - [x] Assert the WARNING is logged in each.
+  - [x] **The directory case must not pass vacuously.** `rglob`'s symlink
     recursion differs across Python ≤3.12 and later, so on a version that does
     not recurse, a naive test passes without exercising the guard. Assert the
     guard was reached — e.g. on the WARNING — rather than only on absent output.
     Note the version dependence in a comment.
-  - [ ] `_resolve_in_jail` itself is unchanged and its existing tests must still
+  - [x] `_resolve_in_jail` itself is unchanged and its existing tests must still
     pass untouched.
-  - [ ] **Success:** all four cases green and meaningful on the project's
+  - [x] **Success:** all four cases green and meaningful on the project's
     supported Python versions.
   - Effort: 3/5
 
