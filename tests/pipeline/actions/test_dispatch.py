@@ -11,7 +11,7 @@ from squadron.core.models import Message
 from squadron.pipeline.actions.dispatch import DispatchAction
 from squadron.pipeline.actions.protocol import Action
 from squadron.pipeline.models import ActionContext
-from squadron.pipeline.resolver import ModelResolutionError
+from squadron.pipeline.resolver import ModelResolutionError, ResolvedModel
 from squadron.providers.base import ProfileName
 from squadron.providers.profiles import ProviderProfile
 
@@ -27,6 +27,7 @@ def _make_context(**overrides: object) -> ActionContext:
     """Build an ActionContext with sensible defaults."""
     resolver = MagicMock()
     resolver.resolve.return_value = ("claude-sonnet-4-20250514", None)
+    resolver.resolve_full.return_value = ResolvedModel("claude-sonnet-4-20250514", None)
     defaults: dict[str, object] = {
         "pipeline_name": "test-pipeline",
         "run_id": "run-12345678",
@@ -148,8 +149,8 @@ async def test_execute_model_resolution(action: DispatchAction) -> None:
 
     # resolve is called once for the guard check (no session path) and once
     # inside _dispatch_via_agent — both with the same args.
-    ctx.resolver.resolve.assert_called_with("opus", "sonnet")
-    assert ctx.resolver.resolve.call_count == 2
+    ctx.resolver.resolve_full.assert_called_with("opus", "sonnet")
+    assert ctx.resolver.resolve.call_count + ctx.resolver.resolve_full.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -157,6 +158,7 @@ async def test_execute_profile_from_alias(action: DispatchAction) -> None:
     """When resolver returns alias profile, that profile is used."""
     ctx = _make_context()
     ctx.resolver.resolve.return_value = ("model-x", "openrouter")
+    ctx.resolver.resolve_full.return_value = ResolvedModel("model-x", "openrouter")
     mock_agent = _make_agent_mock("ok")
     mock_registry = _make_registry(mock_agent)
 
@@ -176,6 +178,7 @@ async def test_execute_profile_override(action: DispatchAction) -> None:
     """Explicit profile in params takes precedence over alias profile."""
     ctx = _make_context(params={"prompt": "test", "profile": "openai"})
     ctx.resolver.resolve.return_value = ("model-x", "openrouter")
+    ctx.resolver.resolve_full.return_value = ResolvedModel("model-x", "openrouter")
     mock_agent = _make_agent_mock("ok")
     mock_registry = _make_registry(mock_agent)
 
@@ -195,6 +198,7 @@ async def test_execute_default_profile(action: DispatchAction) -> None:
     """When no alias profile and no explicit profile, defaults to SDK."""
     ctx = _make_context()
     ctx.resolver.resolve.return_value = ("model-x", None)
+    ctx.resolver.resolve_full.return_value = ResolvedModel("model-x", None)
     mock_agent = _make_agent_mock("ok")
     mock_registry = _make_registry(mock_agent)
 
@@ -500,6 +504,7 @@ async def test_sdk_session_path_rejects_allowed_tools(action: DispatchAction) ->
     session = AsyncMock()
     resolver = MagicMock()
     resolver.resolve.return_value = ("claude-sonnet-4-20250514", ProfileName.SDK)
+    resolver.resolve_full.return_value = ResolvedModel("claude-sonnet-4-20250514", ProfileName.SDK)
     ctx = _make_context(
         params={"prompt": "test", "allowed_tools": ["read_file"]},
         sdk_session=session,

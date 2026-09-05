@@ -7,6 +7,7 @@ plus the SC1a enumeration guard that keeps a new call site from skipping it.
 
 from __future__ import annotations
 
+import ast
 import logging
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -15,7 +16,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from squadron.core.models import AgentConfig, AgentState, Message, MessageType
+from squadron.metrology.audit import _AUDIT_ALLOWED_TOOLS
 from squadron.models.aliases import get_all_aliases, load_builtin_aliases
+from squadron.pipeline.actions.dispatch import one_shot_dispatch_with_telemetry
+from squadron.pipeline.summary_oneshot import capture_summary_via_profile_with_telemetry
 from squadron.providers.base import ProviderCapabilities
 from squadron.providers.profiles import ProviderProfile
 from squadron.review.models import ReviewResult
@@ -290,3 +294,177 @@ async def test_review_gate_silent_when_nothing_declared(
     assert config.tools_suppressed_reason is None
     assert result.tools_suppressed_reason is None
     assert not any("suppressed" in record.message.lower() for record in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# T10 — the remaining three call sites, plus the SC1a enumeration guard
+#
+# T6 above owns the review-client case; these cover dispatch, the summary
+# one-shot, and the metrology audit.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_dispatch_gate_empties_tools_for_denied_model(tmp_path: Path) -> None:
+    """SC1, dispatch: a denied model gets no schemas even when the step declares them."""
+    captured: dict[str, AgentConfig] = {}
+
+    async def _spawn(config: AgentConfig) -> MagicMock:
+        captured["config"] = config
+        agent = MagicMock()
+
+        async def _handle(_message: Message) -> AsyncIterator[Message]:
+            yield Message(sender="a", recipients=[], content="done", message_type=MessageType.chat)
+
+        agent.handle_message = _handle
+        return agent
+
+    registry = MagicMock()
+    registry.spawn = _spawn
+    registry.shutdown_agent = AsyncMock()
+    profile = ProviderProfile(name="openai", provider="openai", api_key_env="OPENAI_API_KEY")
+
+    with (
+        patch("squadron.pipeline.actions.dispatch.get_registry", return_value=registry),
+        patch("squadron.pipeline.actions.dispatch.get_profile", return_value=profile),
+        patch("squadron.pipeline.actions.dispatch.ensure_provider_loaded"),
+    ):
+        await one_shot_dispatch_with_telemetry(
+            prompt="hi",
+            model_id="m",
+            profile_name="openai",
+            allowed_tools=["read_file"],
+            model_allows_tools=False,
+            cwd=str(tmp_path),
+        )
+
+    assert captured["config"].allowed_tools == []
+    assert captured["config"].tools_suppressed_reason == SuppressionReason.MODEL_CAPABILITY.value
+
+
+@pytest.mark.asyncio
+async def test_summary_gate_drops_cwd_with_the_tools(tmp_path: Path) -> None:
+    """SC1, summary: the cwd/allowed_tools pairing must stay consistent when gated."""
+    captured: dict[str, AgentConfig] = {}
+    agent = MagicMock()
+    agent.shutdown = AsyncMock()
+
+    async def _handle(_message: Message) -> AsyncIterator[Message]:
+        yield Message(sender="a", recipients=[], content="sum", message_type=MessageType.chat)
+
+    agent.handle_message = _handle
+
+    async def _create_agent(config: AgentConfig) -> MagicMock:
+        captured["config"] = config
+        return agent
+
+    provider = MagicMock()
+    provider.create_agent = _create_agent
+    profile = ProviderProfile(name="openai", provider="openai", api_key_env="OPENAI_API_KEY")
+
+    with (
+        patch("squadron.providers.profiles.get_profile", return_value=profile),
+        patch("squadron.providers.registry.get_provider", return_value=provider),
+        patch("squadron.providers.loader.ensure_provider_loaded"),
+    ):
+        await capture_summary_via_profile_with_telemetry(
+            instructions="summarize",
+            model_id="m",
+            profile="openai",
+            allowed_tools=["read_file"],
+            model_allows_tools=False,
+            cwd=str(tmp_path),
+        )
+
+    config = captured["config"]
+    assert config.allowed_tools == []
+    assert config.tools_suppressed_reason == SuppressionReason.MODEL_CAPABILITY.value
+    # The coupling the task calls out: no tools means no working directory.
+    assert config.cwd is None
+
+
+def test_audit_gate_applies_to_the_fixed_tool_constant() -> None:
+    """SC1, audit: the capability describes the model, not the caller (D1).
+
+    The audit's tool list is a module constant, so the gate is what varies — feeding it
+    a denied model must still empty the set.
+    """
+    gated, reason = resolve_effective_tools(
+        list(_AUDIT_ALLOWED_TOOLS), model_allows_tools=False, suppressed=False
+    )
+    assert gated == []
+    assert reason == SuppressionReason.MODEL_CAPABILITY.value
+    # And the constant itself is untouched by the gate.
+    assert len(_AUDIT_ALLOWED_TOOLS) > 0
+
+
+# ---------------------------------------------------------------------------
+# SC1a — the enumeration guard
+# ---------------------------------------------------------------------------
+
+# Every AgentConfig construction in src/ that sets allowed_tools. Each one must route
+# its list through resolve_effective_tools first, or a model's tool_use = false is
+# silently ignored on that path.
+_SANCTIONED_TOOL_PASSING_SITES = {
+    "review/review_client.py",
+    "pipeline/actions/dispatch.py",
+    "pipeline/summary_oneshot.py",
+    "metrology/audit.py",
+}
+
+_SC1A_FAILURE_HELP = """
+{path} constructs AgentConfig with allowed_tools but is not a sanctioned gate site.
+
+Every such call site must first route its declared tools through
+squadron.tools.resolve_effective_tools, which applies the model's tool_use
+capability and any run-level suppression. Passing a raw list here means a model
+configured with tool_use = false is silently handed tool schemas anyway.
+
+Fix the call site, then add it to _SANCTIONED_TOOL_PASSING_SITES in this test.
+"""
+
+
+def _agent_config_tool_sites() -> set[str]:
+    """Return src-relative paths constructing AgentConfig with allowed_tools.
+
+    Uses the AST rather than a regex over source text: a textual search cannot tell an
+    AgentConfig call from the string "AgentConfig" in a docstring, and would be exactly
+    the fragile pattern-matching the project rules warn against.
+    """
+    src_root = Path(__file__).resolve().parents[2] / "src" / "squadron"
+    found: set[str] = set()
+    for py_file in src_root.rglob("*.py"):
+        tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+            if name != "AgentConfig":
+                continue
+            # Key on the keyword, not on AgentConfig alone: the sites that pass no
+            # allowed_tools at all are legitimately un-gated and must not be flagged.
+            if any(kw.arg == "allowed_tools" for kw in node.keywords):
+                found.add(py_file.relative_to(src_root).as_posix())
+    return found
+
+
+def test_every_tool_passing_agent_config_site_is_sanctioned() -> None:
+    """SC1a: a new tool-passing call site fails until it routes through the gate."""
+    found = _agent_config_tool_sites()
+    unsanctioned = found - _SANCTIONED_TOOL_PASSING_SITES
+    assert not unsanctioned, "".join(
+        _SC1A_FAILURE_HELP.format(path=path) for path in sorted(unsanctioned)
+    )
+
+
+def test_sanctioned_site_list_has_no_stale_entries() -> None:
+    """A sanctioned site that stopped passing tools should be removed from the list."""
+    assert _SANCTIONED_TOOL_PASSING_SITES - _agent_config_tool_sites() == set()
+
+
+def test_untooled_agent_config_sites_are_not_flagged() -> None:
+    """The three no-tools sites are legitimately un-gated, not violations."""
+    found = _agent_config_tool_sites()
+    for untooled in ("providers/auth.py", "server/routes/agents.py"):
+        assert untooled not in found

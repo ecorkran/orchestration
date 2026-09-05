@@ -36,9 +36,11 @@ from squadron.metrology.errors import (
 from squadron.metrology.identity import derive_project_id
 from squadron.metrology.models import AuditRun, ProjectId
 from squadron.metrology.store import MetrologyStore, generate_audit_run_id
+from squadron.models.aliases import model_allows_tools
 from squadron.providers.errors import ProviderRateLimitError
 from squadron.skills.models import SkillSourceError
 from squadron.skills.resolver import _resolve_bundled  # pyright: ignore[reportPrivateUsage]
+from squadron.tools import resolve_effective_tools
 
 _logger = logging.getLogger(__name__)
 
@@ -600,6 +602,21 @@ async def run_audit(
     rate_limit_retries = int(get_typed_config("metrology.audit_rate_limit_retries", int, cwd=cwd))
     rate_limit_cap_s = int(get_typed_config("metrology.audit_rate_limit_cap_s", int, cwd=cwd))
 
+    # The capability gate (slice 266). The audit's tool list is a fixed module constant,
+    # but the capability describes the *model*, not the caller (design D1), so a
+    # tool_use = false model is gated here exactly as anywhere else.
+    audit_tools, tools_suppressed_reason = resolve_effective_tools(
+        list(_AUDIT_ALLOWED_TOOLS),
+        model_allows_tools=model_allows_tools(resolved_model),
+        suppressed=False,
+    )
+    if tools_suppressed_reason is not None:
+        _logger.info(
+            "Metrology audit tools suppressed (model=%s, reason=%s)",
+            resolved_model or "(default)",
+            tools_suppressed_reason,
+        )
+
     provider_profile = get_profile(resolved_profile)
     ensure_provider_loaded(provider_profile.provider)
     provider = get_provider(provider_profile.provider)
@@ -618,7 +635,8 @@ async def run_audit(
         api_key=None,
         base_url=provider_profile.base_url,
         cwd=str(project_path),
-        allowed_tools=_AUDIT_ALLOWED_TOOLS,
+        allowed_tools=audit_tools,
+        tools_suppressed_reason=tools_suppressed_reason,
         permission_mode=_AUDIT_PERMISSION_MODE,
         setting_sources=["project"],
         credentials={

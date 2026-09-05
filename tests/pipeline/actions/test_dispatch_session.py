@@ -8,6 +8,7 @@ import pytest
 
 from squadron.pipeline.actions.dispatch import DispatchAction
 from squadron.pipeline.models import ActionContext
+from squadron.pipeline.resolver import ResolvedModel
 from squadron.pipeline.sdk_session import SDKExecutionSession
 from squadron.providers.errors import ProviderError
 
@@ -15,6 +16,7 @@ from squadron.providers.errors import ProviderError
 def _make_resolver(model_id: str = "claude-haiku-4-5-20251001") -> MagicMock:
     resolver = MagicMock()
     resolver.resolve.return_value = (model_id, None)
+    resolver.resolve_full.return_value = ResolvedModel(model_id, None)
     return resolver
 
 

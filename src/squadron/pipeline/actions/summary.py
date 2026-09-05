@@ -198,8 +198,13 @@ async def _execute_summary(
     # Resolve model alias and profile.
     model_id: str | None = None
     profile: str | None = None
+    # No alias means no alias metadata to read, so the capability defaults to allow —
+    # the same default-allow absence means everywhere else (slice 266).
+    model_allows_tools = True
     if summary_model_alias:
-        model_id, profile = context.resolver.resolve(action_model=summary_model_alias, step_model=None)
+        resolved = context.resolver.resolve_full(action_model=summary_model_alias, step_model=None)
+        model_id, profile = resolved.model_id, resolved.profile
+        model_allows_tools = resolved.allows_tools
 
     # Validate: rotate emit is incompatible with non-SDK profiles.
     has_rotate = any(d.kind is EmitKind.ROTATE for d in emit_destinations)
@@ -254,6 +259,7 @@ async def _execute_summary(
                 model_id=model_id,
                 profile=profile,
                 allowed_tools=resolve_allowed_tools(context, action_type),
+                model_allows_tools=model_allows_tools,
                 cwd=context.cwd,
             )
     except Exception as exc:  # noqa: BLE001

@@ -16,6 +16,7 @@ from squadron.pipeline.resolver import ModelPoolNotImplemented, ModelResolutionE
 from squadron.providers.base import ProfileName, ProviderType
 from squadron.providers.loader import ensure_provider_loaded
 from squadron.providers.profiles import get_profile, is_sdk_profile
+from squadron.tools import resolve_effective_tools
 
 if TYPE_CHECKING:
     from squadron.pipeline.sdk_session import SDKExecutionSession
@@ -49,6 +50,7 @@ async def one_shot_dispatch(
     run_id: str = "cli",
     branch_idx: object = None,
     allowed_tools: list[str] | None = None,
+    model_allows_tools: bool = True,
     cwd: str | None = None,
 ) -> str:
     """Spawn a one-shot agent and return the concatenated response text.
@@ -65,6 +67,7 @@ async def one_shot_dispatch(
         run_id=run_id,
         branch_idx=branch_idx,
         allowed_tools=allowed_tools,
+        model_allows_tools=model_allows_tools,
         cwd=cwd,
     )
     return text
@@ -80,6 +83,7 @@ async def one_shot_dispatch_with_telemetry(
     run_id: str = "cli",
     branch_idx: object = None,
     allowed_tools: list[str] | None = None,
+    model_allows_tools: bool = True,
     cwd: str | None = None,
 ) -> tuple[str, dict[str, object]]:
     """Spawn a one-shot agent and return its text alongside tool-use telemetry.
@@ -92,6 +96,24 @@ async def one_shot_dispatch_with_telemetry(
     ``ActionResult.metadata`` unconditionally without inventing keys (design D5).
     """
     profile = get_profile(profile_name)
+    # The capability gate (slice 266), applied before the SDK guard below: a model whose
+    # alias sets tool_use = false is not offering tools at all, so it must not trip an
+    # error about a vocabulary mismatch for tools it will never receive.
+    # A step that declared nothing keeps allowed_tools=None: that is dispatch's existing
+    # "never offered" signal, and the gate has nothing to narrow.
+    if allowed_tools is not None:
+        allowed_tools, tools_suppressed_reason = resolve_effective_tools(
+            allowed_tools, model_allows_tools=model_allows_tools, suppressed=False
+        )
+    else:
+        tools_suppressed_reason = None
+    if tools_suppressed_reason is not None:
+        _logger.info(
+            "Dispatch step '%s' tools suppressed (model=%s, reason=%s)",
+            step_name,
+            model_id,
+            tools_suppressed_reason,
+        )
     # Slice 265 built the canonical -> Claude mapping and wired it for review/summary, but
     # deliberately left this dispatch path alone: lifting the restriction changes dispatch's
     # runtime behavior and is out of this slice's scope. Until then a silent drop here would
@@ -115,6 +137,7 @@ async def one_shot_dispatch_with_telemetry(
         base_url=profile.base_url,
         cwd=None if profile.provider == ProviderType.SDK else cwd,
         allowed_tools=allowed_tools,
+        tools_suppressed_reason=tools_suppressed_reason,
         credentials={
             "api_key_env": profile.api_key_env,
             "default_headers": profile.default_headers,
@@ -450,7 +473,8 @@ class DispatchAction:
         """Dispatch via a one-shot agent from the registry (existing path)."""
         action_model = str(context.params["model"]) if "model" in context.params else None
         step_model = str(context.params["step_model"]) if "step_model" in context.params else None
-        model_id, alias_profile = context.resolver.resolve(action_model, step_model)
+        resolved = context.resolver.resolve_full(action_model, step_model)
+        model_id, alias_profile = resolved.model_id, resolved.profile
 
         profile_name = (
             str(context.params["profile"])
@@ -463,6 +487,7 @@ class DispatchAction:
         response_text, tool_telemetry = await one_shot_dispatch_with_telemetry(
             prompt=self._resolve_prompt(context),
             model_id=model_id,
+            model_allows_tools=resolved.allows_tools,
             profile_name=profile_name,
             system_prompt=str(context.params.get("system_prompt", "")),
             step_name=context.step_name,
