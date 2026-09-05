@@ -147,8 +147,9 @@ statements in the architecture doc:
   - Effort: 2/5
 
 - [ ] **T6. Test the review-path gate** *(test-with T5)*
-  - [ ] In `tests/tools/test_effective_tools.py` (or a review-side test module,
-    matching where the existing review-client tests live).
+  - [ ] In `tests/tools/test_effective_tools.py`, the module T4 created. **This
+    task owns the review-client gate case**; T10 covers the other three sites and
+    must not restate this one.
   - [ ] Assert SC1 for the review path and SC2 for the absent-field default.
   - [ ] Assert the INFO log fires on suppression and does **not** fire when
     nothing was declared.
@@ -193,9 +194,11 @@ combined task would hide a missed one.
     unchanged.
   - Effort: 2/5
 
-- [ ] **T10. Test all four call sites plus the enumeration guard** *(test-with T7-T9)*
-  - [ ] In `tests/tools/test_effective_tools.py`, one gate test per site:
-    review client, dispatch, summary one-shot, metrology audit (SC1).
+- [ ] **T10. Test the remaining call sites plus the enumeration guard** *(test-with T7-T9)*
+  - [ ] In `tests/tools/test_effective_tools.py`, one gate test per site for the
+    three sites T7-T9 added: **dispatch, summary one-shot, metrology audit**
+    (SC1). The review-client case is T6's and is already present — do not
+    duplicate or rewrite it.
   - [ ] **The SC1a enumeration test.** Statically enumerate `AgentConfig(...)`
     constructions across `src/` that set `allowed_tools`, and assert the set
     equals the four sanctioned sites. Use AST parsing, not a regex over source
@@ -208,8 +211,10 @@ combined task would hide a missed one.
   - [ ] Give the failure message an explicit instruction — a future author must
     learn from the failure that the new site has to route through
     `resolve_effective_tools`, not merely that a count changed.
-  - [ ] **Success:** all four gate tests green; adding a fifth tool-passing site
-    fails the suite (verify by temporarily adding one, then removing it).
+  - [ ] **Success:** all four sanctioned sites are covered across T6 and T10 —
+    three added here, plus T6's review-client case, which must still pass.
+    Adding a fifth tool-passing site fails the suite (verify by temporarily
+    adding one, then removing it).
   - Effort: 3/5
 
 - [ ] **T10a. Persist *why* a tool set is empty**
