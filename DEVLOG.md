@@ -2,13 +2,66 @@
 docType: devlog
 project: squadron
 dateCreated: 20260218
-dateUpdated: 20260903
+dateUpdated: 20260905
 
 ---
 
 # Development Log
 
 A lightweight, append-only record of development activity. Newest entries first.
+
+---
+
+## 20260905
+
+### Slice 266: Design Review Resolved, Phase 5 Task Breakdown Complete
+
+Two pieces of work, both on slice 266.
+
+**Design review (CONCERNS → RESOLVED).** All three actionable findings addressed;
+none deferred. F001 was a genuine contradiction rather than a documentation gap:
+the design claimed a single enforcement site at `OpenAICompatibleAgent.__init__`,
+while D3 forbade the agent from reading models.toml. Both cannot hold — the agent
+receives an already-resolved model id, materializes whatever `allowed_tools` it is
+handed, and has no way to tell a gated list from an un-gated one.
+
+The claim is withdrawn. **The gate is `resolve_effective_tools`, living in the
+caller.** Correcting the 20260903 entry above: enforcement is *not* at the agent
+construction edge, and coverage does *not* come free of per-caller changes.
+
+Reading the code to resolve F001 corrected two of the design's factual premises:
+
+- **Dispatch already populates `allowed_tools`** (`dispatch.py:117`). The
+  architecture's Current State said it did not and that a new code path was
+  needed. It is an edit to an existing assignment.
+- **Four `AgentConfig` sites pass tools**, not two: `review_client.py:138`,
+  `dispatch.py:109`, `pipeline/summary_oneshot.py:68`, `metrology/audit.py:608`.
+  All four are now in scope. Three further sites (`providers/auth.py`, two in
+  `server/routes/agents.py`) pass no tools and are explicitly out of scope.
+
+Since the layering denies a structural chokepoint, the "a caller can forget" risk
+is closed by a test instead: new **SC1a** requires enumerating every `AgentConfig`
+construction that sets `allowed_tools` and failing if one is not sanctioned. That
+substitutes an executable guarantee for the one the architecture could not give.
+F002 declared the helper in frontmatter `interfaces`; F003 recorded that bounds
+(b)-(d) trip baseline DEBUG tool logging alongside their model-visible markers.
+
+**Phase 5 task breakdown.** 28 tasks in eight parts, written to
+`project-documents/user/tasks/266-tasks.tool-use-configuration-and-limits.md`.
+Ordering follows the design's constraints rather than convenience: the capability
+gate first (its helper is the slice's central contract), then the three remaining
+call sites one task each, then the jail re-check as the first bounds item (D5 —
+the only security item), and the `builtin.py` split last so every preceding diff
+stays legible against the 613-line original.
+
+Three tasks carry a *test-must-fail-first* requirement, because each is a case
+where a plausible test passes without exercising the fix: the `list_files` walk
+bound (assert bounded work, not bounded output — the byte cap already passes),
+the symlinked-directory jail case (`rglob` recursion is Python-version dependent,
+so the test can pass vacuously), and the SC1a enumeration guard. The grounding
+notes at the top of the task file carry the corrected premises forward, so an
+implementer who reads only the tasks does not inherit the architecture's stale
+description of dispatch.
 
 ---
 
