@@ -34,13 +34,18 @@ class ModelAlias(_ModelAliasRequired, total=False):
     """A model alias mapping a short name to a profile and full model ID.
 
     ``profile`` and ``model`` are always required.  The remaining fields
-    are optional metadata added by slice 121.
+    are optional metadata added by slice 121, plus ``tool_use`` (slice 266).
+
+    ``tool_use`` is absent by default and absence means allow: a model that
+    does not name the field keeps offering tools.  Absence therefore stays
+    distinguishable from an explicit ``true`` and no default is written in.
     """
 
     private: bool
     cost_tier: str
     notes: str
     pricing: ModelPricing
+    tool_use: bool
 
 
 def models_toml_path() -> Path:
@@ -58,6 +63,10 @@ def _extract_metadata(
     private_val = table.get("private")
     if isinstance(private_val, bool):
         alias["private"] = private_val
+
+    tool_use_val = table.get("tool_use")
+    if isinstance(tool_use_val, bool):
+        alias["tool_use"] = tool_use_val
 
     cost_tier_val = table.get("cost_tier")
     if isinstance(cost_tier_val, str):

@@ -8,6 +8,9 @@
 #   private    (optional) — bool; true = not shown in public listings
 #   cost_tier  (optional) — "subscription" | "cheap" | "moderate" | "expensive"
 #   notes      (optional) — free-form human-readable note
+#   tool_use   (optional) — bool; false = never offer tool schemas to this
+#                model. Absent means allow, so omitting it keeps current
+#                behavior. Set it on models whose tool calling is unreliable.
 #   [aliases.<name>.pricing]  (optional sub-table)
 #     input, output, cache_read, cache_write — USD per 1M tokens
 
