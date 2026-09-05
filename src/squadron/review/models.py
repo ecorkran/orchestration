@@ -75,6 +75,10 @@ class ReviewResult:
     # case, which is exactly what issue #68 made invisible.
     tools_given: list[str] | None = None
     tool_calls_made: int | None = None
+    # Why tools were withheld (slice 266), or None if they were not. The third state the
+    # two fields above cannot express: an empty tools_given is otherwise identical to a
+    # review whose template declared no tools at all.
+    tools_suppressed_reason: str | None = None
     # Prompt capture fields — populated at verbosity >= 2, excluded from to_dict()
     system_prompt: str | None = None
     user_prompt: str | None = None
@@ -89,7 +93,7 @@ class ReviewResult:
                 why judge templates need this (score-derived verdict, not
                 the always-``UNKNOWN`` raw parse).
         """
-        return {
+        payload: dict[str, object] = {
             "verdict": verdict_override or self.verdict.value,
             "findings": [
                 {
@@ -125,6 +129,11 @@ class ReviewResult:
             # empty findings list reads as "the model found nothing" (issue #72).
             "fallback_used": self.fallback_used,
         }
+        # Slice 266: added only when the gate fired, matching the markdown frontmatter, so
+        # an un-gated run's JSON is unchanged.
+        if self.tools_suppressed_reason is not None:
+            payload["tools_suppressed_reason"] = self.tools_suppressed_reason
+        return payload
 
     @property
     def structured_findings(self) -> list[StructuredFinding]:

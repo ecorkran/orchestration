@@ -72,6 +72,7 @@ class OpenAICompatibleProvider:
             model=config.model,
             system_prompt=config.instructions,
             allowed_tools=config.allowed_tools,
+            tools_suppressed_reason=config.tools_suppressed_reason,
             cwd=config.cwd,
             max_tool_iterations=max_tool_iterations,
             max_history_chars=max_history_chars,

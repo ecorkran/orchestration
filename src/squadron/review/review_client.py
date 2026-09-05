@@ -17,6 +17,7 @@ from pathlib import Path
 
 from squadron.config.manager import get_config
 from squadron.core.models import SDK_RESULT_TYPE, AgentConfig, Message, MessageType
+from squadron.models.aliases import model_allows_tools
 from squadron.providers.loader import ensure_provider_loaded
 from squadron.providers.profiles import get_profile
 from squadron.providers.registry import get_provider
@@ -26,6 +27,7 @@ from squadron.review.parsers import parse_review_output
 from squadron.review.template_inputs import FILE_INPUT_KEYS
 from squadron.review.templates import ReviewTemplate
 from squadron.review.tool_support import should_inject_file_bodies
+from squadron.tools import resolve_effective_tools
 
 _logger = logging.getLogger(__name__)
 
@@ -62,6 +64,7 @@ async def run_review_with_profile(
     model: str | None = None,
     verbosity: int = 0,
     allowed_tools: list[str] | None = None,
+    no_tools: bool = False,
 ) -> ReviewResult:
     """Execute a review through the specified provider profile.
 
@@ -107,6 +110,23 @@ async def run_review_with_profile(
     if rules_content:
         system_prompt += f"\n\n## Additional Review Rules\n\n{rules_content}"
 
+    resolved_model = model if model is not None else template.model
+
+    # The capability gate (slice 266). Runs before the injection check below, because
+    # that check keys on the tools this run was *actually* given: a gated run must fall
+    # back to injected file bodies rather than getting neither tools nor contents.
+    resolved_allowed_tools, tools_suppressed_reason = resolve_effective_tools(
+        resolved_allowed_tools,
+        model_allows_tools=model_allows_tools(resolved_model),
+        suppressed=no_tools,
+    )
+    if tools_suppressed_reason is not None:
+        _logger.info(
+            "Review tools suppressed (model=%s, reason=%s)",
+            resolved_model or "(default)",
+            tools_suppressed_reason,
+        )
+
     # Inject file contents only when nothing in this run can fetch them: neither the provider
     # natively nor a read_file tool the run was actually given (slice 265, design D1).
     if should_inject_file_bodies(
@@ -115,8 +135,6 @@ async def run_review_with_profile(
         provider=provider_profile.provider,
     ):
         prompt = _inject_file_contents(prompt, inputs, template.diff_exclude_patterns)
-
-    resolved_model = model if model is not None else template.model
 
     # Debug output at -vvv (verbosity >= 3)
     if verbosity >= 3:
@@ -145,6 +163,7 @@ async def run_review_with_profile(
         base_url=provider_profile.base_url,
         cwd=inputs.get("cwd"),
         allowed_tools=resolved_allowed_tools,
+        tools_suppressed_reason=tools_suppressed_reason,
         permission_mode=template.permission_mode,
         setting_sources=template.setting_sources,
         credentials={
@@ -170,6 +189,10 @@ async def run_review_with_profile(
     # message can be the last one yielded.
     tools_given: list[str] | None = None
     tool_calls_made: int | None = None
+    # Slice 266. Read back from metadata like the fields above so the mechanism stays
+    # uniform, but the gate's own result is authoritative: SDK providers do not stamp it,
+    # and suppression must be recorded there too.
+    suppressed_reason_seen: str | None = None
     try:
         review_message = Message(
             sender="review-system",
@@ -189,6 +212,9 @@ async def run_review_with_profile(
             if given is not None:
                 tools_given = given
                 tool_calls_made = response.metadata.get("tool_calls_made", 0)
+            stamped_reason = response.metadata.get("tools_suppressed_reason")
+            if stamped_reason is not None:
+                suppressed_reason_seen = stamped_reason
             if sdk_type in (SDK_RESULT_TYPE, "tool_use", "tool_result"):
                 continue
             output_parts.append(response.content)
@@ -211,6 +237,7 @@ async def run_review_with_profile(
 
     result.tools_given = tools_given
     result.tool_calls_made = tool_calls_made
+    result.tools_suppressed_reason = tools_suppressed_reason or suppressed_reason_seen
 
     # Populate prompt capture fields at verbosity >= 2
     if verbosity >= 2:

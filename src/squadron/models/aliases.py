@@ -190,6 +190,23 @@ def resolve_model_alias(name: str) -> tuple[str, str | None]:
     return name, None
 
 
+def model_allows_tools(name: str | None) -> bool:
+    """Return whether ``name`` may be offered tool schemas (slice 266).
+
+    Absence means allow, so an unknown name, a ``None`` name, and an alias that
+    does not set ``tool_use`` all return ``True`` — only an explicit
+    ``tool_use = false`` denies. This is the single reader of the capability;
+    call sites gate through :func:`squadron.tools.resolve_effective_tools`
+    rather than testing the field themselves.
+    """
+    if name is None:
+        return True
+    alias = get_all_aliases().get(name)
+    if alias is None:
+        return True
+    return alias.get("tool_use", True)
+
+
 def estimate_cost(
     alias_name: str,
     input_tokens: int,

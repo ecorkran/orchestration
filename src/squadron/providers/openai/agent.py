@@ -83,6 +83,7 @@ class OpenAICompatibleAgent:
         system_prompt: str | None,
         *,
         allowed_tools: list[str] | None = None,
+        tools_suppressed_reason: str | None = None,
         cwd: str | None = None,
         max_tool_iterations: int | None = None,
         max_history_chars: int | None = None,
@@ -123,6 +124,10 @@ class OpenAICompatibleAgent:
         # Empty when no tools were configured. The telemetry stamp distinguishes "offered
         # but unused" from "never offered" (design D5), so the two cases must not collapse.
         self._tools_given: list[str] = []
+        # Set only when the capability gate emptied a non-empty declared set (slice 266).
+        # This is the third state slice 265 never needed: without it, a suppressed run and
+        # a run that declared no tools persist identically.
+        self._tools_suppressed_reason = tools_suppressed_reason
         if requested_tools:
             assert cwd is not None  # narrowed by the raise above
             # An unknown name is a configuration error, not something to route around:
@@ -394,8 +399,16 @@ class OpenAICompatibleAgent:
         (slice 262's contract), so anything stamped earlier would be discarded. When no tools
         were configured the keys are absent entirely — a caller must be able to tell "offered
         three tools, called none" apart from "never had tools" (design D5).
+
+        Slice 266 adds a third state: tools were declared but the capability gate emptied
+        them. That case has an empty ``_tools_given``, so it is stamped independently of the
+        two keys above — the early return below must not swallow it.
         """
-        if not self._tools_given or not messages:
+        if not messages:
+            return
+        if self._tools_suppressed_reason is not None:
+            messages[-1].metadata["tools_suppressed_reason"] = self._tools_suppressed_reason
+        if not self._tools_given:
             return
         messages[-1].metadata["tools_given"] = list(self._tools_given)
         messages[-1].metadata["tool_calls_made"] = tool_calls_made

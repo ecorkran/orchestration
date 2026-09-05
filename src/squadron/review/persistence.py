@@ -213,6 +213,11 @@ def format_review_markdown(
     if result.tools_given is not None:
         lines.append(f"toolsGiven: [{', '.join(result.tools_given)}]")
         lines.append(f"toolCallsMade: {result.tool_calls_made or 0}")
+    # Slice 266: present only when the gate emptied a declared set, so a run that never
+    # declared tools stays byte-for-byte unchanged. This is what makes suppression
+    # readable in the markdown artifact rather than only inferable from model prose.
+    if result.tools_suppressed_reason is not None:
+        lines.append(f"toolsSuppressedReason: {result.tools_suppressed_reason}")
 
     if result.score is not None:
         lines.append(f"score: {result.score}")
