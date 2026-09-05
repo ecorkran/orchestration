@@ -13,7 +13,7 @@ interfaces:
       that must use it". Enforced by SC1a.
 dateCreated: 20260903
 dateUpdated: 20260905
-status: not_started
+status: complete
 ---
 
 # Slice Design: Tool-Use Configuration and Limits
@@ -366,8 +366,14 @@ the timeout accounting that the per-line `remaining` budget depends on.
 
 ## Verification Walkthrough
 
-Each step is a command to run and what to look for. Steps marked *(manual)* need a live model
-and a plain terminal — `sq run` refuses to execute inside a Claude Code session.
+Each step is a command to run and what to look for, with the result observed during
+implementation. Steps marked *(manual)* need a live model and a plain terminal — `sq run`
+refuses to execute inside a Claude Code session.
+
+Test files are named directly rather than selected with `-k`: the original `-k` selectors
+here did not match the tests that were written (`list_files_walk_bound` matched nothing;
+`pattern_cap or truncation_marker` matched 1 of 8), and a selector that silently matches
+nothing reports success for a suite it never ran.
 
 ### 1. Capability field parses and defaults
 
@@ -378,8 +384,20 @@ a = get_all_aliases()
 print({k: v.get('tool_use', '<absent>') for k, v in a.items()})"
 ```
 
-Expect the default (field absent on shipped aliases). Then add `tool_use = false` to a local
-alias in `~/.config/squadron/models.toml` and confirm it reads back `False`.
+Expect `<absent>` for every shipped alias — the field is documented in `models.toml` but set
+on none of them, so existing behavior is unchanged (SC2).
+
+Then add `tool_use = false` to a local alias and confirm it reads back:
+
+```bash
+uv run python -c "
+from squadron.models.aliases import get_all_aliases, model_allows_tools
+print(get_all_aliases()['<your-alias>']['tool_use'], model_allows_tools('<your-alias>'))"
+```
+
+**Observed:** a probe alias with `tool_use = false` read back `False`, and
+`model_allows_tools` returned `False` for it and `True` for `opus` (no field). All shipped
+aliases reported `<absent>`.
 
 ### 2. A `tool_use = false` model is never offered schemas
 
@@ -387,59 +405,99 @@ alias in `~/.config/squadron/models.toml` and confirm it reads back `False`.
 uv run pytest tests/tools/test_effective_tools.py -v
 ```
 
-Expect the gate tests green: one case per sanctioned call site — review client, dispatch,
-summary one-shot, metrology audit (SC1) — plus the pass-through default (SC2), plus the
-call-site enumeration test that fails on an un-gated construction (SC1a).
+Expect the gate tests green: the helper truth table, one case per sanctioned call site —
+review client, dispatch, summary one-shot, metrology audit (SC1) — the pass-through default
+(SC2), and the call-site enumeration test that fails on an un-gated construction (SC1a).
+
+**Observed:** 25 passed. The SC1a guard was verified by temporarily adding a fifth
+tool-passing `AgentConfig` site: the suite failed, named the offending file, and told the
+author to route it through `resolve_effective_tools`.
+
+**Caveat discovered:** the capability must be read while the *alias name* is still known.
+`resolve_model_alias` collapses an alias to a model id, and several aliases can share one id
+while disagreeing on `tool_use` (`codex` and `codex-agent` both resolve to `gpt-5.3-codex`),
+so there is no sound reverse lookup. The pipeline reads it via `ModelResolver.resolve_full`
+and the review CLI reads it before resolution; a regression test pins that ordering.
 
 ### 3. `--no-tools` empties the effective set *(manual, live model)*
 
 Run the same review twice from a plain terminal:
 
 ```bash
-uv run sq review code <slice> --model kimi27 --no-tools -v
-uv run sq review code <slice> --model kimi27 -v
+uv run sq review code <slice> --model <alias> --no-tools -v
+uv run sq review code <slice> --model <alias> -v
 ```
 
-The first must print a tools-disabled indication and record tools as disabled in the persisted
-review; the second must show tools given and a non-zero call count. The two persisted artifacts
-are the baseline-vs-tools pair. Confirm they are distinguishable by the recorded field, not by
+The first must print a tools-disabled indication and record the suppression in the persisted
+review; the second must show tools given and a non-zero call count. Confirm the two artifacts
+are distinguishable by the recorded `toolsSuppressedReason` frontmatter field, **not** by
 reading model prose.
+
+**Not yet observed** — needs a live model and a plain terminal.
+
+The field this step checks is covered mechanically by
+`tests/review/test_persistence.py::TestFormatReviewMarkdownSuppressionReason`, which asserts
+all three states (offered-and-used, offered-and-unused, suppressed-with-reason) persist
+distinguishably in both the markdown frontmatter and `to_dict()`.
 
 ### 4. The jail holds against a symlink
 
 ```bash
-uv run pytest tests/tools/ -k "symlink" -v
+uv run pytest tests/tools/test_jail_symlinks.py -v
 ```
 
 Expect refusals for both `grep` and `list_files`, for both the symlinked-file and
 symlinked-directory cases, each with a WARNING logged (SC5, SC6).
 
+**Observed:** 5 passed. Verified non-vacuous — with the guard removed, all four escape cases
+fail.
+
+**Caveat discovered:** on Python 3.13+ `rglob` yields a symlinked directory without
+descending into it, and `is_file()` is `False` for that entry. Checking `is_file()` before
+containment therefore skipped the escape *silently* instead of logging it, so the
+containment check runs first in `_grep_candidates`. Each test asserts the guard was reached
+via its WARNING rather than only that no content leaked — on 3.13+ the latter passes with no
+guard at all.
+
 ### 5. Pattern cap and truncation marker
 
 ```bash
-uv run pytest tests/tools/ -k "pattern_cap or truncation_marker" -v
+uv run pytest tests/tools/test_grep_bounds.py -v
 ```
 
-An over-long pattern must be rejected before compilation with an error result, not an exception
-(SC7). A match beyond the read cap must produce a visible marker naming the file (SC8).
+An over-long pattern must be rejected before compilation with an error result, not an
+exception (SC7). A match beyond the read cap must produce a visible marker naming the file
+(SC8).
+
+**Observed:** 8 passed. "Before compilation" is asserted directly by a spy on
+`regex.compile` — asserting only on the returned message would still pass if the check ran
+after compilation, which is the bug the bound exists to prevent.
 
 ### 6. One tool result cannot eat the history budget
 
 ```bash
-uv run pytest tests/ -k "tool_result_cap" -v
+uv run pytest tests/providers/openai/test_tool_result_cap.py -v
 ```
 
-Assert the truncation happens before the append, and that the budget guard is *not* what stops
-it (SC9).
+Assert the truncation happens before the append, and that the budget guard is *not* what
+stops it (SC9).
+
+**Observed:** 4 passed; 3 of the 4 fail with the cap removed. The tests set
+`max_history_chars` generously so the budget guard cannot be what bounded the history, and
+assert no `max_history_chars` warning fired.
 
 ### 7. `list_files` bounds work, not just output
 
 ```bash
-uv run pytest tests/tools/ -k "list_files_walk_bound" -v
+uv run pytest tests/tools/test_list_files_bounds.py -v
 ```
 
-The test must demonstrate bounded *work* — e.g. that the walk stops early over a wide tree —
-rather than only asserting the returned byte count (SC10).
+The test must demonstrate bounded *work* — the walk stops early over a wide tree — rather
+than only asserting the returned byte count (SC10).
+
+**Observed:** 5 passed; 4 of the 5 fail against the pre-fix implementation. Bounded work is
+asserted by wrapping `Path.glob`/`Path.rglob` and counting entries actually consumed, since
+the pre-existing byte cap already bounded the output while `sorted()` drained the whole tree.
 
 ### 8. Split preserves the import surface
 
@@ -452,6 +510,17 @@ wc -l src/squadron/tools/builtin/*.py
 
 Every module under the ~300-line convention; imports resolve unchanged (SC11).
 
+**Observed:** imports intact. `__init__.py` 61, `_shared.py` 200, `bash_tool.py` 103,
+`file_tools.py` 234, `search_tools.py` 221 — all under 300, from a 690-line original. The
+full suite passed with **zero test edits**, which is the actual proof the move was pure.
+
+**Caveat discovered:** `bash` was given its own module (`bash_tool.py`) rather than joining
+the file tools, which the design left open — `file_tools.py` is already the largest of the
+four. The package-internal helpers lost their leading underscores (`_resolve_in_jail` →
+`resolve_in_jail`): once they are imported across modules, `reportPrivateUsage` flags every
+use, and the `_shared` module name already carries the privacy. `builtin._resolve_in_jail`
+is still exported as an alias, because the jail's existing tests import it under that name.
+
 ### 9. Full gate set
 
 ```bash
@@ -460,6 +529,21 @@ uv run ruff format . && uv run ruff check . && uv run pytest -q && uv run pyrigh
 
 All green; `pyright` shows no *new* errors (issue #74's `mcp_bridge.py` symbol-rename errors
 pre-exist on main and are not this slice's).
+
+**Observed:** ruff format and check clean; 3363 passed, 2 skipped; pyright reports exactly
+the 2 pre-existing `mcp_bridge.py` errors.
+
+**Caveat discovered:** pyright is load-bearing here, not a formality — it caught the review
+CLI's computed capability being dropped, because `run_review_with_profile` had no parameter
+to receive it and was re-deriving it from an already-resolved model id.
+
+### Known issue affecting reruns
+
+`tests/review/test_verbosity.py` invokes the review CLI, whose verbosity wiring calls
+`setLevel` on named loggers and never restores them, leaking that state to every later test
+in the process. A test asserting on DEBUG records can then fail depending on file order
+(issue #78). It is pre-existing, not caused by this slice, and reproduces with this branch
+stashed.
 
 ## Effort
 

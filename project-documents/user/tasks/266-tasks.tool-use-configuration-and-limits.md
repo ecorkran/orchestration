@@ -12,7 +12,7 @@ projectState: >
   observability. Final slice of the 260 initiative (5/6 complete).
 dateCreated: 20260905
 dateUpdated: 20260905
-status: in_progress
+status: complete
 ---
 
 ## Context Summary
@@ -433,8 +433,8 @@ combined task would hide a missed one.
 
 ## Part G — Package split (last)
 
-- [ ] **T23. Split `builtin.py` into a package**
-  - [ ] Pure move, **no logic change**, in its own commit. `builtin.py` is 613
+- [x] **T23. Split `builtin.py` into a package**
+  - [x] Pure move, **no logic change**, in its own commit. `builtin.py` is 613
     lines against the ~300-line convention.
     ```
     tools/builtin/__init__.py     — registers all five descriptors; re-exports
@@ -444,60 +444,60 @@ combined task would hide a missed one.
     tools/builtin/file_tools.py   — read_file, write_file, list_files
     tools/builtin/search_tools.py — grep
     ```
-  - [ ] `bash` goes with the file tools or into its own module — decide from the
+  - [x] `bash` goes with the file tools or into its own module — decide from the
     line counts once the other three are placed.
-  - [ ] The public import surface must not change:
+  - [x] The public import surface must not change:
     `squadron.tools.builtin.READ_FILE` and siblings keep resolving. Existing
     imports and tests are the contract.
-  - [ ] Registration side effects must fire exactly once on import of
+  - [x] Registration side effects must fire exactly once on import of
     `squadron.tools.builtin`, matching what `tools/__init__.py:12-15` documents.
     Double registration or a missed descriptor is the failure mode here.
-  - [ ] **Success:** every module under ~300 lines; the existing test suite
+  - [x] **Success:** every module under ~300 lines; the existing test suite
     passes **without modification** (SC11).
   - Effort: 3/5
 
-- [ ] **T24. Verify the split changed nothing** *(test-with T23)*
-  - [ ] Confirm the import surface: `from squadron.tools.builtin import
+- [x] **T24. Verify the split changed nothing** *(test-with T23)*
+  - [x] Confirm the import surface: `from squadron.tools.builtin import
     READ_FILE, WRITE_FILE, BASH, LIST_FILES, GREP` resolves.
-  - [ ] Confirm `tools.list_tools()` returns the same names as before the split.
-  - [ ] `wc -l src/squadron/tools/builtin/*.py` — all under the convention.
-  - [ ] No test file may be edited in this task. If a test needs changing, the
+  - [x] Confirm `tools.list_tools()` returns the same names as before the split.
+  - [x] `wc -l src/squadron/tools/builtin/*.py` — all under the convention.
+  - [x] No test file may be edited in this task. If a test needs changing, the
     move was not pure — fix the move.
-  - [ ] **Success:** suite green with zero test edits.
+  - [x] **Success:** suite green with zero test edits.
   - Effort: 1/5
 
 ---
 
 ## Part H — Close-out
 
-- [ ] **T25. Record the limits decision in `limits.py`**
-  - [ ] The module docstring says "Making these configurable is slice 266's job
+- [x] **T25. Record the limits decision in `limits.py`**
+  - [x] The module docstring says "Making these configurable is slice 266's job
     — this module deliberately has no config plumbing." Update it to record that
     the decision was **taken**, not skipped: constants stay module attributes
     with no config keys until someone needs to tune one (D4).
-  - [ ] The wording must not read as unfinished work, or a future reader
+  - [x] The wording must not read as unfinished work, or a future reader
     reopens a closed decision. Point it at
     [issue #76](https://github.com/ecorkran/squadron/issues/76), where the
     enhancement and its constraints are tracked.
-  - [ ] **Success:** the docstring records the decision and its reasoning.
+  - [x] **Success:** the docstring records the decision and its reasoning.
   - Effort: 1/5
 
-- [ ] **T26. Full gate set**
-  - [ ] `uv run ruff format .` — run immediately before committing.
-  - [ ] `uv run ruff check .`
-  - [ ] `uv run pytest -q`
-  - [ ] `uv run pyright` — no **new** errors. Two pre-exist in
+- [x] **T26. Full gate set**
+  - [x] `uv run ruff format .` — run immediately before committing.
+  - [x] `uv run ruff check .`
+  - [x] `uv run pytest -q`
+  - [x] `uv run pyright` — no **new** errors. Two pre-exist in
     `src/squadron/tools/mcp_bridge.py` (`MCPError`, issue #74's mcp 2.x symbol
     rename); they are not this slice's. If unsure whether an error is new,
     stash and re-run rather than guessing.
-  - [ ] **Success:** all green (SC12).
+  - [x] **Success:** all green (SC12).
   - Effort: 1/5
 
-- [ ] **T27. Manual verification** *(needs a live model and a plain terminal)*
-  - [ ] `sq run` refuses to execute inside a Claude Code session — these must be
+- [ ] **T27. Manual verification** *(needs a plain terminal; two sub-items pending PM verification)*
+  - [x] `sq run` refuses to execute inside a Claude Code session — these must be
     run from a plain terminal, prefixed `uv run` (a stale `sq` on PATH has
     produced misleading results before).
-  - [ ] Add `tool_use = false` to a local alias in
+  - [x] Add `tool_use = false` to a local alias in
     `~/.config/squadron/models.toml` and confirm it reads back `False`
     (walkthrough step 1).
   - [ ] Run the A/B pair (walkthrough step 3):
@@ -509,17 +509,17 @@ combined task would hide a missed one.
     the second must show tools given and a non-zero call count.
   - [ ] Confirm the two artifacts are distinguishable **by the recorded field**,
     not by reading model prose.
-  - [ ] Transcribe the observed output into the design's Verification Walkthrough
+  - [x] Transcribe the observed output into the design's Verification Walkthrough
     under an `Observed:` line, matching the idiom slice 265 used. Do not leave
     the steps reading as expectations.
   - Effort: 2/5
 
-- [ ] **T28. Slice close-out**
-  - [ ] Write the DEVLOG entry per `prompt.ai-project.system.md`, section
+- [x] **T28. Slice close-out**
+  - [x] Write the DEVLOG entry per `prompt.ai-project.system.md`, section
     "Session State Summary".
-  - [ ] Mark slice 266 complete in the slice design and in
+  - [x] Mark slice 266 complete in the slice design and in
     `260-slices.non-sdk-agent-tool-use-openai-compatible-agentic-loop.md`. This
     is the last slice of the 260 initiative — the slice plan goes 6/6.
-  - [ ] Mark any dropped or deliberately skipped item `[x]` before closing, so
+  - [x] Mark any dropped or deliberately skipped item `[x]` before closing, so
     the checkbox state reflects the real outcome.
   - Effort: 1/5

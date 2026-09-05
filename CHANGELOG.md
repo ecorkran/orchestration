@@ -85,6 +85,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tells you what the analysis never looked at, so you can judge how much it leaves out.
 - Every section now states the graph fields it was written from, in the section itself, so any claim
   can be traced without opening the skill.
+- A model can now be marked as unable to use tools. Set `tool_use = false` on an alias in
+  `models.toml` and that model is never offered tool schemas, on any path — reviews, pipeline
+  dispatch, summaries, and metrology audits alike. Aliases without the field are unaffected,
+  so nothing changes for existing setups. Useful for models whose tool calling is unreliable
+  enough that offering tools makes their output worse.
+- `sq review` accepts `--no-tools` to run a single review without tools, even when the
+  template declares them — a one-off A/B without editing any config.
+- A review that ran without tools now records *why* in the saved review file
+  (`toolsSuppressedReason` in the frontmatter, and in the JSON output). A suppressed run used
+  to be indistinguishable from one whose template simply declared no tools.
 
 ### Changed
 - README rewritten around what you actually do with squadron — workflows first, with the install
@@ -93,6 +103,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   place of the previous "Multi-agent squadron framework".
 
 ### Fixed
+- `grep` and `list_files` could follow a symlink out of the working directory they are confined
+  to. A link inside the directory pointing outside it read as an ordinary file, so its contents
+  could be searched and its path listed. Both now re-check every entry they find and skip
+  anything that resolves outside, logging a warning.
+- `grep` no longer reports "no match" for a file it only partly read. Files above the read cap
+  were searched to that point and a match past it was silently invisible; the result now names
+  each file that was only partly searched.
+- `grep` rejects an over-long pattern instead of handing it to the regex engine.
+- A single oversized tool result can no longer exhaust a run's conversation budget on its own —
+  it is truncated, with a visible marker, before it enters the model's history.
+- `list_files` stops walking at a fixed number of entries instead of traversing an entire
+  directory tree before trimming the output. A listing cut short says so.
 - Layer file counts were wrong for layers holding YAML or TOML files. Packaged Declarative Content
   reported 1 file instead of 34, and Project Configuration 2 instead of 6.
 - Analysis silently skipped 37 real files — every review template, every pipeline definition, and
