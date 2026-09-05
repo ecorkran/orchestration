@@ -336,96 +336,96 @@ combined task would hide a missed one.
 
 ## Part D — Pattern cap and truncation marker
 
-- [ ] **T16. Cap grep pattern length before compilation**
-  - [ ] Add `MAX_PATTERN_CHARS` to `src/squadron/tools/limits.py` with a comment
+- [x] **T16. Cap grep pattern length before compilation**
+  - [x] Add `MAX_PATTERN_CHARS` to `src/squadron/tools/limits.py` with a comment
     in the established style.
-  - [ ] In `_search` (builtin.py:~521), check the length **before**
+  - [x] In `_search` (builtin.py:~521), check the length **before**
     `regex.compile` — the point is to not hand an unbounded pattern to the
     engine at all.
-  - [ ] Return an error result telling the model to shorten it; do **not** raise.
+  - [x] Return an error result telling the model to shorten it; do **not** raise.
     The model supplied the pattern and is the one that must correct it — same
     reasoning as the existing invalid-regex branch (builtin.py:~528).
-  - [ ] Read the constant as `limits.MAX_PATTERN_CHARS` at call time so tests can
+  - [x] Read the constant as `limits.MAX_PATTERN_CHARS` at call time so tests can
     monkeypatch it.
-  - [ ] **Success:** an over-long pattern returns an error result before
+  - [x] **Success:** an over-long pattern returns an error result before
     compilation (SC7); a normal pattern is unaffected.
   - Effort: 1/5
 
-- [ ] **T17. Mark grep's truncated reads**
-  - [ ] `_search` reads `handle.read(limits.MAX_READ_BYTES)` (builtin.py:~545)
+- [x] **T17. Mark grep's truncated reads**
+  - [x] `_search` reads `handle.read(limits.MAX_READ_BYTES)` (builtin.py:~545)
     and searches only that prefix, so a match past the cap is reported as no
     match — a silent failure the project's no-fallback rule forbids.
-  - [ ] Keep the bound; add the marker. When a file is truncated at the read cap,
+  - [x] Keep the bound; add the marker. When a file is truncated at the read cap,
     include a visible per-file notice **naming the file** so the model can narrow
     its own search.
-  - [ ] Do not switch to line-wise scanning (D7) — it changes the timeout
+  - [x] Do not switch to line-wise scanning (D7) — it changes the timeout
     accounting the per-line `remaining` budget depends on (builtin.py:~556).
-  - [ ] **Success:** a match beyond the read cap produces a marker naming the
+  - [x] **Success:** a match beyond the read cap produces a marker naming the
     file; no match is dropped without one (SC8).
   - Effort: 2/5
 
-- [ ] **T18. Test the pattern cap and truncation marker** *(test-with T16-T17)*
-  - [ ] Monkeypatch `limits.MAX_PATTERN_CHARS` and `limits.MAX_READ_BYTES` to
+- [x] **T18. Test the pattern cap and truncation marker** *(test-with T16-T17)*
+  - [x] Monkeypatch `limits.MAX_PATTERN_CHARS` and `limits.MAX_READ_BYTES` to
     small values rather than building megabyte fixtures.
-  - [ ] Assert the over-long pattern is rejected as a *returned result*, not a
+  - [x] Assert the over-long pattern is rejected as a *returned result*, not a
     raised exception (SC7).
-  - [ ] Assert a file whose only match sits past the read cap produces the marker
+  - [x] Assert a file whose only match sits past the read cap produces the marker
     naming that file (SC8).
-  - [ ] Assert both bounds trip the baseline DEBUG tool logging, so an operator
+  - [x] Assert both bounds trip the baseline DEBUG tool logging, so an operator
     on `-vv` can distinguish repeated cap hits from routine tool use.
-  - [ ] **Success:** all cases green.
+  - [x] **Success:** all cases green.
   - Effort: 2/5
 
 ---
 
 ## Part E — Tool-result cap
 
-- [ ] **T19. Cap a tool result before it enters history**
-  - [ ] Add `MAX_TOOL_RESULT_CHARS` to `limits.py`, same style.
-  - [ ] In `src/squadron/providers/openai/agent.py`, truncate with a visible
+- [x] **T19. Cap a tool result before it enters history**
+  - [x] Add `MAX_TOOL_RESULT_CHARS` to `limits.py`, same style.
+  - [x] In `src/squadron/providers/openai/agent.py`, truncate with a visible
     marker at the append site (agent.py:358) — **before**
     `_append_history`, not inside it.
-  - [ ] The existing history budget guard (agent.py:360) must **not** be what
+  - [x] The existing history budget guard (agent.py:360) must **not** be what
     stops it. That guard is a whole-conversation backstop; this cap is
     per-result, and SC9 requires a single result to be unable to exhaust
     `agent.max_history_chars` on its own.
-  - [ ] **Success:** an oversized single tool result is truncated with a marker
+  - [x] **Success:** an oversized single tool result is truncated with a marker
     and the budget guard does not fire.
   - Effort: 2/5
 
-- [ ] **T20. Test the tool-result cap** *(test-with T19)*
-  - [ ] Assert truncation happens **before** the append, and assert the budget
+- [x] **T20. Test the tool-result cap** *(test-with T19)*
+  - [x] Assert truncation happens **before** the append, and assert the budget
     guard did not fire — SC9 names this explicitly, so test the mechanism, not
     just the outcome.
-  - [ ] Assert a normal-sized result is untouched.
-  - [ ] **Success:** both cases green.
+  - [x] Assert a normal-sized result is untouched.
+  - [x] **Success:** both cases green.
   - Effort: 2/5
 
 ---
 
 ## Part F — Bounded `list_files` walk
 
-- [ ] **T21. Bound the work `list_files` does, not just its output**
-  - [ ] Add `MAX_LIST_ENTRIES` to `limits.py`.
-  - [ ] In `_walk` (builtin.py:419-423), stop consuming the iterator at the cap.
+- [x] **T21. Bound the work `list_files` does, not just its output**
+  - [x] Add `MAX_LIST_ENTRIES` to `limits.py`.
+  - [x] In `_walk` (builtin.py:419-423), stop consuming the iterator at the cap.
     Today `sorted(...)` materializes the entire tree before `_truncate` bounds
     the *bytes*, so a wide tree is fully walked no matter what is returned.
-  - [ ] The cap applies to entries walked; `_truncate` on the output
+  - [x] The cap applies to entries walked; `_truncate` on the output
     (builtin.py:425) stays as the byte-level bound. The two are different limits
     and both remain.
-  - [ ] Emit a visible marker when the cap is hit — a short listing must stay
+  - [x] Emit a visible marker when the cap is hit — a short listing must stay
     distinguishable from a truncated one.
-  - [ ] **Success:** a wide tree stops early (SC10).
+  - [x] **Success:** a wide tree stops early (SC10).
   - Effort: 2/5
 
-- [ ] **T22. Test bounded work** *(test-with T21)*
-  - [ ] The test must demonstrate bounded **work**, not merely a bounded byte
+- [x] **T22. Test bounded work** *(test-with T21)*
+  - [x] The test must demonstrate bounded **work**, not merely a bounded byte
     count — SC10 says so explicitly, and asserting only on returned bytes passes
     even with the current full-walk behavior.
-  - [ ] Assert the walk stops early over a wide tree: count entries actually
+  - [x] Assert the walk stops early over a wide tree: count entries actually
     visited (e.g. instrument the iterator) rather than measuring output size.
-  - [ ] Assert the cap marker appears.
-  - [ ] **Success:** the test fails against the pre-T21 implementation. Verify
+  - [x] Assert the cap marker appears.
+  - [x] **Success:** the test fails against the pre-T21 implementation. Verify
     this by stashing T21 — a test that passes both ways proves nothing.
   - Effort: 3/5
 
