@@ -4,7 +4,7 @@ layer: project
 reviewType: tasks
 slice: tool-use-configuration-and-limits
 project: squadron
-verdict: RESOLVED
+verdict: CONCERNS
 sourceDocument: project-documents/user/tasks/266-tasks.tool-use-configuration-and-limits.md
 aiModel: claude-sonnet-5
 status: complete
@@ -41,7 +41,7 @@ findings:
 
 # Review: tasks — slice 266
 
-**Verdict:** RESOLVED (all findings addressed 20260905)
+**Verdict:** CONCERNS (all findings addressed 20260905 — see Resolution)
 **Model:** claude-sonnet-5
 
 ## Findings
