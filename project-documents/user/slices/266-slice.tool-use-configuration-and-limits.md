@@ -433,12 +433,37 @@ review; the second must show tools given and a non-zero call count. Confirm the 
 are distinguishable by the recorded `toolsSuppressedReason` frontmatter field, **not** by
 reading model prose.
 
-**Not yet observed** — needs a live model and a plain terminal.
+**Observed 20260906**, three runs against `kimi27` (`moonshotai/kimi-k2.7-code`) via
+openrouter. A third run was added beyond the pair above, because `--no-tools` and the alias
+capability are different code paths that must produce *different* reason values:
 
-The field this step checks is covered mechanically by
-`tests/review/test_persistence.py::TestFormatReviewMarkdownSuppressionReason`, which asserts
-all three states (offered-and-used, offered-and-unused, suppressed-with-reason) persist
-distinguishably in both the markdown frontmatter and `to_dict()`.
+| Run | Terminal | Persisted frontmatter |
+|---|---|---|
+| `--model kimi27 --no-tools` | `Review tools suppressed (reason=run-suppressed)` | `toolsSuppressedReason: run-suppressed` |
+| `--model kimi27` | tool activity, then findings | `toolsGiven: [read_file, list_files, grep]`, `toolCallsMade: 45` |
+| `--model notools` | `Review tools suppressed (reason=model-capability)` | `toolsSuppressedReason: model-capability` |
+
+All three states are distinguishable from the recorded field alone, with no reference to
+model prose (SC3, SC4). The tools run produced materially better findings than either
+suppressed run — two real CONCERNs about project configuration that the tool-less runs did
+not reach.
+
+**Two defects found by this step**, both pre-existing and neither caused by this slice:
+
+- The jail refusals fired correctly and visibly on `.venv/bin/python*` symlinks — the
+  security fix working in production. But `grep` then exhausted its 5s budget on the literal
+  pattern `CLAUDE.md` and reported *"Use a simpler or more anchored pattern"*. The pattern
+  was not the problem: `.venv` is 21,402 of this repo's 29,373 entries, and `grep` spends the
+  whole budget reading ~351 MB of virtualenv before reaching any project file. The advice is
+  unfollowable, and the model retried twice. [Issue #79](https://github.com/ecorkran/squadron/issues/79).
+- The run hit `Agentic loop history exceeded agent.max_history_chars (400000)` after 45 tool
+  calls. `MAX_TOOL_RESULT_CHARS` (100,000) is 25% of the history budget, so four full-size
+  results exhaust it. The guard behaved correctly; the two constants were never sized against
+  each other. [Issue #80](https://github.com/ecorkran/squadron/issues/80).
+
+Neither blocks the slice: both bounds did what they were built to do, and the failures are in
+values and scope chosen elsewhere. Both are worth fixing before tool-using reviews are relied
+on routinely.
 
 ### 4. The jail holds against a symlink
 

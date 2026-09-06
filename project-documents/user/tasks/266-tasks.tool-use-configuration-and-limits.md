@@ -493,22 +493,24 @@ combined task would hide a missed one.
   - [x] **Success:** all green (SC12).
   - Effort: 1/5
 
-- [ ] **T27. Manual verification** *(needs a plain terminal; two sub-items pending PM verification)*
+- [x] **T27. Manual verification** *(run by PM 20260906; found issues #79 and #80)*
   - [x] `sq run` refuses to execute inside a Claude Code session — these must be
     run from a plain terminal, prefixed `uv run` (a stale `sq` on PATH has
     produced misleading results before).
   - [x] Add `tool_use = false` to a local alias in
     `~/.config/squadron/models.toml` and confirm it reads back `False`
     (walkthrough step 1).
-  - [ ] Run the A/B pair (walkthrough step 3):
+  - [x] Run the A/B pair (walkthrough step 3):
     ```bash
     uv run sq review code <slice> --model <alias> --no-tools -v
     uv run sq review code <slice> --model <alias> -v
     ```
     The first must show tools disabled and record it in the persisted review;
     the second must show tools given and a non-zero call count.
-  - [ ] Confirm the two artifacts are distinguishable **by the recorded field**,
-    not by reading model prose.
+  - [x] Confirm the two artifacts are distinguishable **by the recorded field**,
+    not by reading model prose. Verified across three runs (a third was added for
+    the capability path): `run-suppressed`, `toolsGiven`/`toolCallsMade: 45`, and
+    `model-capability` respectively.
   - [x] Transcribe the observed output into the design's Verification Walkthrough
     under an `Observed:` line, matching the idiom slice 265 used. Do not leave
     the steps reading as expectations.

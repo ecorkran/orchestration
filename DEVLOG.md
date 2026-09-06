@@ -100,9 +100,28 @@ calls `setLevel` on named loggers and never restores them, so a CLI test leaks t
 and a later DEBUG assertion fails depending on file order. Pre-existing; reproduces with
 this branch stashed.
 
-**Left for the PM.** Walkthrough step 3 (`--no-tools` A/B against a live model) needs a
-plain terminal and is not yet observed. The field it checks is covered mechanically by
-`TestFormatReviewMarkdownSuppressionReason`.
+**Live verification (T27), run by the PM 20260906.** Three runs against `kimi27` via
+openrouter. All three states are distinguishable from the recorded field alone:
+`toolsSuppressedReason: run-suppressed` for `--no-tools`, `toolsGiven` with
+`toolCallsMade: 45` for the tools run, and `toolsSuppressedReason: model-capability` for a
+`tool_use = false` alias. SC3 and SC4 hold in production, not just against mocks. The tools
+run also produced materially better findings than either suppressed run.
+
+It found two pre-existing defects that only a live run could surface, neither caused by this
+slice. The jail refusals fired correctly on `.venv/bin/python*` symlinks — the security fix
+working for real — but `grep` then burned its 5s budget on the literal pattern `CLAUDE.md`
+and told the model to *"use a simpler or more anchored pattern"*. The pattern was never the
+problem: `.venv` is 21,402 of this repo's 29,373 entries, and grep reads ~351 MB of
+virtualenv before reaching any project file, so the advice is unfollowable and the model
+retried twice ([#79](https://github.com/ecorkran/squadron/issues/79)). Separately the run hit
+the history budget after 45 calls, because `MAX_TOOL_RESULT_CHARS` (100,000) is 25% of the
+400,000 default — the two constants were never sized against each other
+([#80](https://github.com/ecorkran/squadron/issues/80)).
+
+Both bounds did what they were built to do; the failures are in scope and values chosen
+elsewhere. Worth noting as a lesson: every bound in this slice was verified against mocks and
+all of them behaved correctly, yet the first live run still found two problems — in what the
+tool *chooses to read* and in how two independently-correct limits compose.
 
 ---
 
