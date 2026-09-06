@@ -7,9 +7,10 @@ logic changed."""
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
 from pathlib import Path
 
+from squadron.tools import limits
 from squadron.tools.models import ToolResult
 
 # Canonical tool names. Defined once here and referenced everywhere else.
@@ -56,6 +57,41 @@ def contained_in_jail(cwd: Path, entry: Path, *, tool: str) -> bool:
         return True
     _logger.warning("%s: refusing jail escape via %s -> %s (outside %s)", tool, entry, resolved, cwd)
     return False
+
+
+def walk_tree(root: Path, *, recursive: bool = True) -> Iterator[Path]:
+    """Yield entries under *root*, pruning ``limits.SKIP_DIRECTORIES`` as it descends.
+
+    ``Path.rglob`` cannot prune: it yields every entry, so a caller filtering afterwards has
+    already paid to stat everything under ``.venv`` or ``node_modules``. That cost, not
+    regex backtracking, is what exhausted the ``grep`` budget in practice (issue #79).
+
+    Pruning is by exact directory name at any depth, and applies to *descent* only — a
+    caller that explicitly asks for ``.venv`` as its root still gets it, since the skip set
+    is consulted for children rather than for *root* itself.
+
+    Lazy by construction. Nothing here materializes the tree; the budget and entry caps
+    upstream depend on being able to stop early.
+    """
+    skip = limits.SKIP_DIRECTORIES
+    try:
+        entries = sorted(root.iterdir())
+    except (OSError, PermissionError):
+        # An unreadable directory inside the tree is normal input for a whole-tree walk;
+        # the remaining entries are still worth yielding.
+        return
+    for entry in entries:
+        yield entry
+        if not recursive:
+            continue
+        if entry.name in skip:
+            _logger.debug("walk: pruning %s", entry)
+            continue
+        # is_dir() follows symlinks; descending through one is how a walk leaves the jail,
+        # so links are yielded above (the caller's containment check sees them) but never
+        # descended into.
+        if entry.is_dir() and not entry.is_symlink():
+            yield from walk_tree(entry, recursive=True)
 
 
 def reject_special_file(tool: str, target: Path) -> ToolResult | None:

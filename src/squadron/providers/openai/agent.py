@@ -364,7 +364,7 @@ class OpenAICompatibleAgent:
                 # below is a backstop for accumulated history, and a single tool result must
                 # not be able to exhaust it on its own (SC9). Read as a module attribute at
                 # call time so tests can patch it.
-                max_result_chars = limits.MAX_TOOL_RESULT_CHARS
+                max_result_chars = limits.max_tool_result_chars(max_history_chars)
                 if len(content) > max_result_chars:
                     _log.warning(
                         "Tool result for %s was %d characters, truncating to %d",

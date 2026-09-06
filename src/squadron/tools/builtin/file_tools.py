@@ -25,6 +25,7 @@ from squadron.tools.builtin._shared import (
     require_str,
     resolve_in_jail,
     truncate,
+    walk_tree,
 )
 from squadron.tools.models import ToolDescriptor, ToolExecutor, ToolResult
 from squadron.tools.registry import register
@@ -185,7 +186,10 @@ def _list_files_factory(cwd: Path) -> ToolExecutor:
                 if not target.is_dir():
                     return error(LIST_FILES_NAME, f"path is not a directory: {path}")
 
-                matches = target.rglob(pattern) if recursive else target.glob(pattern)
+                # walk_tree prunes dependency/VCS directories as it descends (issue #79);
+                # the pattern is applied to the names it yields, since rglob cannot prune.
+                walked = walk_tree(target, recursive=recursive)
+                matches = (entry for entry in walked if entry.match(pattern))
                 # Consumption stops at the cap, so a wide tree costs a bounded walk rather
                 # than a full materialization. sorted() below would otherwise drain the
                 # whole iterator before the byte-level cap could apply to anything.

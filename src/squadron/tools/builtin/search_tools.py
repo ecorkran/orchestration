@@ -25,6 +25,7 @@ from squadron.tools.builtin._shared import (
     require_str,
     resolve_in_jail,
     truncate,
+    walk_tree,
 )
 from squadron.tools.models import ToolDescriptor, ToolExecutor, ToolResult
 from squadron.tools.registry import register
@@ -58,6 +59,17 @@ GREP_PARAMETERS: dict[str, object] = {
 }
 
 
+def _globbed(target: Path, glob: str | None) -> Iterator[Path]:
+    """Yield entries under *target*, pruned, honoring *glob* when one is given.
+
+    ``walk_tree`` does the pruning; the glob is applied to the yielded names rather than
+    handed to ``rglob``, because ``rglob`` cannot prune as it descends.
+    """
+    for entry in walk_tree(target, recursive=True):
+        if glob is None or entry.match(glob):
+            yield entry
+
+
 def _grep_candidates(cwd: Path, target: Path, glob: str | None) -> Iterator[Path]:
     """Yield the files *target* expands to, filtered by *glob* when it is a directory.
 
@@ -67,12 +79,16 @@ def _grep_candidates(cwd: Path, target: Path, glob: str | None) -> Iterator[Path
 
     Every candidate is re-checked against jail root *cwd*: this is the single point all
     candidates pass through, so both symlink escape routes close here.
+
+    Dependency and VCS directories are pruned during descent (``limits.SKIP_DIRECTORIES``).
+    Reading them is what actually exhausted the budget in practice — they are the bulk of a
+    real tree and never the code a model is asking about (issue #79).
     """
     if target.is_file():
         if contained_in_jail(cwd, target, tool=GREP_NAME):
             yield target
         return
-    for entry in target.rglob(glob or "*"):
+    for entry in _globbed(target, glob):
         # Containment is checked before is_file(): on Python 3.13+ rglob yields a symlinked
         # directory without descending into it, and is_file() is False for that entry — so
         # testing is_file() first would skip the escape silently instead of logging it.
@@ -125,6 +141,7 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                 deadline = time.monotonic() + budget
 
                 matches: list[str] = []
+                scanned = 0
                 # Files whose search covered only the first MAX_READ_BYTES. A match past
                 # that point is invisible to the scan, so reporting "no match" without
                 # saying so would be a silent failure.
@@ -133,7 +150,8 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                     # Checked per candidate as well as per line: traversal of a large tree and
                     # the reads themselves consume wall time the per-line check never sees.
                     if time.monotonic() >= deadline:
-                        return _grep_timeout(pattern, budget)
+                        return _grep_walk_timeout(budget, matches, scanned)
+                    scanned += 1
                     try:
                         # Bounded like read_file: an enormous file must not consume the whole
                         # budget (or the process's memory) inside a single unbounded read.
@@ -155,14 +173,14 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                     for number, line in enumerate(text.splitlines(), start=1):
                         remaining = deadline - time.monotonic()
                         if remaining <= 0:
-                            return _grep_timeout(pattern, budget)
+                            return _grep_walk_timeout(budget, matches, scanned)
                         try:
                             # The per-call timeout is scoped to what is left of the whole-walk
                             # budget, so the sum across every line of every file cannot exceed
                             # GREP_TIMEOUT_S for the call.
                             found = compiled.search(line, timeout=remaining)
                         except TimeoutError:
-                            return _grep_timeout(pattern, budget)
+                            return _grep_pattern_timeout(pattern, budget)
                         if found is None:
                             continue
                         matches.append(f"{relative}:{number}:{line}")
@@ -189,11 +207,12 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
     return execute
 
 
-def _grep_timeout(pattern: str, budget: float) -> ToolResult:
-    """Build the error result for an exhausted grep budget and log it at WARNING.
+def _grep_pattern_timeout(pattern: str, budget: float) -> ToolResult:
+    """The regex engine itself ran out of budget — the pattern is the problem.
 
-    Mirrors the bash timeout path: an abandoned search is an operator-visible event, and the
-    model needs to know its pattern — not the tree — was the problem.
+    Only raised from ``compiled.search(..., timeout=...)``, i.e. genuine catastrophic
+    backtracking. Telling the model to simplify its pattern is correct advice *here* and
+    nowhere else; see :func:`_grep_walk_timeout` for the other cause.
     """
     _logger.warning(
         "%s: pattern exceeded the %ss budget and was abandoned: %s", GREP_NAME, budget, pattern
@@ -205,6 +224,29 @@ def _grep_timeout(pattern: str, budget: float) -> ToolResult:
         ),
         is_error=True,
     )
+
+
+def _grep_walk_timeout(budget: float, matches: list[str], scanned: int) -> ToolResult:
+    """The tree was too large to finish — the pattern is *not* the problem.
+
+    Reporting this as a pattern failure is what made issue #79 costly: a model told to
+    simplify an already-trivial pattern retries a change that cannot help. The fix the model
+    can act on is narrowing the search, so that is what this says.
+
+    Whatever matched before the budget ran out is returned rather than discarded: a partial
+    answer beats none, and the notice says it is partial.
+    """
+    _logger.warning(
+        "%s: search of %d files exceeded the %ss budget and was abandoned", GREP_NAME, scanned, budget
+    )
+    notice = (
+        f"[search abandoned: scanned {scanned} files before exceeding the {budget}s budget. "
+        "The tree is too large, not the pattern — narrow it with 'path' or 'glob'.]"
+    )
+    if not matches:
+        return ToolResult(content=f"Error: {notice}", is_error=True)
+    # Partial results are a successful, incomplete answer — not an error.
+    return ToolResult(content="\n".join([*matches, notice]))
 
 
 GREP = ToolDescriptor(

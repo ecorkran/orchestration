@@ -13,6 +13,9 @@
 #                behavior. Set it on models whose tool calling is unreliable.
 #   [aliases.<name>.pricing]  (optional sub-table)
 #     input, output, cache_read, cache_write — USD per 1M tokens
+#
+# Deprecated: `kimi25` (moonshotai/kimi-k2) is no longer shipped. Use `kimi27`
+# (moonshotai/kimi-k2.7-code) in tests and examples.
 
 # ---------------------------------------------------------------------------
 # Claude family — Max subscription, no per-token pricing

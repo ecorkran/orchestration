@@ -92,14 +92,14 @@ def test_user_alias_adds_new_entry(tmp_path: Path) -> None:
     """User alias adds a new entry not in built-ins."""
     toml_content = """
 [aliases]
-kimi25 = { profile = "openrouter", model = "moonshotai/kimi-k2" }
+kimi-custom = { profile = "openrouter", model = "moonshotai/kimi-k2.7-code" }
 """
     toml_file = tmp_path / "models.toml"
     toml_file.write_text(toml_content)
 
     with patch("squadron.models.aliases.models_toml_path", return_value=toml_file):
-        model, profile = resolve_model_alias("kimi25")
-        assert model == "moonshotai/kimi-k2"
+        model, profile = resolve_model_alias("kimi-custom")
+        assert model == "moonshotai/kimi-k2.7-code"
         assert profile == "openrouter"
 
 
@@ -162,16 +162,16 @@ def test_get_all_aliases_merges_user(tmp_path: Path) -> None:
     """get_all_aliases merges user aliases with built-ins."""
     toml_content = """
 [aliases]
-kimi25 = { profile = "openrouter", model = "moonshotai/kimi-k2" }
+kimi-custom = { profile = "openrouter", model = "moonshotai/kimi-k2.7-code" }
 """
     toml_file = tmp_path / "models.toml"
     toml_file.write_text(toml_content)
 
     with patch("squadron.models.aliases.models_toml_path", return_value=toml_file):
         aliases = get_all_aliases()
-        assert "kimi25" in aliases
+        assert "kimi-custom" in aliases
         assert "opus" in aliases  # built-in still present
-        assert aliases["kimi25"]["model"] == "moonshotai/kimi-k2"
+        assert aliases["kimi-custom"]["model"] == "moonshotai/kimi-k2.7-code"
 
 
 # ---------------------------------------------------------------------------

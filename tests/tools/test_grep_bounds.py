@@ -165,3 +165,104 @@ async def test_pattern_cap_is_observable_in_logs(
         await _grep(tmp_path, {"pattern": "z" * 50})
 
     assert any("limit" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# Issue #79 — the walk skips dependency trees, and reports the right cause
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_dependency_directories_are_not_searched(tmp_path: Path) -> None:
+    """`.venv` and friends are the bulk of a real tree and never the code under review."""
+    (tmp_path / ".venv" / "lib").mkdir(parents=True)
+    (tmp_path / ".venv" / "lib" / "dep.py").write_text("NEEDLE from a dependency\n")
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "node_modules" / "pkg.js").write_text("NEEDLE from node_modules\n")
+    (tmp_path / "src.py").write_text("NEEDLE in project code\n")
+
+    content, is_error = await _grep(tmp_path, {"pattern": "NEEDLE"})
+
+    assert not is_error
+    assert "src.py" in content
+    assert ".venv" not in content
+    assert "node_modules" not in content
+
+
+@pytest.mark.asyncio
+async def test_an_explicitly_named_skip_directory_is_still_searched(tmp_path: Path) -> None:
+    """Pruning applies to descent, not to a root the caller asked for by name."""
+    (tmp_path / ".venv").mkdir()
+    (tmp_path / ".venv" / "dep.py").write_text("NEEDLE inside the venv\n")
+
+    content, is_error = await _grep(tmp_path, {"pattern": "NEEDLE", "path": ".venv"})
+
+    assert not is_error
+    assert "dep.py" in content
+
+
+@pytest.mark.asyncio
+async def test_walk_timeout_blames_the_tree_not_the_pattern(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Issue #79: telling a model to simplify an already-trivial pattern is unfollowable."""
+    for index in range(40):
+        (tmp_path / f"f{index}.txt").write_text("some content\n")
+    # A budget already spent: the walk check trips on the first candidate.
+    monkeypatch.setattr(limits, "GREP_TIMEOUT_S", -1.0)
+
+    content, is_error = await _grep(tmp_path, {"pattern": "literal"})
+
+    assert is_error
+    assert "too large" in content
+    assert "narrow it" in content
+    # The advice that was wrong for a walk timeout must not appear.
+    assert "simpler or more anchored pattern" not in content
+
+
+@pytest.mark.asyncio
+async def test_pattern_timeout_still_blames_the_pattern(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The engine-level timeout is the one case where simplifying the pattern is the fix."""
+    # Genuine catastrophic backtracking. Note the `regex` module optimizes away the
+    # textbook `(a+)+$` form, so the alternation variant is used — verified to time out.
+    (tmp_path / "a.txt").write_text("a" * 30 + "!\n")
+    monkeypatch.setattr(limits, "GREP_TIMEOUT_S", 0.2)
+
+    content, is_error = await _grep(tmp_path, {"pattern": r"(a|a)*$"})
+
+    assert is_error
+    assert "simpler or more anchored pattern" in content
+
+
+@pytest.mark.asyncio
+async def test_partial_matches_survive_a_walk_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A partial answer beats none, so long as it says it is partial."""
+    (tmp_path / "hit.txt").write_text("NEEDLE\n")
+    for index in range(20):
+        (tmp_path / f"pad{index}.txt").write_text("nothing\n")
+
+    calls = {"n": 0}
+
+    # Let the first file be scanned, then expire the budget.
+    import time as _time
+
+    real_monotonic = _time.monotonic
+    start = real_monotonic()
+
+    def _fake_monotonic() -> float:
+        calls["n"] += 1
+        # Jump past the deadline once the first file has been read and matched.
+        return start + (0.0 if calls["n"] < 8 else 999.0)
+
+    monkeypatch.setattr(_time, "monotonic", _fake_monotonic)
+    content, is_error = await _grep(tmp_path, {"pattern": "NEEDLE"})
+    monkeypatch.setattr(_time, "monotonic", real_monotonic)
+
+    if "hit.txt" in content:
+        # Matches found before the cutoff are returned, not discarded.
+        assert not is_error
+        assert "search abandoned" in content
