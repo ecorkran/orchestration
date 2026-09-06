@@ -113,6 +113,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `grep` rejects an over-long pattern instead of handing it to the regex engine.
 - A single oversized tool result can no longer exhaust a run's conversation budget on its own —
   it is truncated, with a visible marker, before it enters the model's history.
+- `agent.max_history_chars` now defaults to 1,000,000 (was 400,000). A tool result can be up
+  to 64,000 characters, so the old budget was exhausted after a handful of searches and
+  long tool-using reviews were cut short.
 - `list_files` stops walking at a fixed number of entries instead of traversing an entire
   directory tree before trimming the output. A listing cut short says so.
 - Layer file counts were wrong for layers holding YAML or TOML files. Packaged Declarative Content

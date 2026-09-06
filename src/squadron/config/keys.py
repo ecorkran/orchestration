@@ -283,7 +283,7 @@ CONFIG_KEYS: dict[str, ConfigKey] = {
     "agent.max_history_chars": ConfigKey(
         name="agent.max_history_chars",
         type_=int,
-        default=400_000,
+        default=1_000_000,
         description=(
             "Accumulated message-history size (characters) that triggers the "
             "agentic loop's history-budget guard for OpenAI-compatible agents."

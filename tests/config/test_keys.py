@@ -61,19 +61,19 @@ class TestAgentLoopLimitConfigKeys:
         key = CONFIG_KEYS["agent.max_history_chars"]
         assert key.name == "agent.max_history_chars"
         assert key.type_ is int
-        assert key.default == 400_000
+        assert key.default == 1_000_000
 
     def test_get_default_max_tool_iterations(self) -> None:
         assert get_default("agent.max_tool_iterations") == 20
 
     def test_get_default_max_history_chars(self) -> None:
-        assert get_default("agent.max_history_chars") == 400_000
+        assert get_default("agent.max_history_chars") == 1_000_000
 
     @pytest.mark.parametrize(
         "key,default",
         [
             ("agent.max_tool_iterations", 20),
-            ("agent.max_history_chars", 400_000),
+            ("agent.max_history_chars", 1_000_000),
         ],
     )
     def test_get_typed_config_returns_default_with_no_override(

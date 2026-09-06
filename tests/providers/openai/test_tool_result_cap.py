@@ -78,7 +78,8 @@ async def test_oversized_result_is_truncated_before_the_append(
     history — if the per-result cap were missing, the full result would sit in history and
     this test would fail.
     """
-    monkeypatch.setattr(limits, "MIN_TOOL_RESULT_CHARS", 200)
+    monkeypatch.setattr(limits, "MAX_OUTPUT_BYTES", 200)
+    monkeypatch.setattr(limits, "TOOL_RESULT_HEADROOM", 1.0)
     monkeypatch.setattr(limits, "TOOL_RESULT_HISTORY_FRACTION", 0.0)
     caplog.set_level(logging.WARNING)
 
@@ -106,7 +107,8 @@ async def test_single_result_cannot_exhaust_the_history_budget(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """The property SC9 actually asks for, stated directly."""
-    monkeypatch.setattr(limits, "MIN_TOOL_RESULT_CHARS", 100)
+    monkeypatch.setattr(limits, "MAX_OUTPUT_BYTES", 100)
+    monkeypatch.setattr(limits, "TOOL_RESULT_HEADROOM", 1.0)
     monkeypatch.setattr(limits, "TOOL_RESULT_HISTORY_FRACTION", 0.0)
     caplog.set_level(logging.WARNING)
 
@@ -121,7 +123,8 @@ async def test_single_result_cannot_exhaust_the_history_budget(
 @pytest.mark.asyncio
 async def test_normal_result_is_untouched(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A result under the cap passes through byte for byte."""
-    monkeypatch.setattr(limits, "MIN_TOOL_RESULT_CHARS", 10_000)
+    monkeypatch.setattr(limits, "MAX_OUTPUT_BYTES", 10_000)
+    monkeypatch.setattr(limits, "TOOL_RESULT_HEADROOM", 1.0)
     monkeypatch.setattr(limits, "TOOL_RESULT_HISTORY_FRACTION", 0.0)
 
     agent, _ = await _run_one_tool_call(tmp_path, file_bytes=50, max_history_chars=1_000_000)
@@ -136,7 +139,8 @@ async def test_truncation_is_observable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """A silently truncated result would be a silent failure; it logs at WARNING."""
-    monkeypatch.setattr(limits, "MIN_TOOL_RESULT_CHARS", 100)
+    monkeypatch.setattr(limits, "MAX_OUTPUT_BYTES", 100)
+    monkeypatch.setattr(limits, "TOOL_RESULT_HEADROOM", 1.0)
     monkeypatch.setattr(limits, "TOOL_RESULT_HISTORY_FRACTION", 0.0)
     caplog.set_level(logging.WARNING)
 
@@ -153,14 +157,31 @@ async def test_cap_scales_with_the_history_budget() -> None:
     full-size results exhausted it. Deriving the cap keeps a plausible number of tool calls
     inside the budget at any configured size.
     """
-    assert limits.max_tool_result_chars(400_000) == 20_000
-    assert limits.max_tool_result_chars(1_000_000) == 50_000
-    # Room for at least 15 maximum-size results at any realistic budget — the observed
-    # failure was a 45-call review forced to finalize.
-    for budget in (200_000, 400_000, 1_000_000):
-        assert budget // limits.max_tool_result_chars(budget) >= 15
+    # The fraction raises the cap once the budget is large enough to matter.
+    assert limits.max_tool_result_chars(4_000_000) == 200_000
+    # And it is monotonic: a larger budget never yields a smaller cap.
+    caps = [limits.max_tool_result_chars(b) for b in (400_000, 1_000_000, 4_000_000)]
+    assert caps == sorted(caps)
 
 
-def test_cap_never_shrinks_below_a_usable_floor() -> None:
-    """A small configured budget must not make tool results useless."""
-    assert limits.max_tool_result_chars(1_000) == limits.MIN_TOOL_RESULT_CHARS
+def test_cap_never_cuts_below_a_tools_own_output_bound() -> None:
+    """Regression: the cap is a backstop, not a second truncation of ordinary results.
+
+    Every built-in tool already bounds its output at MAX_OUTPUT_BYTES and appends its own
+    "showing first N" marker. A cap below that re-truncates a correctly-truncated result,
+    replacing that marker with a cut mid-line. Observed live: a review that had been making
+    45 tool calls made 1, and returned UNKNOWN with no findings.
+    """
+    for budget in (1_000, 100_000, 400_000, 1_000_000, 4_000_000):
+        assert limits.max_tool_result_chars(budget) > limits.MAX_OUTPUT_BYTES
+
+
+def test_default_budget_admits_a_realistic_number_of_tool_calls() -> None:
+    """The budget, not the cap, is what bounds a tool-using run in practice."""
+    from squadron.config.keys import CONFIG_KEYS
+
+    budget = CONFIG_KEYS["agent.max_history_chars"].default
+    assert isinstance(budget, int)
+    # A full-size result is MAX_OUTPUT_BYTES; a real review made 45 tool calls, though most
+    # results are far smaller than the maximum.
+    assert budget // limits.MAX_OUTPUT_BYTES >= 15

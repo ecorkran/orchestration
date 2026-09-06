@@ -66,25 +66,35 @@ MAX_LIST_ENTRIES = 10_000
 # backstop, and one oversized result must not be able to exhaust it on its own.
 #
 # Expressed as a fraction rather than a fixed character count so the two limits cannot drift
-# apart. A fixed 100_000 against the 400_000 default let one result take a quarter of the
+# apart. A fixed 100_000 against the old 400_000 default let one result take a quarter of the
 # budget, so four full-size results exhausted it — an observed review made 45 tool calls and
-# was forced to finalize early (issue #80). At 5% a run has room for ~20 maximum-size
-# results, and raising ``agent.max_history_chars`` now raises this with it.
+# was forced to finalize early (issue #80).
+#
+# The fraction alone was not enough. A tool result is bounded by MAX_OUTPUT_BYTES (64_000),
+# so a budget of 400_000 admits only ~6 full-size results however the cap is computed; the
+# budget itself was the binding constraint and is now 1_000_000. Note the interaction: this
+# fraction can only *raise* the cap above the headroom floor below, never lower it.
 TOOL_RESULT_HISTORY_FRACTION = 0.05
 
-# Floor for the derived per-result cap, so a small configured history budget cannot shrink
-# tool results to uselessness — a result too short to carry a file's relevant span makes the
-# tool worse than not having it.
-MIN_TOOL_RESULT_CHARS = 4_000
+# Headroom the per-result cap keeps above the largest result a well-behaved tool can
+# return. Every built-in tool already bounds its own output at MAX_OUTPUT_BYTES and appends
+# a marker saying so; the agent-side cap is a backstop for a tool that does not, so it must
+# sit *above* that bound. Setting it lower re-truncates ordinary results, replacing the
+# tool's own "showing first N" marker with a cut mid-line — which is what turned a working
+# review into one usable tool call and an UNKNOWN verdict.
+TOOL_RESULT_HEADROOM = 1.5
 
 
 def max_tool_result_chars(max_history_chars: int) -> int:
     """Return the per-result character cap for a given history budget.
 
-    Read at call time, never captured at import, so tests can monkeypatch either input and
-    the executor sees the change.
+    Never returns less than ``MAX_OUTPUT_BYTES * TOOL_RESULT_HEADROOM``: below that the cap
+    stops being a backstop and starts mangling results the tools already truncated
+    correctly. Read at call time, never captured at import, so tests can monkeypatch any
+    input and the executor sees the change.
     """
-    return max(MIN_TOOL_RESULT_CHARS, int(max_history_chars * TOOL_RESULT_HISTORY_FRACTION))
+    floor = int(MAX_OUTPUT_BYTES * TOOL_RESULT_HEADROOM)
+    return max(floor, int(max_history_chars * TOOL_RESULT_HISTORY_FRACTION))
 
 
 # Maximum length of a model-supplied ``grep`` pattern. Checked before compilation: the
