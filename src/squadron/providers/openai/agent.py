@@ -34,6 +34,10 @@ from squadron.tools import ToolExecutor, ToolResult, limits
 
 _log = get_logger("squadron.providers.openai.agent")
 
+# Extra delta field OpenRouter-compatible backends use to stream a reasoning model's
+# thinking. Not part of the OpenAI SDK's typed ChoiceDelta; read via model_extra.
+_REASONING_DELTA_FIELD = "reasoning"
+
 
 def _entry_chars(entry: dict[str, Any]) -> int:
     """Return the character size of one history entry.
@@ -60,6 +64,28 @@ def _int_key_default(key: str) -> int:
     return default
 
 
+def _require_final_content(turn: TurnResult) -> None:
+    """Refuse a final turn that carries neither text nor tool calls.
+
+    ``translation.build_messages`` yields no Message for empty text, so without this
+    an empty turn reaches the caller as *nothing*: no content, no tool telemetry, and
+    a review that records UNKNOWN with an empty raw output and no clue why. The
+    finish reason and reasoning volume are the only evidence the stream offers, so
+    they ride the error.
+    """
+    if not turn.is_empty():
+        return
+    _log.warning(
+        "Model returned an empty final turn (finish_reason=%r, reasoning_chars=%d)",
+        turn.finish_reason,
+        turn.reasoning_chars,
+    )
+    raise ProviderError(
+        f"Model returned an empty final turn (finish_reason={turn.finish_reason!r}, "
+        f"reasoning_chars={turn.reasoning_chars}); no response to deliver."
+    )
+
+
 @dataclass(frozen=True)
 class TurnResult:
     """Raw aggregated output of a single streamed API turn.
@@ -70,6 +96,19 @@ class TurnResult:
 
     text: str
     tool_calls: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
+    # Why the backend stopped, from the last chunk that carried one. Needed to explain
+    # an empty turn: a model whose output budget went entirely to reasoning ends with
+    # finish_reason="length" and no content.
+    finish_reason: str | None = None
+    # Characters of reasoning streamed outside ``delta.content``. OpenRouter-style
+    # backends put a reasoning model's thinking in an extra ``reasoning`` field the
+    # SDK's typed delta does not declare; it is never surfaced, only measured, so an
+    # empty turn can be told apart from a silent one.
+    reasoning_chars: int = 0
+
+    def is_empty(self) -> bool:
+        """True when the turn carries nothing a caller can act on."""
+        return not self.tool_calls and not self.text.strip()
 
 
 class OpenAICompatibleAgent:
@@ -87,6 +126,7 @@ class OpenAICompatibleAgent:
         cwd: str | None = None,
         max_tool_iterations: int | None = None,
         max_history_chars: int | None = None,
+        max_tool_result_chars: int | None = None,
     ) -> None:
         self._name = name
         self._client = client
@@ -107,6 +147,13 @@ class OpenAICompatibleAgent:
             max_history_chars
             if max_history_chars is not None
             else _int_key_default("agent.max_history_chars")
+        )
+        # Clamped up to the floor: a configured value below what a tool itself returns
+        # would re-truncate correct results instead of bounding runaway ones.
+        self._max_tool_result_chars = limits.resolve_tool_result_cap(
+            max_tool_result_chars
+            if max_tool_result_chars is not None
+            else _int_key_default("agent.max_tool_result_chars")
         )
 
         if system_prompt is not None:
@@ -168,6 +215,7 @@ class OpenAICompatibleAgent:
                 self._append_history(
                     translation.build_assistant_history_entry(turn.text, turn.tool_calls)
                 )
+                _require_final_content(turn)
                 messages = translation.build_messages(
                     turn.text, turn.tool_calls, self._name, self._model
                 )
@@ -208,6 +256,8 @@ class OpenAICompatibleAgent:
         """
         text_buffer = ""
         tool_calls_dict: dict[int, dict[str, Any]] = {}
+        finish_reason: str | None = None
+        reasoning_chars = 0
 
         app_name = os.environ.get("SQUADRON_APP_NAME")
         extra_body = {"user": app_name} if app_name else None
@@ -225,9 +275,15 @@ class OpenAICompatibleAgent:
         async for chunk in stream:
             if not chunk.choices:
                 continue
-            delta = chunk.choices[0].delta
+            choice = chunk.choices[0]
+            if choice.finish_reason is not None:
+                finish_reason = choice.finish_reason
+            delta = choice.delta
             if delta.content:
                 text_buffer += delta.content
+            reasoning = (delta.model_extra or {}).get(_REASONING_DELTA_FIELD)
+            if isinstance(reasoning, str):
+                reasoning_chars += len(reasoning)
             if delta.tool_calls:
                 for tc in delta.tool_calls:
                     idx = tc.index
@@ -246,7 +302,12 @@ class OpenAICompatibleAgent:
                             tool_calls_dict[idx]["function"]["arguments"] += tc.function.arguments
 
         tool_calls_list = [tool_calls_dict[k] for k in sorted(tool_calls_dict)]
-        return TurnResult(text=text_buffer, tool_calls=tool_calls_list)
+        return TurnResult(
+            text=text_buffer,
+            tool_calls=tool_calls_list,
+            finish_reason=finish_reason,
+            reasoning_chars=reasoning_chars,
+        )
 
     async def _execute_tool_call(self, tool_call: dict[str, Any]) -> str:
         """Execute one model-issued tool call and return its result content.
@@ -328,14 +389,43 @@ class OpenAICompatibleAgent:
         tool_calls_made = 0
 
         for _iteration in range(max_iterations):
-            # Once the budget guard has fired, stop offering tools: the notice below
-            # asks the model to finalize, and continuing to advertise tool_schemas
-            # would let it ignore that and keep calling tools anyway.
-            turn_tool_schemas = None if budget_guard_fired else self._tool_schemas
+            # Tools are withdrawn once either budget is spent: each notice asks the
+            # model to finalize, and continuing to advertise tool_schemas would let it
+            # ignore that and keep calling tools anyway.
+            #
+            # The final iteration is reserved for the model to answer with the tool
+            # results it already has. Without this the loop can only end by the model
+            # volunteering to stop, and a model that keeps calling tools loses every
+            # result it gathered when the iteration guard fires.
+            iterations_left = max_iterations - _iteration
+            finalize_now = budget_guard_fired or iterations_left <= 1
+            turn_tool_schemas = None if finalize_now else self._tool_schemas
+
+            # The notice goes in *before* the turn it applies to, so the model sees why
+            # its tools disappeared. Appending it afterwards would explain the withdrawal
+            # only to a turn that had already happened.
+            if iterations_left == 1 and not budget_guard_fired:
+                _log.warning(
+                    "Agentic loop reached its last of %d iterations; withdrawing tools "
+                    "and asking the model to finalize with what it has",
+                    max_iterations,
+                )
+                self._append_history(
+                    {
+                        "role": "user",
+                        "content": (
+                            "System notice: the tool-iteration budget is exhausted. "
+                            "Finalize your response now using the results you already "
+                            "have; no more tools will be offered."
+                        ),
+                    }
+                )
+
             turn = await self._stream_turn(self._history, tool_schemas=turn_tool_schemas)
             self._append_history(translation.build_assistant_history_entry(turn.text, turn.tool_calls))
 
             if not turn.tool_calls:
+                _require_final_content(turn)
                 messages = translation.build_messages(turn.text, [], self._name, self._model)
                 self._stamp_tool_telemetry(messages, tool_calls_made=tool_calls_made)
                 return messages
@@ -364,7 +454,7 @@ class OpenAICompatibleAgent:
                 # below is a backstop for accumulated history, and a single tool result must
                 # not be able to exhaust it on its own (SC9). Read as a module attribute at
                 # call time so tests can patch it.
-                max_result_chars = limits.max_tool_result_chars(max_history_chars)
+                max_result_chars = self._max_tool_result_chars
                 if len(content) > max_result_chars:
                     _log.warning(
                         "Tool result for %s was %d characters, truncating to %d",

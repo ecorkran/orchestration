@@ -62,6 +62,9 @@ class OpenAICompatibleProvider:
                 get_typed_config("agent.max_tool_iterations", int, cwd=config_cwd)
             )
             max_history_chars = int(get_typed_config("agent.max_history_chars", int, cwd=config_cwd))
+            max_tool_result_chars = int(
+                get_typed_config("agent.max_tool_result_chars", int, cwd=config_cwd)
+            )
         except ValueError as exc:
             raise ProviderError(f"invalid agentic-loop configuration: {exc}") from exc
 
@@ -76,6 +79,7 @@ class OpenAICompatibleProvider:
             cwd=config.cwd,
             max_tool_iterations=max_tool_iterations,
             max_history_chars=max_history_chars,
+            max_tool_result_chars=max_tool_result_chars,
         )
 
     async def validate_credentials(self) -> bool:
