@@ -2,13 +2,55 @@
 docType: devlog
 project: squadron
 dateCreated: 20260218
-dateUpdated: 20260905
+dateUpdated: 20260907
 
 ---
 
 # Development Log
 
 A lightweight, append-only record of development activity. Newest entries first.
+
+---
+
+## 20260907
+
+### Slice 267: Tool-Use Discipline and Diagnosability for Non-SDK Agents — Design Complete
+
+Phase 4 on `main` (no integration branch configured). Design at
+`project-documents/user/slices/267-slice.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md`;
+slice plan entry 7 carries the pointer and a design note. Slice branch not yet created.
+
+**What the slice is.** Initiative 260's close-out. The mechanics landed in 261–266; 266's live
+verification showed a tool-enabled `kimi27` review making zero tool calls and returning a
+confident, wrong FAIL about symbols outside the hunk (#82). The design owns one shared tool-use
+guidance block in `squadron/tools/guidance.py`, plus raw-response retention for degraded reviews
+(#61), a `Tools:` line at `-v`, dispatch accepting `allowed_tools` on SDK profiles (#75), the
+#40 default-system-prompt fix on both sides, and an evidence-gated `max_tokens` follow-up to #84.
+Closes #40, #61, #68, #75, #82, #84 when implemented.
+
+**Decisions that depart from the plan entry.**
+- The block is composed in `OpenAICompatibleAgent.__init__`, not at the four
+  `resolve_effective_tools` sites. 266 lacked a chokepoint because the agent cannot see the
+  alias; the guidance depends only on the effective tool list, which it can. One call, no
+  second enumeration test.
+- Non-SDK only, per the architecture's "no SDK-path regression" goal.
+- Degraded reviews (resolved verdict UNKNOWN, or `fallback_used`) embed the raw response at
+  every verbosity, keyed on the *resolved* verdict so judge templates (raw parse always
+  UNKNOWN) are not affected.
+- `agent.max_output_tokens` is added only if the live re-run of the #84 review shows
+  `finish_reason=length`.
+- The SDK session dispatch path keeps rejecting `allowed_tools` (tool set fixed at connect);
+  only the one-shot path translates.
+
+**Acceptance is live.** SC10: the `--no-tools` A/B on the same model and diff must show tool
+calls on the tools run and no absence claim about a symbol the repository defines. Suite-green
+does not satisfy it. Live runs happen from a plain terminal.
+
+**Correction to the plan text.** The entry says an SDK reviewer "inherits Claude Code's system
+prompt." It does not: `review_client.py` passes the template prompt as `instructions` and never
+sets `use_default_system_prompt`; only the metrology audit uses the preset. The SDK reviewer's
+discipline comes from the model, not the prompt. This changes nothing in the design (D2) but
+should not be repeated.
 
 ---
 
