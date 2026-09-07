@@ -7,6 +7,7 @@ Both limits are monkeypatched to small values rather than building megabyte fixt
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 
 import pytest
@@ -240,29 +241,77 @@ async def test_pattern_timeout_still_blames_the_pattern(
 async def test_partial_matches_survive_a_walk_timeout(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A partial answer beats none, so long as it says it is partial."""
-    (tmp_path / "hit.txt").write_text("NEEDLE\n")
-    for index in range(20):
-        (tmp_path / f"pad{index}.txt").write_text("nothing\n")
+    """A partial answer beats none, so long as it says it is partial.
 
-    calls = {"n": 0}
+    The clock is pinned to a concrete event — the read of the decoy file — rather than to a
+    count of monotonic() calls, which would couple the test to the loop's internals and
+    could start passing vacuously if that structure changed.
+    """
+    (tmp_path / "a_hit.txt").write_text("NEEDLE\n")
+    (tmp_path / "z_decoy.txt").write_text("NEEDLE\n")
 
-    # Let the first file be scanned, then expire the budget.
-    import time as _time
-
-    real_monotonic = _time.monotonic
+    real_monotonic = time.monotonic
     start = real_monotonic()
+    expired = False
 
     def _fake_monotonic() -> float:
-        calls["n"] += 1
-        # Jump past the deadline once the first file has been read and matched.
-        return start + (0.0 if calls["n"] < 8 else 999.0)
+        # Time stands still until the decoy is opened, then jumps past any deadline.
+        return start + (999.0 if expired else 0.0)
 
-    monkeypatch.setattr(_time, "monotonic", _fake_monotonic)
+    real_open = Path.open
+
+    def _open_spy(self: Path, *args: object, **kwargs: object) -> object:
+        nonlocal expired
+        if self.name == "z_decoy.txt":
+            expired = True
+        return real_open(self, *args, **kwargs)  # pyright: ignore[reportCallIssue,reportArgumentType]
+
+    monkeypatch.setattr(time, "monotonic", _fake_monotonic)
+    monkeypatch.setattr(Path, "open", _open_spy)
+
     content, is_error = await _grep(tmp_path, {"pattern": "NEEDLE"})
-    monkeypatch.setattr(_time, "monotonic", real_monotonic)
 
-    if "hit.txt" in content:
-        # Matches found before the cutoff are returned, not discarded.
-        assert not is_error
-        assert "search abandoned" in content
+    # The first file matched before the clock jumped; that match must survive.
+    assert "a_hit.txt" in content, "the match found before the cutoff was discarded"
+    assert not is_error, "a partial result is an incomplete answer, not an error"
+    assert "search abandoned" in content
+    assert "too large" in content
+
+
+@pytest.mark.asyncio
+async def test_runaway_argument_is_not_reported_as_a_long_pattern(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A half-megabyte 'pattern' is a malfunction, not a pattern the model can shorten.
+
+    Observed live: kimi27 emitted a 531,571-character pattern argument. The agentic loop
+    has seen the same runaway produce a ~400KB argument that failed JSON parsing; this one
+    parsed cleanly and reached the tool. Telling that model to "shorten it" invites a retry
+    of the same broken output.
+    """
+    (tmp_path / "a.txt").write_text("hello\n")
+
+    with caplog.at_level(logging.WARNING, logger="squadron.tools.builtin.search_tools"):
+        content, is_error = await _grep(tmp_path, {"pattern": "x" * 531_571})
+
+    assert is_error
+    assert "not a search pattern" in content
+    assert "Re-issue the call" in content
+    assert "shorten it" not in content
+    # A runaway is an operator-visible event, unlike a routine over-long pattern.
+    assert any("runaway tool argument" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_merely_long_pattern_still_says_shorten_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The ordinary over-cap case keeps the advice the model can actually act on."""
+    monkeypatch.setattr(limits, "MAX_PATTERN_CHARS", 10)
+    (tmp_path / "a.txt").write_text("hello\n")
+
+    content, is_error = await _grep(tmp_path, {"pattern": "y" * 50})
+
+    assert is_error
+    assert "shorten it" in content
+    assert "not a search pattern" not in content

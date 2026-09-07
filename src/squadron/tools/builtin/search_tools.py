@@ -73,9 +73,9 @@ def _globbed(target: Path, glob: str | None) -> Iterator[Path]:
 def _grep_candidates(cwd: Path, target: Path, glob: str | None) -> Iterator[Path]:
     """Yield the files *target* expands to, filtered by *glob* when it is a directory.
 
-    Deliberately lazy and unsorted: a sorted list would walk and materialize the entire tree
-    before the caller's first deadline check, so a large enough tree could blow the whole-walk
-    budget during traversal alone — before a single line was ever matched.
+    Lazy across directories: ``walk_tree`` sorts one level at a time and descends only as
+    the caller pulls, so the deadline check between files can stop the walk without the
+    whole tree having been listed first.
 
     Every candidate is re-checked against jail root *cwd*: this is the single point all
     candidates pass through, so both symlink escape routes close here.
@@ -123,11 +123,7 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
                 # reach the engine at all. Returned rather than raised, matching the
                 # invalid-regex branch below — the model supplied it and must correct it.
                 if len(pattern) > limits.MAX_PATTERN_CHARS:
-                    return error(
-                        GREP_NAME,
-                        f"pattern is {len(pattern)} characters, over the "
-                        f"{limits.MAX_PATTERN_CHARS}-character limit; shorten it.",
-                    )
+                    return _oversized_pattern(pattern)
 
                 try:
                     compiled = regex.compile(pattern)
@@ -205,6 +201,48 @@ def _grep_factory(cwd: Path) -> ToolExecutor:
         return await guarded(GREP_NAME, run)
 
     return execute
+
+
+#: Above this, an argument is not a long pattern — it is a malfunction. The agentic loop
+#: has already seen a model emit a ~400KB tool argument from a degenerate repetition loop
+#: (see ``_execute_tool_call``); that case produced malformed JSON, but the same runaway can
+#: parse cleanly and land in a string field. Telling such a model to "shorten it" invites a
+#: retry of the same broken output, so the advice differs past this point.
+_RUNAWAY_PATTERN_CHARS = 10_000
+
+
+def _oversized_pattern(pattern: str) -> ToolResult:
+    """Reject a pattern over the cap, distinguishing "too long" from "malfunctioning".
+
+    A genuinely long pattern is the model's to shorten. An argument of hundreds of
+    kilobytes is not a pattern at all, and the useful instruction is to re-issue the call
+    with a real one — logged at WARNING, because a runaway argument is an operator-visible
+    event rather than the routine error that ``error()`` reports at INFO.
+    """
+    size = len(pattern)
+    if size < _RUNAWAY_PATTERN_CHARS:
+        return error(
+            GREP_NAME,
+            f"pattern is {size} characters, over the "
+            f"{limits.MAX_PATTERN_CHARS}-character limit; shorten it.",
+        )
+
+    _logger.warning(
+        "%s: rejected a %d-character 'pattern' — this is a runaway tool argument, "
+        "not a search pattern (first 200 chars: %.200r)",
+        GREP_NAME,
+        size,
+        pattern,
+    )
+    return ToolResult(
+        content=(
+            f"Error: the 'pattern' argument was {size} characters. That is not a search "
+            "pattern — it looks like generated content placed in the wrong argument. "
+            "Re-issue the call with a short regular expression in 'pattern', and use "
+            "'path' or 'glob' to narrow the search."
+        ),
+        is_error=True,
+    )
 
 
 def _grep_pattern_timeout(pattern: str, budget: float) -> ToolResult:

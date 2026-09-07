@@ -5,7 +5,9 @@ SC10 asks for bounded **work**, not a bounded byte count. The pre-existing
 materialized the entire tree first, so a test asserting only on output size passes against
 the unbounded implementation and proves nothing.
 
-Every test here instruments the iterator and asserts on **entries actually consumed**.
+Every test here instruments ``walk_tree`` as ``list_files`` sees it and asserts on
+**entries actually pulled** from the walk. Patching ``Path.glob``/``rglob`` would count
+nothing: the walk uses ``iterdir`` (issue #79), so those wrappers never run.
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ from pathlib import Path
 import pytest
 
 from squadron.tools import limits, materialize
-from squadron.tools.builtin import LIST_FILES_NAME
+from squadron.tools.builtin import LIST_FILES_NAME, file_tools
 
 
 def _make_wide_tree(root: Path, count: int) -> None:
@@ -25,19 +27,21 @@ def _make_wide_tree(root: Path, count: int) -> None:
         (root / f"file_{index:05d}.txt").write_text("x")
 
 
-class _CountingGlob:
-    """Wraps Path.glob/rglob, counting how many entries the caller actually pulls."""
+class _CountingWalk:
+    """Wraps ``walk_tree``, counting how many entries ``list_files`` actually pulls."""
 
     def __init__(self) -> None:
         self.consumed = 0
 
-    def wrap(self, real: object) -> object:
-        def _wrapper(self_path: Path, pattern: str) -> Iterator[Path]:
-            for entry in real(self_path, pattern):  # pyright: ignore[reportCallIssue]
+    def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        real = file_tools.walk_tree
+
+        def _wrapper(root: Path, *, recursive: bool = True) -> Iterator[Path]:
+            for entry in real(root, recursive=recursive):
                 self.consumed += 1
                 yield entry
 
-        return _wrapper
+        monkeypatch.setattr(file_tools, "walk_tree", _wrapper)
 
 
 async def _list(jail: Path, args: dict[str, object]) -> str:
@@ -58,11 +62,13 @@ async def test_walk_stops_early_over_a_wide_tree(
     _make_wide_tree(tmp_path, 500)
     monkeypatch.setattr(limits, "MAX_LIST_ENTRIES", 50)
 
-    counter = _CountingGlob()
-    monkeypatch.setattr(Path, "glob", counter.wrap(Path.glob))
+    counter = _CountingWalk()
+    counter.install(monkeypatch)
 
     content = await _list(tmp_path, {"path": ".", "pattern": "*"})
 
+    # The counter must have seen the walk at all, or the bound below is vacuous.
+    assert counter.consumed >= 50
     # One past the cap: the loop pulls the entry that trips the break.
     assert counter.consumed <= 51, (
         f"walked {counter.consumed} entries with a cap of 50 — the walk is not bounded"
@@ -98,19 +104,19 @@ async def test_tree_under_the_cap_is_listed_whole_without_a_marker(
 
 @pytest.mark.asyncio
 async def test_recursive_walk_is_bounded_too(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The recursive path uses rglob, a separate call site from glob."""
+    """The recursive walk descends only as far as the cap makes it pull."""
     for index in range(20):
         sub = tmp_path / f"dir_{index:03d}"
         sub.mkdir()
         _make_wide_tree(sub, 20)
     monkeypatch.setattr(limits, "MAX_LIST_ENTRIES", 30)
 
-    counter = _CountingGlob()
-    monkeypatch.setattr(Path, "rglob", counter.wrap(Path.rglob))
+    counter = _CountingWalk()
+    counter.install(monkeypatch)
 
     content = await _list(tmp_path, {"path": ".", "pattern": "*", "recursive": True})
 
-    assert counter.consumed <= 31, f"rglob walked {counter.consumed} entries with a cap of 30"
+    assert 30 <= counter.consumed <= 31, f"walked {counter.consumed} entries with a cap of 30"
     assert "the listing is partial" in content
 
 

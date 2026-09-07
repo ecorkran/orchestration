@@ -70,13 +70,16 @@ def walk_tree(root: Path, *, recursive: bool = True) -> Iterator[Path]:
     caller that explicitly asks for ``.venv`` as its root still gets it, since the skip set
     is consulted for children rather than for *root* itself.
 
-    Lazy by construction. Nothing here materializes the tree; the budget and entry caps
-    upstream depend on being able to stop early.
+    Lazy across directories, eager within one: each level's listing is read and sorted
+    before its first entry is yielded, so output order is deterministic and the cost of
+    stopping early is bounded by the widest single directory rather than by the tree.
+    Descent into a child happens only when the caller pulls past it, which is what lets
+    the budget and entry caps upstream stop the walk.
     """
     skip = limits.SKIP_DIRECTORIES
     try:
         entries = sorted(root.iterdir())
-    except (OSError, PermissionError):
+    except OSError:  # PermissionError is an OSError subclass; both are covered
         # An unreadable directory inside the tree is normal input for a whole-tree walk;
         # the remaining entries are still worth yielding.
         return
