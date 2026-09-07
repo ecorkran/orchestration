@@ -58,6 +58,10 @@ class AgentConfig(BaseModel):
     # SDK and API agents: tool whitelist. Note the vocabularies differ — SDK names
     # (e.g. "Read") vs. squadron registry names — see slice-262 decision D1.
     allowed_tools: list[str] | None = None
+    # Why allowed_tools was emptied by the slice 266 capability gate, or None if it was
+    # not. Carried so the agent can stamp it into telemetry: an empty allowed_tools is
+    # otherwise indistinguishable from a run that simply declared no tools.
+    tools_suppressed_reason: str | None = None
     permission_mode: str | None = None  # SDK agents: permission handling
     credentials: dict[str, Any] = Field(default_factory=dict)
 

@@ -21,6 +21,7 @@ async def capture_summary_via_profile(
     model_id: str | None,
     profile: str,
     allowed_tools: list[str] | None = None,
+    model_allows_tools: bool = True,
     cwd: str | None = None,
 ) -> str:
     """Execute a one-shot summary call through the specified provider profile.
@@ -38,6 +39,7 @@ async def capture_summary_via_profile(
         model_id=model_id,
         profile=profile,
         allowed_tools=allowed_tools,
+        model_allows_tools=model_allows_tools,
         cwd=cwd,
     )
     return text
@@ -49,6 +51,7 @@ async def capture_summary_via_profile_with_telemetry(
     model_id: str | None,
     profile: str,
     allowed_tools: list[str] | None = None,
+    model_allows_tools: bool = True,
     cwd: str | None = None,
 ) -> tuple[str, dict[str, object]]:
     """Run the one-shot summary and return its text alongside tool-use telemetry.
@@ -60,6 +63,20 @@ async def capture_summary_via_profile_with_telemetry(
     from squadron.providers.loader import ensure_provider_loaded
     from squadron.providers.profiles import get_profile
     from squadron.providers.registry import get_provider
+    from squadron.tools import resolve_effective_tools
+
+    # The capability gate (slice 266). Runs before the config below, so the cwd coupling
+    # there pairs with the *effective* tool set: a gated run must drop cwd with its tools
+    # or the agent's own allowed_tools/cwd consistency check reasons about a stale pair.
+    allowed_tools, tools_suppressed_reason = resolve_effective_tools(
+        allowed_tools, model_allows_tools=model_allows_tools, suppressed=False
+    )
+    if tools_suppressed_reason is not None:
+        _logger.info(
+            "Summary one-shot tools suppressed (model=%s, reason=%s)",
+            model_id or "(default)",
+            tools_suppressed_reason,
+        )
 
     provider_profile = get_profile(profile)
     ensure_provider_loaded(provider_profile.provider)
@@ -76,7 +93,9 @@ async def capture_summary_via_profile_with_telemetry(
         # A tool-capable agent needs a working directory to jail its tools to; both stay
         # at today's no-tools defaults when the step declares nothing (slice 265).
         cwd=cwd if allowed_tools else None,
-        allowed_tools=allowed_tools if allowed_tools is not None else [],
+        # Always a list after the gate above, which normalizes None to [].
+        allowed_tools=allowed_tools,
+        tools_suppressed_reason=tools_suppressed_reason,
         permission_mode="default",
         setting_sources=[],
         credentials={

@@ -13,11 +13,13 @@ from squadron.tools import (
     builtin,  # noqa: F401  # pyright: ignore[reportUnusedImport]
     cf_tools,  # noqa: F401  # pyright: ignore[reportUnusedImport]
 )
+from squadron.tools.effective import SuppressionReason, resolve_effective_tools
 from squadron.tools.errors import ToolNotRegisteredError
 from squadron.tools.models import ToolDescriptor, ToolExecutor, ToolFactory, ToolResult
 from squadron.tools.registry import list_tools, lookup, materialize, register
 
 __all__ = [
+    "SuppressionReason",
     "ToolDescriptor",
     "ToolExecutor",
     "ToolFactory",
@@ -27,4 +29,5 @@ __all__ = [
     "lookup",
     "materialize",
     "register",
+    "resolve_effective_tools",
 ]

@@ -17,6 +17,7 @@ from pathlib import Path
 
 from squadron.config.manager import get_config
 from squadron.core.models import SDK_RESULT_TYPE, AgentConfig, Message, MessageType
+from squadron.models.aliases import model_allows_tools as _alias_allows_tools
 from squadron.providers.loader import ensure_provider_loaded
 from squadron.providers.profiles import get_profile
 from squadron.providers.registry import get_provider
@@ -26,6 +27,7 @@ from squadron.review.parsers import parse_review_output
 from squadron.review.template_inputs import FILE_INPUT_KEYS
 from squadron.review.templates import ReviewTemplate
 from squadron.review.tool_support import should_inject_file_bodies
+from squadron.tools import resolve_effective_tools
 
 _logger = logging.getLogger(__name__)
 
@@ -62,6 +64,8 @@ async def run_review_with_profile(
     model: str | None = None,
     verbosity: int = 0,
     allowed_tools: list[str] | None = None,
+    no_tools: bool = False,
+    model_allows_tools: bool | None = None,
 ) -> ReviewResult:
     """Execute a review through the specified provider profile.
 
@@ -107,16 +111,44 @@ async def run_review_with_profile(
     if rules_content:
         system_prompt += f"\n\n## Additional Review Rules\n\n{rules_content}"
 
+    resolved_model = model if model is not None else template.model
+
+    # The capability gate (slice 266). Runs before the injection check below, because
+    # that check keys on the tools this run was *actually* given: a gated run must fall
+    # back to injected file bodies rather than getting neither tools nor contents.
+    # The caller's value wins when supplied: the CLI reads the capability while the alias
+    # name is still known, and by the time a resolved model id reaches here the alias
+    # metadata is unrecoverable. Callers that pass an alias can leave it None.
+    allows_tools = (
+        model_allows_tools if model_allows_tools is not None else _alias_allows_tools(resolved_model)
+    )
+    resolved_allowed_tools, tools_suppressed_reason = resolve_effective_tools(
+        resolved_allowed_tools,
+        model_allows_tools=allows_tools,
+        suppressed=no_tools,
+    )
+    if tools_suppressed_reason is not None:
+        _logger.info(
+            "Review tools suppressed (model=%s, reason=%s)",
+            resolved_model or "(default)",
+            tools_suppressed_reason,
+        )
+
     # Inject file contents only when nothing in this run can fetch them: neither the provider
     # natively nor a read_file tool the run was actually given (slice 265, design D1).
-    if should_inject_file_bodies(
-        can_read_files=provider.capabilities.can_read_files,
-        allowed_tools=resolved_allowed_tools,
-        provider=provider_profile.provider,
-    ):
-        prompt = _inject_file_contents(prompt, inputs, template.diff_exclude_patterns)
-
-    resolved_model = model if model is not None else template.model
+    # Always called: the diff must reach the model even on the tools path, because no
+    # read-only tool can produce one (issue #81, and slice 265's stated intent — "omits
+    # injected file bodies but retains the diff"). Only the *bodies* are conditional.
+    prompt = _inject_file_contents(
+        prompt,
+        inputs,
+        template.diff_exclude_patterns,
+        include_bodies=should_inject_file_bodies(
+            can_read_files=provider.capabilities.can_read_files,
+            allowed_tools=resolved_allowed_tools,
+            provider=provider_profile.provider,
+        ),
+    )
 
     # Debug output at -vvv (verbosity >= 3)
     if verbosity >= 3:
@@ -145,6 +177,7 @@ async def run_review_with_profile(
         base_url=provider_profile.base_url,
         cwd=inputs.get("cwd"),
         allowed_tools=resolved_allowed_tools,
+        tools_suppressed_reason=tools_suppressed_reason,
         permission_mode=template.permission_mode,
         setting_sources=template.setting_sources,
         credentials={
@@ -170,6 +203,10 @@ async def run_review_with_profile(
     # message can be the last one yielded.
     tools_given: list[str] | None = None
     tool_calls_made: int | None = None
+    # Slice 266. Read back from metadata like the fields above so the mechanism stays
+    # uniform, but the gate's own result is authoritative: SDK providers do not stamp it,
+    # and suppression must be recorded there too.
+    suppressed_reason_seen: str | None = None
     try:
         review_message = Message(
             sender="review-system",
@@ -189,6 +226,9 @@ async def run_review_with_profile(
             if given is not None:
                 tools_given = given
                 tool_calls_made = response.metadata.get("tool_calls_made", 0)
+            stamped_reason = response.metadata.get("tools_suppressed_reason")
+            if stamped_reason is not None:
+                suppressed_reason_seen = stamped_reason
             if sdk_type in (SDK_RESULT_TYPE, "tool_use", "tool_result"):
                 continue
             output_parts.append(response.content)
@@ -211,6 +251,7 @@ async def run_review_with_profile(
 
     result.tools_given = tools_given
     result.tool_calls_made = tool_calls_made
+    result.tools_suppressed_reason = tools_suppressed_reason or suppressed_reason_seen
 
     # Populate prompt capture fields at verbosity >= 2
     if verbosity >= 2:
@@ -256,6 +297,8 @@ def _inject_file_contents(
     prompt: str,
     inputs: dict[str, str],
     exclude_patterns: list[str] | None = None,
+    *,
+    include_bodies: bool = True,
 ) -> str:
     """Inject file contents into the prompt for providers that can't read files.
 
@@ -297,8 +340,10 @@ def _inject_file_contents(
         injections.append(f"### {label}\n\n```\n{content}\n```")
         return True
 
-    # Inject file contents for regular input keys
-    for key, value in inputs.items():
+    # Inject file contents for regular input keys. Skipped when the run has a reader
+    # tool: the model fetches bodies on demand. The diff below is injected either way —
+    # it is not a file body, and no read-only tool can reconstruct it (issue #81).
+    for key, value in inputs.items() if include_bodies else ():
         if key in _SKIP_KEYS:
             continue
 
@@ -333,7 +378,7 @@ def _inject_file_contents(
             _add_injection("Git Diff", diff_content)
 
     # Handle files glob input — resolve and inject matching files
-    files_glob = inputs.get("files")
+    files_glob = inputs.get("files") if include_bodies else None
     if files_glob is not None:
         cwd = inputs.get("cwd", ".")
         _inject_glob_files(files_glob, cwd, _add_injection)

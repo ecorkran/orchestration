@@ -22,7 +22,7 @@ from squadron.integrations.context_forge import (
     ContextForgeError,
     ContextForgeNotAvailable,
 )
-from squadron.models.aliases import resolve_model_alias
+from squadron.models.aliases import model_allows_tools, resolve_model_alias
 from squadron.review.addressed.judge import JUDGE_TEMPLATE_NAME
 from squadron.review.git_utils import (
     DiffRangeUnresolvedError,
@@ -396,6 +396,7 @@ def _run_review_command(
     model_flag: str | None = None,
     profile_flag: str | None = None,
     rules_dir: Path | None = None,
+    no_tools: bool = False,
 ) -> ReviewResult:
     """Common logic for running a review and displaying results.
 
@@ -438,6 +439,10 @@ def _run_review_command(
     raw_model = _resolve_model(model_flag, template, template_name)
     alias_model: str | None = None
     alias_profile: str | None = None
+    # Read the tool_use capability here, while the alias name is still known:
+    # resolve_model_alias below collapses it to a model id, after which the alias
+    # metadata is unrecoverable (slice 266).
+    allows_tools = model_allows_tools(raw_model)
     if raw_model is not None:
         alias_model, alias_profile = resolve_model_alias(raw_model)
 
@@ -453,6 +458,8 @@ def _run_review_command(
                 resolved_model,
                 resolved_profile,
                 verbosity=verbosity,
+                model_allows_tools=allows_tools,
+                no_tools=no_tools,
             )
         )
     except RateLimitError as exc:
@@ -474,6 +481,8 @@ async def _execute_review(
     model: str | None = None,
     profile: str = "sdk",
     verbosity: int = 0,
+    model_allows_tools: bool = True,
+    no_tools: bool = False,
 ) -> ReviewResult:
     """Execute the review asynchronously."""
     return await run_review_with_profile(
@@ -483,6 +492,8 @@ async def _execute_review(
         rules_content=rules_content,
         model=model,
         verbosity=verbosity,
+        model_allows_tools=model_allows_tools,
+        no_tools=no_tools,
     )
 
 
@@ -499,6 +510,11 @@ def review_slice(
     ),
     cwd: str | None = typer.Option(None, "--cwd", help="Working directory (default: config or .)"),
     model: str | None = typer.Option(None, "--model", help="Model override (e.g. opus, sonnet)"),
+    no_tools: bool = typer.Option(
+        False,
+        "--no-tools",
+        help="Run this review without tools, even if the template declares them.",
+    ),
     profile: str | None = typer.Option(
         None,
         "--profile",
@@ -544,6 +560,7 @@ def review_slice(
         verbosity,
         model_flag=model,
         profile_flag=profile,
+        no_tools=no_tools,
         rules_dir=resolved_rules_dir,
     )
 
@@ -559,6 +576,11 @@ def review_arch(
     input_file: str = typer.Argument(help="Architecture document to review (path or initiative index)"),
     cwd: str | None = typer.Option(None, "--cwd", help="Working directory (default: config or .)"),
     model: str | None = typer.Option(None, "--model", help="Model override (e.g. opus, sonnet)"),
+    no_tools: bool = typer.Option(
+        False,
+        "--no-tools",
+        help="Run this review without tools, even if the template declares them.",
+    ),
     profile: str | None = typer.Option(
         None,
         "--profile",
@@ -595,6 +617,7 @@ def review_arch(
         verbosity,
         model_flag=model,
         profile_flag=profile,
+        no_tools=no_tools,
         rules_dir=resolved_rules_dir,
     )
 
@@ -633,6 +656,11 @@ def review_tasks(
     against: str | None = typer.Option(None, "--against", help="Parent slice design to review against"),
     cwd: str | None = typer.Option(None, "--cwd", help="Working directory (default: config or .)"),
     model: str | None = typer.Option(None, "--model", help="Model override (e.g. opus, sonnet)"),
+    no_tools: bool = typer.Option(
+        False,
+        "--no-tools",
+        help="Run this review without tools, even if the template declares them.",
+    ),
     profile: str | None = typer.Option(
         None,
         "--profile",
@@ -700,6 +728,7 @@ def review_tasks(
             verbosity,
             model_flag=model,
             profile_flag=profile,
+            no_tools=no_tools,
             rules_dir=resolved_rules_dir,
         )
         results.append((task_path, result))
@@ -735,6 +764,11 @@ def review_code(
     rules_dir_flag: str | None = typer.Option(None, "--rules-dir", help="Rules directory override"),
     no_rules: bool = typer.Option(False, "--no-rules", help="Suppress all rule injection"),
     model: str | None = typer.Option(None, "--model", help="Model override (e.g. opus, sonnet)"),
+    no_tools: bool = typer.Option(
+        False,
+        "--no-tools",
+        help="Run this review without tools, even if the template declares them.",
+    ),
     profile: str | None = typer.Option(
         None,
         "--profile",
@@ -836,6 +870,7 @@ def review_code(
         rules_content,
         model_flag=model,
         profile_flag=profile,
+        no_tools=no_tools,
         # rules_content is already fully assembled above (template rules +
         # language auto-detection + manual override) — passing rules_dir here
         # too would make _run_review_command redundantly re-prepend template

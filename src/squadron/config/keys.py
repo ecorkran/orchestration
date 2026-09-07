@@ -283,10 +283,22 @@ CONFIG_KEYS: dict[str, ConfigKey] = {
     "agent.max_history_chars": ConfigKey(
         name="agent.max_history_chars",
         type_=int,
-        default=400_000,
+        default=1_000_000,
         description=(
             "Accumulated message-history size (characters) that triggers the "
             "agentic loop's history-budget guard for OpenAI-compatible agents."
+        ),
+    ),
+    "agent.max_tool_result_chars": ConfigKey(
+        name="agent.max_tool_result_chars",
+        type_=int,
+        default=384_000,
+        description=(
+            "Max characters of a single tool result admitted into agent history. "
+            "Must stay above what a tool can itself return (tools/limits.py: "
+            "MAX_READ_BYTES 256_000, MAX_OUTPUT_BYTES 64_000) — a lower value "
+            "re-truncates results the tool already truncated correctly, replacing "
+            "its own marker with a cut mid-line."
         ),
     ),
     "cf.mcp_command": ConfigKey(

@@ -598,3 +598,84 @@ class TestToolUseTelemetry:
         assert fast_msgs[-1].metadata["tools_given"] == loop_msgs[-1].metadata["tools_given"]
         assert fast_msgs[-1].metadata["tool_calls_made"] == 0
         assert loop_msgs[-1].metadata["tool_calls_made"] == 1
+
+
+def _openrouter_chunk(*, reasoning: str | None, content: str | None, finish_reason: str | None):
+    """Chunk shaped the way an OpenRouter reasoning model streams it.
+
+    Built from a dict rather than the typed constructors because ``reasoning`` is an
+    extra field the SDK's ChoiceDelta does not declare; it lands in ``model_extra``.
+    """
+    from openai.types.chat import ChatCompletionChunk
+
+    delta: dict[str, Any] = {}
+    if reasoning is not None:
+        delta["reasoning"] = reasoning
+    if content is not None:
+        delta["content"] = content
+    return ChatCompletionChunk.model_validate(
+        {
+            "id": "chunk-1",
+            "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
+            "created": 1700000000,
+            "model": "moonshotai/kimi-k2.7-code",
+            "object": "chat.completion.chunk",
+        }
+    )
+
+
+class TestEmptyFinalTurn:
+    """An empty final turn must fail loudly with the stream's own evidence attached.
+
+    Live failure (slice 266 verification): a tool-enabled review came back with an empty
+    raw output, no tool telemetry, and verdict UNKNOWN, because build_messages yields
+    nothing for empty text and nothing recorded why the model stopped.
+    """
+
+    @pytest.mark.asyncio
+    async def test_stream_turn_records_finish_reason_and_reasoning_volume(self) -> None:
+        client = _make_client()
+        client.chat.completions.create = AsyncMock(
+            return_value=_async_stream(
+                _openrouter_chunk(reasoning="let me think", content=None, finish_reason=None),
+                _openrouter_chunk(reasoning=" more", content=None, finish_reason="length"),
+            )
+        )
+        agent = _make_agent(client=client)
+        result = await agent._stream_turn([], tool_schemas=None)  # pyright: ignore[reportPrivateUsage]
+        assert result.text == ""
+        assert result.finish_reason == "length"
+        assert result.reasoning_chars == len("let me think more")
+        assert result.is_empty()
+
+    @pytest.mark.asyncio
+    async def test_agentic_loop_raises_on_empty_final_turn(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level(logging.WARNING)
+        client = _make_client()
+        client.chat.completions.create = AsyncMock(
+            return_value=_async_stream(
+                _openrouter_chunk(reasoning="thinking", content=None, finish_reason="length")
+            )
+        )
+        agent = _make_agent(client=client, allowed_tools=["read_file"], cwd=".")
+        with pytest.raises(ProviderError, match="finish_reason='length'.*reasoning_chars=8"):
+            async for _ in agent.handle_message(_USER_MSG):
+                pass
+        assert any("empty final turn" in r.getMessage() for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_no_tools_path_raises_on_empty_turn(self) -> None:
+        client = _make_client()
+        client.chat.completions.create = AsyncMock(return_value=_async_stream(text_chunk("   ")))
+        agent = _make_agent(client=client)
+        with pytest.raises(ProviderError, match="empty final turn"):
+            async for _ in agent.handle_message(_USER_MSG):
+                pass
+
+    @pytest.mark.asyncio
+    async def test_intermediate_tool_turn_with_no_text_is_not_empty(self) -> None:
+        """A tool call with no prose is the normal shape of an intermediate turn."""
+        turn = TurnResult(text="", tool_calls=[{"id": "call_1"}])
+        assert not turn.is_empty()

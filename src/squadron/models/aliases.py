@@ -34,13 +34,18 @@ class ModelAlias(_ModelAliasRequired, total=False):
     """A model alias mapping a short name to a profile and full model ID.
 
     ``profile`` and ``model`` are always required.  The remaining fields
-    are optional metadata added by slice 121.
+    are optional metadata added by slice 121, plus ``tool_use`` (slice 266).
+
+    ``tool_use`` is absent by default and absence means allow: a model that
+    does not name the field keeps offering tools.  Absence therefore stays
+    distinguishable from an explicit ``true`` and no default is written in.
     """
 
     private: bool
     cost_tier: str
     notes: str
     pricing: ModelPricing
+    tool_use: bool
 
 
 def models_toml_path() -> Path:
@@ -58,6 +63,10 @@ def _extract_metadata(
     private_val = table.get("private")
     if isinstance(private_val, bool):
         alias["private"] = private_val
+
+    tool_use_val = table.get("tool_use")
+    if isinstance(tool_use_val, bool):
+        alias["tool_use"] = tool_use_val
 
     cost_tier_val = table.get("cost_tier")
     if isinstance(cost_tier_val, str):
@@ -179,6 +188,23 @@ def resolve_model_alias(name: str) -> tuple[str, str | None]:
     if alias is not None:
         return alias["model"], alias["profile"]
     return name, None
+
+
+def model_allows_tools(name: str | None) -> bool:
+    """Return whether ``name`` may be offered tool schemas (slice 266).
+
+    Absence means allow, so an unknown name, a ``None`` name, and an alias that
+    does not set ``tool_use`` all return ``True`` — only an explicit
+    ``tool_use = false`` denies. This is the single reader of the capability;
+    call sites gate through :func:`squadron.tools.resolve_effective_tools`
+    rather than testing the field themselves.
+    """
+    if name is None:
+        return True
+    alias = get_all_aliases().get(name)
+    if alias is None:
+        return True
+    return alias.get("tool_use", True)
 
 
 def estimate_cost(

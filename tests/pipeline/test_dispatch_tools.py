@@ -23,6 +23,7 @@ from squadron.pipeline.actions.dispatch import (
     one_shot_dispatch_with_telemetry,
 )
 from squadron.pipeline.models import ActionContext
+from squadron.pipeline.resolver import ResolvedModel
 from squadron.providers.profiles import ProviderProfile
 from tests.providers.openai.conftest import text_chunk, tool_chunk
 
@@ -64,6 +65,7 @@ def _make_client() -> MagicMock:
 def _make_context(cwd: Path) -> ActionContext:
     resolver = MagicMock()
     resolver.resolve.return_value = ("gpt-4o-mini", "openrouter")
+    resolver.resolve_full.return_value = ResolvedModel("gpt-4o-mini", "openrouter")
     return ActionContext(  # type: ignore[arg-type]
         pipeline_name="test-pipeline",
         run_id="run-12345678",
@@ -145,6 +147,7 @@ def _tool_less_context(cwd: Path) -> ActionContext:
     """Same context with no allowed_tools — the "never offered" case."""
     resolver = MagicMock()
     resolver.resolve.return_value = ("gpt-4o-mini", "openrouter")
+    resolver.resolve_full.return_value = ResolvedModel("gpt-4o-mini", "openrouter")
     return ActionContext(  # type: ignore[arg-type]
         pipeline_name="test-pipeline",
         run_id="run-12345678",

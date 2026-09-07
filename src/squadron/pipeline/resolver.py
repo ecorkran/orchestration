@@ -12,15 +12,19 @@ when a candidate starts with ``pool:``, the named pool is queried via the
 configured ``PoolBackend`` to select an alias, and that alias is then
 resolved normally through ``resolve_model_alias``.  Pool selection fires
 the optional ``on_pool_selection`` callback with a ``PoolSelection`` record.
+
+``resolve()`` returns a ``ResolvedModel``, which carries the alias's
+``tool_use`` capability alongside the resolved id (slice 266). It unpacks as
+the ``(model_id, profile)`` pair it used to be.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
-from squadron.models.aliases import resolve_model_alias
+from squadron.models.aliases import model_allows_tools, resolve_model_alias
 
 if TYPE_CHECKING:
     from squadron.pipeline.intelligence.pools.backend import PoolBackend
@@ -29,6 +33,38 @@ if TYPE_CHECKING:
     )
 
 _POOL_PREFIX = "pool:"
+
+
+class ResolvedModel(NamedTuple):
+    """A resolved model: its id, its profile, and whether it may use tools.
+
+    ``resolve()`` returns this instead of a bare ``(model_id, profile)`` pair so
+    the alias's ``tool_use`` capability survives resolution (slice 266). It is
+    the alias table's only reader on this path: once ``resolve_model_alias``
+    collapses a name to an id, the capability is unrecoverable — several aliases
+    can share one model id and disagree on ``tool_use`` (``codex`` and
+    ``codex-agent`` both resolve to ``gpt-5.3-codex``), so there is no sound
+    reverse lookup.
+
+    Returned by :meth:`ModelResolver.resolve_full`. :meth:`ModelResolver.resolve`
+    keeps its established ``(model_id, profile)`` shape — widening it would break
+    every ``model_id, profile = resolve(...)`` unpack in the codebase for the
+    benefit of the few call sites that need the capability.
+    """
+
+    model_id: str
+    profile: str | None
+    allows_tools: bool = True
+
+
+def _resolved(alias: str) -> ResolvedModel:
+    """Resolve an alias to a :class:`ResolvedModel`, capability included.
+
+    The capability is read here, while the alias name is still known — this is
+    the last point at which it can be.
+    """
+    model_id, profile = resolve_model_alias(alias)
+    return ResolvedModel(model_id, profile, model_allows_tools(alias))
 
 
 class ModelResolutionError(Exception):
@@ -101,12 +137,30 @@ class ModelResolver:
 
         Returns:
             A ``(model_id, profile_or_none)`` tuple from
-            ``resolve_model_alias()``.
+            ``resolve_model_alias()``. Callers that also need the alias's
+            ``tool_use`` capability use :meth:`resolve_full`.
 
         Raises:
             ModelPoolNotImplemented: If the winning candidate starts with
                 ``pool:`` and no ``PoolBackend`` is configured.
             ModelResolutionError: If all levels are None.
+        """
+        resolved = self.resolve_full(action_model, step_model)
+        return resolved.model_id, resolved.profile
+
+    def resolve_full(
+        self,
+        action_model: str | None = None,
+        step_model: str | None = None,
+    ) -> ResolvedModel:
+        """Resolve as :meth:`resolve` does, keeping the alias's capability.
+
+        The capability can only be read while the alias name is still known:
+        ``resolve_model_alias`` collapses a name to a model id, and several
+        aliases can share one id while disagreeing on ``tool_use`` (``codex``
+        and ``codex-agent`` both resolve to ``gpt-5.3-codex``), so there is no
+        sound reverse lookup. Call sites that hand tools to an agent must
+        resolve through here (slice 266).
         """
         for candidate in self.cascade_candidates(action_model, step_model):
             if candidate is None:
@@ -114,7 +168,7 @@ class ModelResolver:
             if candidate.startswith(_POOL_PREFIX):
                 pool_name = candidate.removeprefix(_POOL_PREFIX)
                 return self._resolve_pool(pool_name, action_model, step_model)
-            return resolve_model_alias(candidate)
+            return _resolved(candidate)
 
         raise ModelResolutionError(
             "No model could be resolved: all cascade levels are None. "
@@ -126,8 +180,8 @@ class ModelResolver:
         pool_name: str,
         action_model: str | None,
         step_model: str | None,
-    ) -> tuple[str, str | None]:
-        """Resolve a pool name to a ``(model_id, profile)`` tuple.
+    ) -> ResolvedModel:
+        """Resolve a pool name to a :class:`ResolvedModel`.
 
         Selects an alias via the pool backend, then resolves the alias.
         Fires ``on_pool_selection`` with a fully-populated ``PoolSelection``.
@@ -152,7 +206,7 @@ class ModelResolver:
             action_type=action_model or step_model or "",
         )
         alias = self._pool_backend.select(pool_name, context)
-        result = resolve_model_alias(alias)
+        result = _resolved(alias)
 
         if self._on_pool_selection is not None:
             from squadron.pipeline.intelligence.pools.models import PoolSelection

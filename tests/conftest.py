@@ -64,3 +64,14 @@ def test_settings() -> Settings:
         log_level="DEBUG",
         log_format="text",
     )
+
+
+@pytest.fixture(autouse=True)
+def isolate_review_debug_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the review parser's debug log out of the developer's home directory.
+
+    ``parse_review_output`` appends to ``~/.config/squadron/logs/review-debug.jsonl``
+    whenever it falls back; without this every review-shaped test leaves a line in the
+    real file (8,600+ of them had accumulated).
+    """
+    monkeypatch.setattr("squadron.review.parsers._DEBUG_LOG_PATH", tmp_path / "review-debug.jsonl")

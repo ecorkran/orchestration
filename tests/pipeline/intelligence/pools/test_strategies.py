@@ -86,7 +86,7 @@ class TestRandomStrategy:
             assert strategy.select(pool, ctx) == "minimax"
 
     def test_uniform_distribution(self) -> None:
-        models = ["minimax", "glm5", "kimi25"]
+        models = ["minimax", "glm5", "kimi27"]
         pool = _make_pool(models)
         strategy = RandomStrategy()
         ctx = _make_ctx()
@@ -110,7 +110,7 @@ class TestRandomStrategy:
 
 class TestRoundRobinStrategy:
     def test_rotates_through_all_members(self) -> None:
-        models = ["minimax", "glm5", "kimi25"]
+        models = ["minimax", "glm5", "kimi27"]
         pool = _make_pool(models)
         strategy = RoundRobinStrategy()
         state = PoolState(last_index=0)
@@ -121,11 +121,11 @@ class TestRoundRobinStrategy:
         r2 = strategy.select(pool, ctx)
         r3 = strategy.select(pool, ctx)
         assert r1 == "glm5"
-        assert r2 == "kimi25"
+        assert r2 == "kimi27"
         assert r3 == "minimax"
 
     def test_wrap_around(self) -> None:
-        models = ["minimax", "glm5", "kimi25"]
+        models = ["minimax", "glm5", "kimi27"]
         pool = _make_pool(models)
         strategy = RoundRobinStrategy()
         state = PoolState(last_index=0)
@@ -146,7 +146,7 @@ class TestRoundRobinStrategy:
             assert strategy.select(pool, ctx) == "minimax"
 
     def test_none_pool_state_treated_as_zero(self) -> None:
-        models = ["minimax", "glm5", "kimi25"]
+        models = ["minimax", "glm5", "kimi27"]
         pool = _make_pool(models)
         strategy = RoundRobinStrategy()
         ctx = _make_ctx(pool_state=None)
@@ -224,7 +224,7 @@ class TestWeightedRandomStrategy:
         assert 1.0 < ratio < 4.0, f"Expected ~2:1 ratio, got {ratio:.2f}"
 
     def test_absent_weights_uniform(self) -> None:
-        models = ["minimax", "glm5", "kimi25"]
+        models = ["minimax", "glm5", "kimi27"]
         pool = _make_pool(models, weights=None)
         strategy = WeightedRandomStrategy()
         ctx = _make_ctx()

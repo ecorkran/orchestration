@@ -9,6 +9,7 @@ import pytest
 from squadron.pipeline.actions.summary import SummaryAction
 from squadron.pipeline.emit import EmitDestination, EmitKind, EmitResult
 from squadron.pipeline.models import ActionContext
+from squadron.pipeline.resolver import ResolvedModel
 
 
 def _make_action() -> SummaryAction:
@@ -32,6 +33,7 @@ def _make_context(
     ctx.prior_outputs = prior_outputs if prior_outputs is not None else {}
     ctx.resolver = MagicMock()
     ctx.resolver.resolve.return_value = ("resolved-model-id", None)
+    ctx.resolver.resolve_full.return_value = ResolvedModel("resolved-model-id", None)
     return ctx
 
 
@@ -288,7 +290,7 @@ async def test_execute_summary_resolves_model_alias() -> None:
     session.capture_summary = AsyncMock(return_value="SUMMARY")
     ctx = _make_context(sdk_session=session)
     ctx.resolver.resolve.return_value = ("haiku-resolved", None)
-
+    ctx.resolver.resolve_full.return_value = ResolvedModel("haiku-resolved", None)
     with patch("squadron.pipeline.actions.summary.get_emit", return_value=_fake_emit_ok):
         await _execute_summary(
             context=ctx,
@@ -298,7 +300,7 @@ async def test_execute_summary_resolves_model_alias() -> None:
             action_type="summary",
         )
 
-    ctx.resolver.resolve.assert_called_once_with(action_model="haiku", step_model=None)
+    ctx.resolver.resolve_full.assert_called_once_with(action_model="haiku", step_model=None)
     session.capture_summary.assert_called_once()
     call_kwargs = session.capture_summary.call_args.kwargs
     assert call_kwargs["summary_model"] == "haiku-resolved"
@@ -446,7 +448,7 @@ async def test_execute_summary_routes_non_sdk_profile_via_oneshot() -> None:
 
     ctx = _make_context(sdk_session=None)
     ctx.resolver.resolve.return_value = ("minimax-01", "openrouter")
-
+    ctx.resolver.resolve_full.return_value = ResolvedModel("minimax-01", "openrouter")
     with patch(
         "squadron.pipeline.actions.summary.capture_summary_via_profile_with_telemetry",
         new=AsyncMock(return_value=("ONESHOT SUMMARY", {})),
@@ -467,6 +469,7 @@ async def test_execute_summary_routes_non_sdk_profile_via_oneshot() -> None:
         model_id="minimax-01",
         profile="openrouter",
         allowed_tools=None,
+        model_allows_tools=True,
         cwd=ctx.cwd,
     )
 
@@ -480,7 +483,7 @@ async def test_execute_summary_non_sdk_profile_with_rotate_fails() -> None:
 
     ctx = _make_context(sdk_session=None)
     ctx.resolver.resolve.return_value = ("minimax-01", "openrouter")
-
+    ctx.resolver.resolve_full.return_value = ResolvedModel("minimax-01", "openrouter")
     with patch(
         "squadron.pipeline.actions.summary.capture_summary_via_profile_with_telemetry",
         new=AsyncMock(return_value=("SHOULD NOT REACH", {})),
@@ -510,7 +513,7 @@ async def test_execute_summary_sdk_profile_path_unchanged() -> None:
     session.capture_summary = AsyncMock(return_value="SDK SUMMARY")
     ctx = _make_context(sdk_session=session)
     ctx.resolver.resolve.return_value = ("haiku-resolved", "sdk")
-
+    ctx.resolver.resolve_full.return_value = ResolvedModel("haiku-resolved", "sdk")
     with patch("squadron.pipeline.actions.summary.get_emit", return_value=_fake_emit_ok):
         result = await _execute_summary(
             context=ctx,
@@ -535,7 +538,7 @@ async def test_execute_summary_unannotated_alias_uses_sdk_path() -> None:
     session.capture_summary = AsyncMock(return_value="SDK SUMMARY")
     ctx = _make_context(sdk_session=session)
     ctx.resolver.resolve.return_value = ("some-resolved-id", None)
-
+    ctx.resolver.resolve_full.return_value = ResolvedModel("some-resolved-id", None)
     with patch("squadron.pipeline.actions.summary.get_emit", return_value=_fake_emit_ok):
         result = await _execute_summary(
             context=ctx,
@@ -571,7 +574,7 @@ async def test_non_sdk_summary_injects_prior_context() -> None:
         prior_outputs={"design": dispatch_result},
     )
     ctx.resolver.resolve.return_value = ("minimax-01", "openrouter")
-
+    ctx.resolver.resolve_full.return_value = ResolvedModel("minimax-01", "openrouter")
     with patch(
         "squadron.pipeline.actions.summary.capture_summary_via_profile_with_telemetry",
         new=AsyncMock(return_value=("SUMMARY WITH CONTEXT", {})),
@@ -613,7 +616,7 @@ async def test_sdk_summary_does_not_inject_context() -> None:
         prior_outputs={"design": dispatch_result},
     )
     ctx.resolver.resolve.return_value = ("haiku-resolved", None)
-
+    ctx.resolver.resolve_full.return_value = ResolvedModel("haiku-resolved", None)
     with patch("squadron.pipeline.actions.summary.get_emit", return_value=_fake_emit_ok):
         result = await _execute_summary(
             context=ctx,
@@ -811,7 +814,7 @@ async def test_summary_passes_allowed_tools_to_agent_config() -> None:
 
     ctx = _make_context(params={"allowed_tools": ["read_file", "grep"]}, sdk_session=None)
     ctx.resolver.resolve.return_value = ("minimax-01", "openrouter")
-
+    ctx.resolver.resolve_full.return_value = ResolvedModel("minimax-01", "openrouter")
     with patch(
         "squadron.pipeline.actions.summary.capture_summary_via_profile_with_telemetry",
         new=AsyncMock(return_value=("SUMMARY", {})),
@@ -836,7 +839,7 @@ async def test_summary_without_allowed_tools_leaves_field_none() -> None:
 
     ctx = _make_context(sdk_session=None)
     ctx.resolver.resolve.return_value = ("minimax-01", "openrouter")
-
+    ctx.resolver.resolve_full.return_value = ResolvedModel("minimax-01", "openrouter")
     with patch(
         "squadron.pipeline.actions.summary.capture_summary_via_profile_with_telemetry",
         new=AsyncMock(return_value=("SUMMARY", {})),
@@ -902,7 +905,7 @@ async def test_summary_result_metadata_carries_tools_given_and_calls_made() -> N
 
     ctx = _make_context(params={"allowed_tools": ["read_file"]}, sdk_session=None)
     ctx.resolver.resolve.return_value = ("minimax-01", "openrouter")
-
+    ctx.resolver.resolve_full.return_value = ResolvedModel("minimax-01", "openrouter")
     with patch(
         "squadron.pipeline.actions.summary.capture_summary_via_profile_with_telemetry",
         new=AsyncMock(return_value=("SUMMARY", {"tools_given": ["read_file"], "tool_calls_made": 2})),
@@ -927,7 +930,7 @@ async def test_summary_result_metadata_omits_tools_keys_when_no_tools_configured
 
     ctx = _make_context(sdk_session=None)
     ctx.resolver.resolve.return_value = ("minimax-01", "openrouter")
-
+    ctx.resolver.resolve_full.return_value = ResolvedModel("minimax-01", "openrouter")
     with patch(
         "squadron.pipeline.actions.summary.capture_summary_via_profile_with_telemetry",
         new=AsyncMock(return_value=("SUMMARY", {})),

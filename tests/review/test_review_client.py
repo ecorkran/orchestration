@@ -220,7 +220,7 @@ class TestFileInjection:
             patch(f"{_P}.get_profile") as mock_get_profile,
             patch(f"{_P}.get_provider", return_value=mock_provider),
             patch(f"{_P}.ensure_provider_loaded"),
-            patch(f"{_P}._inject_file_contents") as mock_inject,
+            patch(f"{_P}._inject_file_contents", side_effect=lambda p, *a, **k: p) as mock_inject,
         ):
             from squadron.providers.base import AuthType, ProviderType
             from squadron.providers.profiles import ProviderProfile
@@ -236,7 +236,10 @@ class TestFileInjection:
                 profile="sdk",
             )
 
-        mock_inject.assert_not_called()
+        # Injection is now always invoked — the diff must reach the model even when the
+        # provider can read files — but file *bodies* are suppressed (issue #81).
+        mock_inject.assert_called_once()
+        assert mock_inject.call_args.kwargs["include_bodies"] is False
 
 
 class TestVerbosity:

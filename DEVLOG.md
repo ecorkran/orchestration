@@ -14,6 +14,119 @@ A lightweight, append-only record of development activity. Newest entries first.
 
 ## 20260905
 
+### Slice 266: Tool-Use Configuration and Limits — Implemented (initiative 260 complete)
+
+Phase 6 on branch `266-slice.tool-use-configuration-and-limits`. Nine commits, 3363
+tests passing, pyright down to the two pre-existing `mcp_bridge.py` errors (issue #74).
+This was the last slice of initiative 260, which is now 6/6.
+
+**The capability gate.** `resolve_effective_tools` (`squadron/tools/effective.py`) is the
+sole gate: `declared ∩ (capability allows)`, emptied entirely by run-level suppression,
+returning the effective names plus a reason. All four `AgentConfig` sites that pass tools
+route through it — review client, dispatch, summary one-shot, metrology audit — and an AST
+enumeration test (SC1a) fails when a fifth appears, naming the file and telling the author
+what to do. Verified by temporarily adding one.
+
+**The design gap this hit, and the decision taken.** The design said the gate reads the
+alias's `tool_use`. That works only where the alias name survives. `resolve_model_alias`
+collapses an alias to a model id, and `ModelResolver.resolve` returned only
+`(model_id, profile)` — so at dispatch and summary the alias was already gone. Passing the
+model id would have compiled, always returned `True`, and silently never gated: a
+false-negative gate, and an easy one to write a passing test against.
+
+A reverse id→alias lookup is not sound — `gpt-5.3-codex` is reachable from both `codex`
+(profile `openai`) and `codex-agent` (`openai-oauth`), which could disagree on `tool_use`.
+Per PM direction, the resolver was widened instead: **`ModelResolver.resolve_full` returns
+`ResolvedModel(model_id, profile, allows_tools)`**, reading the capability while the alias
+name is still known. `resolve()` keeps its `(model_id, profile)` shape — a first attempt
+returned a 3-field `NamedTuple` from `resolve()` on the theory it was tuple-compatible,
+which is false for 2-target unpacking and broke 56 tests across 42 call sites.
+
+The same trap existed on the review CLI, which resolves the alias at
+`review.py:442` before calling the client. Pyright caught it: the client had no parameter
+to receive the CLI's computed capability and was re-deriving it from a resolved id. A
+regression test now pins the ordering and fails if the read moves after resolution.
+
+**The third telemetry state.** Slice 265 distinguished offered-but-unused from
+never-offered. Suppression is a third state that collapsed into the second, because
+`_stamp_tool_telemetry` returned early on an empty `_tools_given`. `tools_suppressed_reason`
+now threads `AgentConfig` → agent metadata → `ReviewResult` → **both** persistence forms
+(markdown frontmatter and `to_dict()`), stamped independently of that early return. It is
+absent when nothing was suppressed, so an un-gated run's artifact is byte-for-byte
+unchanged. A JSON-only field would have repeated issue #72's shape.
+
+**The bounds.** Five input-validation fixes. The jail re-check is the security one and
+landed first, in its own commit: `grep` and `list_files` discover entries by walking, and
+`is_file()` follows symlinks, so a link inside the jail pointing outside it read as an
+ordinary file. Both walks now re-resolve each candidate, skipping silently to the model
+(D6) and logging at WARNING.
+
+That fix has a version-dependent subtlety worth recording. On Python 3.13+ `rglob` yields a
+symlinked *directory* without descending into it, and `is_file()` is `False` for that entry —
+so checking `is_file()` before containment skipped the escape *without logging it*. The
+containment check runs first for that reason. The test caught this: it asserts the guard was
+reached via its WARNING rather than only that no content leaked, which on 3.13+ passes with
+no guard at all.
+
+The rest: `grep` rejects an over-long pattern before `regex.compile` (asserted by a spy on
+`compile`, since checking after compilation is the bug the bound exists to prevent); `grep`
+names any file it searched only to the read cap, closing a silent no-match; a single tool
+result is truncated before entering history so it cannot exhaust `max_history_chars`
+(asserted by leaving that budget generous and checking the guard never fired); and
+`list_files` stops *consuming* at a cap rather than materializing a whole tree — asserted by
+wrapping `Path.glob`/`rglob` and counting entries actually pulled, since the pre-existing
+byte cap already bounded the output.
+
+**The split.** `builtin.py` (690 lines) became a package: `_shared` 200, `file_tools` 234,
+`search_tools` 221, `bash_tool` 103, `__init__` 61. Pure move, its own commit, full suite
+green with **zero test edits** — which is the actual proof. `bash` got its own module
+(the design left that open) because `file_tools` was already the largest. Package-internal
+helpers lost their leading underscores, since `reportPrivateUsage` flags every
+cross-module use and the `_shared` module name already carries the privacy;
+`builtin._resolve_in_jail` remains as an alias because existing tests import it.
+
+**`limits.py` config decision (D4), taken not deferred.** Constants stay module attributes
+with no config keys. The docstring now records the decision and points at
+[issue #76](https://github.com/ecorkran/squadron/issues/76) for the constraints any future
+config surface must preserve.
+
+**Issues filed.** [#77](https://github.com/ecorkran/squadron/issues/77): nothing validates a
+review artifact's `verdict:` frontmatter against the `Verdict` enum —
+`verdict: BANANA` passes `cf validate frontmatter`, then degrades to `UNKNOWN`, which
+silently trips `CheckpointTrigger.ON_CONCERNS`. Surfaced by hand-writing `RESOLVED` into two
+review artifacts; RESOLVED is not a verdict.
+[#78](https://github.com/ecorkran/squadron/issues/78): the review CLI's verbosity wiring
+calls `setLevel` on named loggers and never restores them, so a CLI test leaks that state
+and a later DEBUG assertion fails depending on file order. Pre-existing; reproduces with
+this branch stashed.
+
+**Live verification (T27), run by the PM 20260906.** Three runs against `kimi27` via
+openrouter. All three states are distinguishable from the recorded field alone:
+`toolsSuppressedReason: run-suppressed` for `--no-tools`, `toolsGiven` with
+`toolCallsMade: 45` for the tools run, and `toolsSuppressedReason: model-capability` for a
+`tool_use = false` alias. SC3 and SC4 hold in production, not just against mocks. The tools
+run also produced materially better findings than either suppressed run.
+
+It found two pre-existing defects that only a live run could surface, neither caused by this
+slice. The jail refusals fired correctly on `.venv/bin/python*` symlinks — the security fix
+working for real — but `grep` then burned its 5s budget on the literal pattern `CLAUDE.md`
+and told the model to *"use a simpler or more anchored pattern"*. The pattern was never the
+problem: `.venv` is 21,402 of this repo's 29,373 entries, and grep reads ~351 MB of
+virtualenv before reaching any project file, so the advice is unfollowable and the model
+retried twice ([#79](https://github.com/ecorkran/squadron/issues/79)). Separately the run hit
+the history budget after 45 calls, because `MAX_TOOL_RESULT_CHARS` (100,000) is 25% of the
+400,000 default — the two constants were never sized against each other
+([#80](https://github.com/ecorkran/squadron/issues/80)).
+
+Both bounds did what they were built to do; the failures are in scope and values chosen
+elsewhere. Worth noting as a lesson: every bound in this slice was verified against mocks and
+all of them behaved correctly, yet the first live run still found two problems — in what the
+tool *chooses to read* and in how two independently-correct limits compose.
+
+---
+
+## 20260905
+
 ### Slice 266: Design Review Resolved, Phase 5 Task Breakdown Complete
 
 Two pieces of work, both on slice 266.
