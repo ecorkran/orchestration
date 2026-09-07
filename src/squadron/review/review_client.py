@@ -136,12 +136,19 @@ async def run_review_with_profile(
 
     # Inject file contents only when nothing in this run can fetch them: neither the provider
     # natively nor a read_file tool the run was actually given (slice 265, design D1).
-    if should_inject_file_bodies(
-        can_read_files=provider.capabilities.can_read_files,
-        allowed_tools=resolved_allowed_tools,
-        provider=provider_profile.provider,
-    ):
-        prompt = _inject_file_contents(prompt, inputs, template.diff_exclude_patterns)
+    # Always called: the diff must reach the model even on the tools path, because no
+    # read-only tool can produce one (issue #81, and slice 265's stated intent — "omits
+    # injected file bodies but retains the diff"). Only the *bodies* are conditional.
+    prompt = _inject_file_contents(
+        prompt,
+        inputs,
+        template.diff_exclude_patterns,
+        include_bodies=should_inject_file_bodies(
+            can_read_files=provider.capabilities.can_read_files,
+            allowed_tools=resolved_allowed_tools,
+            provider=provider_profile.provider,
+        ),
+    )
 
     # Debug output at -vvv (verbosity >= 3)
     if verbosity >= 3:
@@ -290,6 +297,8 @@ def _inject_file_contents(
     prompt: str,
     inputs: dict[str, str],
     exclude_patterns: list[str] | None = None,
+    *,
+    include_bodies: bool = True,
 ) -> str:
     """Inject file contents into the prompt for providers that can't read files.
 
@@ -331,8 +340,10 @@ def _inject_file_contents(
         injections.append(f"### {label}\n\n```\n{content}\n```")
         return True
 
-    # Inject file contents for regular input keys
-    for key, value in inputs.items():
+    # Inject file contents for regular input keys. Skipped when the run has a reader
+    # tool: the model fetches bodies on demand. The diff below is injected either way —
+    # it is not a file body, and no read-only tool can reconstruct it (issue #81).
+    for key, value in inputs.items() if include_bodies else ():
         if key in _SKIP_KEYS:
             continue
 
@@ -367,7 +378,7 @@ def _inject_file_contents(
             _add_injection("Git Diff", diff_content)
 
     # Handle files glob input — resolve and inject matching files
-    files_glob = inputs.get("files")
+    files_glob = inputs.get("files") if include_bodies else None
     if files_glob is not None:
         cwd = inputs.get("cwd", ".")
         _inject_glob_files(files_glob, cwd, _add_injection)

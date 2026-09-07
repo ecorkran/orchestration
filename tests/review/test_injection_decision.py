@@ -272,3 +272,85 @@ async def test_step_empty_list_overrides_template_to_no_tools(tmp_path: Path) ->
     resolved = await _run_capturing_config(tmp_path, template_tools=["read_file"], step_tools=[])
 
     assert resolved == []
+
+
+# ---------------------------------------------------------------------------
+# The diff survives the tools path (issue #81)
+#
+# Slice 265's plan specified this outcome — "a tool-enabled review's prompt omits
+# injected file bodies but retains the diff" — but no test asserted it, and the
+# behavior shipped inverted: the git-diff injection lived inside
+# _inject_file_contents, which the tools path skips entirely. A live review of a
+# 48-file change then spent all 20 loop iterations opening files individually and
+# reported that it could not verify the source at all.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def repo_with_change(tmp_path: Path) -> Path:
+    """A git repo with one committed change, for exercising the diff path.
+
+    Sync by design: the subprocess calls are blocking, and the project's ASYNC rules
+    forbid running them inside an async function.
+    """
+    import subprocess
+
+    def _git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=tmp_path, check=True)
+
+    _git("init", "-q")
+    _git("config", "user.email", "t@example.com")
+    _git("config", "user.name", "t")
+    target = tmp_path / "mod.py"
+    target.write_text("original = 1\n")
+    _git("add", "-A")
+    _git("commit", "-qm", "base")
+    target.write_text("original = 1\nSENTINEL_ADDED_LINE = 2\n")
+    _git("add", "-A")
+    _git("commit", "-qm", "change")
+    return target
+
+
+async def _run_with_diff(target: Path, *, allowed_tools: list[str] | None) -> str:
+    """Run a review whose inputs carry a diff ref, returning the prompt sent."""
+    tmp_path = target.parent
+    captured: dict[str, str] = {}
+    provider = _capture_provider(captured, can_read_files=False)
+    profile = ProviderProfile(name="openai", provider="openai", api_key_env="OPENAI_API_KEY")
+
+    with (
+        patch(f"{_P}.get_profile", return_value=profile),
+        patch(f"{_P}.get_provider", return_value=provider),
+        patch(f"{_P}.ensure_provider_loaded"),
+    ):
+        await run_review_with_profile(
+            _make_template(allowed_tools),
+            {"input": str(target), "cwd": str(tmp_path), "diff": "HEAD~1"},
+            profile=profile.name,
+        )
+    return captured["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_tool_enabled_review_retains_the_diff(repo_with_change: Path) -> None:
+    """The criterion slice 265 stated: bodies omitted, diff retained."""
+    prompt = await _run_with_diff(repo_with_change, allowed_tools=["read_file", "list_files", "grep"])
+
+    # The diff is present — no read-only tool can reconstruct one.
+    assert "Git Diff" in prompt
+    assert "SENTINEL_ADDED_LINE" in prompt
+    # ...while full file bodies are not injected; the model reads those on demand.
+    # (The "## File Contents" header is shared by both, so assert on body content:
+    # the unchanged first line appears only in a full body, never in the diff's
+    # added-line context.)
+    assert "### input: mod.py" not in prompt
+    assert "original = 1\nSENTINEL_ADDED_LINE" not in prompt
+
+
+@pytest.mark.asyncio
+async def test_no_tools_review_still_gets_diff_and_bodies(repo_with_change: Path) -> None:
+    """The no-tools path is unchanged."""
+    prompt = await _run_with_diff(repo_with_change, allowed_tools=None)
+
+    assert "Git Diff" in prompt
+    assert "SENTINEL_ADDED_LINE" in prompt
