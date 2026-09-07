@@ -318,9 +318,14 @@ guidance block — that is the point of composing it at the agent.
 - **SC7a** — An SDK review's `ClaudeAgentOptions.system_prompt` is the `claude_code` preset
   with the composed template prompt in `append`; the audit's options are unchanged (preset,
   no `append`); a non-SDK review's system message is unchanged.
+- **SC7b (live)** — An SDK review of the same slice before and after #85 shows no
+  regression, where regression means any of: the verdict worsens (PASS → CONCERNS → FAIL);
+  a finding carries a `location:` that does not resolve; a finding cites a path or symbol
+  the repository does not define. Finding counts are recorded but are not the criterion.
 - **SC8** — The empty-final-turn cause has been captured live and either (a) `finish_reason`
-  was `length` and `agent.max_output_tokens` is wired and tested, or (b) the observation is
-  recorded on #84 and no key was added.
+  was `length` and `agent.max_output_tokens` is wired, tested, and sized per D4's derivation
+  with the derivation recorded in the key's description, or (b) the observation is recorded
+  on #84 and no key was added.
 - **SC9** — #68 is closed with a comment citing the artifact fields (`toolsGiven`,
   `toolCallsMade`) that make the silent downgrade it describes impossible.
 - **SC10 (live acceptance)** — The same model reviewing the same diff with and without tools
@@ -356,9 +361,15 @@ evidence: an UNKNOWN artifact reading "No specific findings." is misleading at v
 too. Clean reviews are unaffected, so the cost is confined to exactly the artifacts that need
 it.
 
-**D4 — `max_tokens` is gated on evidence.** The cause of the observed empty turn is unknown.
-Adding a config key for a hypothesis contradicts the project's rule against speculative
-fixes; the walkthrough captures the cause first.
+**D4 — `max_tokens` is gated on evidence, and sized from it.** The cause of the observed
+empty turn is unknown. Adding a config key for a hypothesis contradicts the project's rule
+against speculative fixes; the walkthrough captures the cause first. If the key is added, its
+value is derived, not guessed: it must exceed the `reasoning_chars` the re-run observed
+(converted to tokens) plus the output length of a full review, and stay within the model's
+documented output limit. The derivation is written into the key's description so an operator
+tuning it for another reasoning model can repeat it. Backends differ on whether reasoning
+tokens count against `max_tokens`; the derivation assumes they do, which is the conservative
+direction for a `length` stop.
 
 **D5 — Absence-shaped findings are not downgraded by the parser.** A prompt fix addresses the
 cause. A parser heuristic would be a second mechanism, keyed on a count that #82 itself warns
@@ -415,10 +426,11 @@ uv run pytest tests/providers/sdk/test_provider.py tests/review/test_review_clie
 uv run sq review code <slice> --model sonnet -v
 ```
 
-The unit tests assert the preset-plus-append shape (SC7a). The live run is the before/after:
-compare its findings with the most recent SDK review of the same slice on `main`. Expect no
-regression in verdict or finding quality, and record the two finding counts here. Check the
-`-k` selector matched tests.
+The unit tests assert the preset-plus-append shape (SC7a). The live run is the before/after
+against the most recent SDK review of the same slice on `main`, judged by SC7b's three
+conditions: verdict not worse, every `location:` resolves, no nonexistent path or symbol
+cited. Record the two finding counts and the three checks here. Check the `-k` selector
+matched tests.
 
 ### 3. The A/B — the initiative's acceptance *(live)*
 
@@ -474,8 +486,9 @@ uv run sq review code 266 --model kimi27 -v
 
 If the empty turn recurs, the CLI now exits 1 with
 `Model returned an empty final turn (finish_reason=..., reasoning_chars=...)`. Record the
-values on #84. If `finish_reason` is `length`, implement the `agent.max_output_tokens` key
-and re-run; otherwise close the loop on #84 with the observation (SC8).
+values on #84. If `finish_reason` is `length`, derive the value per D4 from the recorded
+`reasoning_chars`, implement the `agent.max_output_tokens` key with the derivation in its
+description, and re-run; otherwise close the loop on #84 with the observation (SC8).
 
 ### 7. Close #68
 
@@ -490,6 +503,20 @@ uv run ruff format . && uv run ruff check . && uv run pytest -q && uv run pyrigh
 ```
 
 All green; pyright shows no errors beyond the two pre-existing `mcp_bridge.py` ones (#74).
+
+## Design Review
+
+**Round 1 — 20260907, `sq review slice 267 --model kimi3` (openrouter), verdict CONCERNS.**
+Artifact: `reviews/267-review.slice.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md`.
+The run was itself the first live tool-enabled slice review: 28 tool calls, four of which
+failed on the jail-root mismatch filed as #86; the model recovered with jail-relative paths.
+
+| Finding | Disposition |
+|---|---|
+| F001–F004 (PASS) | No action. |
+| F005 (CONCERN) — #85's live check reduced "no regression" to a finding-count comparison | **Addressed.** SC7b added with three checkable conditions; walkthrough §2a uses them. |
+| F006 (CONCERN) — `agent.max_output_tokens` had no sizing guidance | **Addressed.** D4 states the derivation; SC8(a) and walkthrough §6 require it. |
+| F007 (NOTE) — guidance text deferred to implementation | **Accepted as written.** SC10 is the acceptance; the text is unreviewable at design time by design. |
 
 ## Effort
 
