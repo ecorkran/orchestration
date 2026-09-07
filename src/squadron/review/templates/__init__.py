@@ -88,7 +88,7 @@ def _resolve_builder(dotted_path: str) -> Callable[[dict[str, str]], str]:
 
 def load_template(path: Path) -> ReviewTemplate:
     """Load a ReviewTemplate from a YAML file."""
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
     if not isinstance(raw, dict):

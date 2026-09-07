@@ -49,6 +49,8 @@ class TestCodeReviewPrompt:
         prompt = code_review_prompt({"diff": "main", "cwd": "."})
         assert "git diff main" in prompt
         assert "." in prompt
+        assert "Treat the diff as partial evidence" in prompt
+        assert "code outside the shown hunk" in prompt
 
     def test_files_only(self) -> None:
         prompt = code_review_prompt({"files": "src/**/*.py", "cwd": "/proj"})
@@ -74,3 +76,4 @@ class TestCodeReviewPrompt:
         prompt = t.build_prompt({"cwd": "/myproject", "diff": "main"})
         assert "/myproject" in prompt
         assert "git diff main" in prompt
+        assert "partial evidence" in prompt
