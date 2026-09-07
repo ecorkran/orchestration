@@ -49,8 +49,9 @@ does not satisfy it. Live runs happen from a plain terminal.
 **Correction to the plan text.** The entry says an SDK reviewer "inherits Claude Code's system
 prompt." It does not: `review_client.py` passes the template prompt as `instructions` and never
 sets `use_default_system_prompt`; only the metrology audit uses the preset. The SDK reviewer's
-discipline comes from the model, not the prompt. This changes nothing in the design (D2) but
-should not be repeated.
+discipline comes from the model, not the prompt. Filed as #85 and added to 267's scope
+(D2a): SDK reviews send the `claude_code` preset with the template in `append`, which the
+installed SDK (0.1.38) supports. The audit's preset-only row is unchanged.
 
 ---
 

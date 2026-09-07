@@ -47,6 +47,12 @@ calls is only detectable by opening the persisted artifact. And an empty final t
 refused with its `finish_reason` captured ([#84](https://github.com/ecorkran/squadron/issues/84)),
 but nothing acts on that reason yet.
 
+The SDK side has its own version of the discipline gap. Every SDK review sends the template
+prompt as its *entire* system prompt, replacing the Claude Code CLI's own prompt and the
+tool-use discipline it carries ([#85](https://github.com/ecorkran/squadron/issues/85)). This is
+the third appearance of one defect: the metrology audit had it (fixed in `f5b09ce`, audit
+only), dispatch has it (#40), and reviews were never covered.
+
 Finally, dispatch still rejects `allowed_tools` on SDK profiles
 ([#75](https://github.com/ecorkran/squadron/issues/75)) even though slice 265 built the
 canonical-to-Claude translation and the review path already uses it — so the same pipeline
@@ -62,7 +68,9 @@ YAML cannot run under both an SDK and a non-SDK model.
   printed at `-v`; an UNKNOWN verdict keeps the evidence needed to say why.
 - **One pipeline YAML runs under any model.** A step declaring `allowed_tools` no longer
   fails on an SDK alias.
-- **#40, #61, #68, #75, #82, #84 close** — the open issues standing between "merged" and
+- **SDK reviews get the CLI's own discipline back**, with the template appended rather than
+  replacing it.
+- **#40, #61, #68, #75, #82, #84, #85 close** — the open issues standing between "merged" and
   "usable" for initiative 260.
 
 ## Technical Scope
@@ -78,6 +86,9 @@ YAML cannot run under both an SDK and a non-SDK model.
    second angle).
 3. SDK one-shot dispatch uses the CLI's default system prompt when no explicit `system_prompt`
    is supplied (#40, first angle).
+3a. SDK reviews send the CLI's default system prompt with the template prompt *appended*
+   (#85). `use_default_system_prompt` stops meaning "preset, discard instructions": when
+   instructions are also present they ride the preset's `append` field.
 
 **Diagnosability**
 
@@ -112,7 +123,8 @@ YAML cannot run under both an SDK and a non-SDK model.
   mechanism for the same problem and is deferred until the live A/B shows the prompt is not
   enough.
 - **Composing the guidance block into SDK agents.** The architecture's "no SDK-path
-  regression" goal holds. The Claude CLI carries its own tool discipline.
+  regression" goal holds. The Claude CLI carries its own tool discipline — which is exactly
+  why #85 restores that prompt instead of adding squadron's block on top of it.
 
 ## Architecture
 
@@ -235,6 +247,29 @@ the guidance block is then the whole system prompt — #40's "what baseline shou
 dispatch get" is answered as: the tool-use guidance when tools are offered, nothing
 otherwise.
 
+### The SDK side (#85)
+
+`ClaudeSDKProvider.create_agent` builds the preset as `{"type": "preset", "preset":
+"claude_code"}` and ignores `instructions` when the flag is set. The installed SDK's
+`SystemPromptPreset` has an optional `append` field, so the change is:
+
+```
+use_default_system_prompt  instructions   system_prompt sent
+False                      None           (none)
+False                      str            str                      -- unchanged
+True                       None / ""      preset                   -- unchanged (audit)
+True                       str            preset + append=str      -- new
+```
+
+`run_review_with_profile` sets the flag. The template prompt, structured-output instructions,
+and rules are unchanged and still reach the model, now appended to the CLI's prompt rather
+than replacing it. Non-SDK providers never read the flag. The audit's row is unchanged, so
+its measurements stay comparable.
+
+The `-vvv` prompt log and the `-vv` artifact appendix record `system_prompt` as squadron
+composed it; the CLI's preset text is not squadron's to capture. The appendix gains one line
+stating the preset was used, so a reader knows the recorded text is the appended part.
+
 ## Integration Points
 
 - **`src/squadron/tools/guidance.py`** (new) — the block text and `compose_system_prompt`.
@@ -248,7 +283,12 @@ otherwise.
   prompt; empty non-SDK instructions become `None`; session-path message reworded.
 - **`src/squadron/review/parsers.py`** — UNKNOWN branch writes the debug log.
 - **`src/squadron/review/persistence.py`** — degraded results embed the raw response.
-- **`src/squadron/review/review_client.py`** — WARNING on zero calls.
+- **`src/squadron/review/review_client.py`** — WARNING on zero calls;
+  `use_default_system_prompt=True` on the review config (#85).
+- **`src/squadron/providers/sdk/provider.py`** — preset carries `append` when instructions
+  are present (#85).
+- **`src/squadron/core/models.py`** — `use_default_system_prompt` docstring updated to the
+  table above.
 - **`src/squadron/cli/commands/review.py`** — tool line at `-v`; `-vv` hint corrected.
 
 Nothing in `review_client.py`, `summary_oneshot.py`, or `metrology/audit.py` changes for the
@@ -275,6 +315,9 @@ guidance block — that is the point of composing it at the agent.
 - **SC7** — SDK one-shot dispatch with no explicit `system_prompt` sets
   `use_default_system_prompt=True`; a non-SDK one sends no system message when it has no
   instructions and no tools.
+- **SC7a** — An SDK review's `ClaudeAgentOptions.system_prompt` is the `claude_code` preset
+  with the composed template prompt in `append`; the audit's options are unchanged (preset,
+  no `append`); a non-SDK review's system message is unchanged.
 - **SC8** — The empty-final-turn cause has been captured live and either (a) `finish_reason`
   was `length` and `agent.max_output_tokens` is wired and tested, or (b) the observation is
   recorded on #84 and no key was added.
@@ -300,6 +343,12 @@ it honest. One function, one call.
 Claude CLI supplies its own discipline through the preset prompt where it is used (audit)
 and through the model's training elsewhere. Composing the block into SDK agents would change
 every SDK review's prompt for no identified gain.
+
+**D2a — SDK reviews restore the CLI prompt via preset + append; they do not get squadron's
+block.** Two mechanisms for two providers, chosen by what each already has: the CLI ships a
+tool discipline, so the fix is to stop discarding it; non-SDK models ship none, so squadron
+supplies one. Appending rather than replacing keeps every template's rules in force. This is
+an SDK-path behavior change, so it is verified live (walkthrough §2a), not only by the suite.
 
 **D3 — Degraded reviews keep their raw response at every verbosity.** The plan asks for
 `-v`. Evidence retention should not depend on a flag when the alternative is losing the
@@ -358,6 +407,18 @@ Expect a `Tools:` line after the verdict panel. With the guidance in place the c
 be non-zero; if it is zero the line renders in warning style and a WARNING appears on
 stderr (SC5). Confirm the same three values in the artifact's `toolsGiven` /
 `toolCallsMade` frontmatter.
+
+### 2a. SDK reviews carry the CLI prompt *(live)*
+
+```bash
+uv run pytest tests/providers/sdk/test_provider.py tests/review/test_review_client.py -k "preset or default_system_prompt" -v
+uv run sq review code <slice> --model sonnet -v
+```
+
+The unit tests assert the preset-plus-append shape (SC7a). The live run is the before/after:
+compare its findings with the most recent SDK review of the same slice on `main`. Expect no
+regression in verdict or finding quality, and record the two finding counts here. Check the
+`-k` selector matched tests.
 
 ### 3. The A/B — the initiative's acceptance *(live)*
 
