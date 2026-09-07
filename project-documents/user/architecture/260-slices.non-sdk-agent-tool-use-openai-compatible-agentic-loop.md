@@ -3,8 +3,8 @@ docType: slice-plan
 parent: 260-arch.non-sdk-agent-tool-use-openai-compatible-agentic-loop.md
 project: squadron
 dateCreated: 20260505
-dateUpdated: 20260905
-status: complete
+dateUpdated: 20260907
+status: in_progress
 ---
 
 # Slice Plan: Non-SDK Agent Tool Use (OpenAI-Compatible Agentic Loop)
@@ -70,6 +70,8 @@ This initiative has no separate foundation phase — slice 261 is itself the fou
 
 Which bounds become configurable (i.e. move into `limits.py` alongside `GREP_TIMEOUT_S`) versus fixed is a slice-design decision — `limits.py` already records that making its constants configurable is this slice's job. Item (a) is a security fix and should land first within the slice regardless of how the config question resolves. Tests: a symlinked candidate pointing outside the jail is refused by both `grep` and `list_files`; an oversized pattern is rejected before compilation; a single oversized tool result is truncated rather than consuming the history budget; a wide tree bounds `list_files` work, not just its output. Dependencies: [265]. Risk: Low. Effort: 3/5 (raised from 1/5 by the bounds work) Design: `266-slice.tool-use-configuration-and-limits.md`
 
+7. [ ] **(267) Tool-Use Discipline and Diagnosability for Non-SDK Agents** — Slices 261–266 made the mechanics work: a tool-enabled non-SDK review is offered tools, may call them, and every state is recorded. Live verification of 266 showed the remaining gap is not mechanical. An SDK reviewer inherits Claude Code's system prompt, which carries tool-use discipline (verify before asserting, open the file, a hunk cannot prove absence); a non-SDK reviewer gets only the review template's prompt, and a non-SDK dispatch gets no system prompt at all (#40). The observed result is a tool-enabled review that reads the injected diff, makes zero tool calls, and returns a confident FAIL about symbols defined outside the hunk (#82) — worse than the pre-#81 failure because FAIL is a gating verdict. This slice closes that gap and makes the failures it exposed diagnosable without `-vv`. **Discipline:** one shared tool-use guidance block, owned by the tools package and composed into `AgentConfig.instructions` at every tool-passing site (the four `resolve_effective_tools` sites), not pasted per template. It states when to use tools and that an assertion of absence requires a `read_file`. For non-SDK dispatch it doubles as the missing default system prompt (#40's second angle); the SDK side of #40 is a one-line `use_default_system_prompt=True` and lands here too. **Diagnosability:** `raw_output` persists at `-v`, not only `-vv`, so an UNKNOWN verdict can be read back (#61); a tool-enabled review with `toolCallsMade: 0` is surfaced at `-v`; the empty-final-turn cause captured by #84 (`finish_reason`, reasoning volume) is acted on — if it is `length`, `max_tokens` is sized against reasoning models on the request. **Dispatch parity:** dispatch translates `allowed_tools` for SDK profiles instead of rejecting them (#75). Also verify #68 is fully subsumed by 265 + this slice and close it. Out of scope: SDK reviewer Bash restriction (#69), token accounting (#36, #33). Acceptance is live, not suite-green: the same model reviewing the same diff with and without tools (266's `--no-tools` A/B) must show tool calls on the tools run and must not assert absence of a symbol the repository defines. Tests: the guidance block is present in every tool-enabled config and absent from a suppressed one; an UNKNOWN review saved at `-v` contains the raw response; a zero-call tool-enabled review prints a visible line at `-v`; dispatch on an SDK profile with `allowed_tools` builds a config rather than raising. Dependencies: [265, 266]. Risk: Medium (prompt-driven behavior is only provable by live runs). Effort: 3/5
+
 ---
 
 ## Slice Sequencing Notes
@@ -78,6 +80,7 @@ Which bounds become configurable (i.e. move into `limits.py` alongside `GREP_TIM
 - **264 (CF MCP)** can land any time after 261. It does not block 262 or 263 and is independently valuable. Whether it ships in the initial push or after 263 is a scheduling call.
 - **265 (review coverage)** is in scope, not optional (promoted 20260824 — reviewer file-access is a primary motivation for the initiative, alongside dispatch). It depends only on 262; whether it lands before or after 263 is a scheduling call.
 - **266 (tool-use configuration and limits)** follows 265 — it configures behavior 265 makes real, and its comparison workflow needs 265's tools-enabled persistence field. Its bounds half (scope expansion 20260903) is likewise downstream of 265: every item was found by reviewing or running 265's tools. Item (a), the `grep`/`list_files` jail re-check, is a security fix and carries the slice's real urgency — the rest is hardening.
+- **267 (discipline and diagnosability)** is the initiative's close-out, added 20260907 after 266's live verification. Everything before it proves the loop works; 267 is what makes a tool-enabled non-SDK review comparable to an SDK one. It depends on 266's `--no-tools` A/B as its acceptance instrument.
 - Slice 261 is small enough that a foundation/feature split would add overhead without value — it is listed in Feature Slices.
 
 ---
