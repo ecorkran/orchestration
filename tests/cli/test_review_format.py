@@ -211,3 +211,39 @@ class TestTerminalDegradedOutput:
         out = capsys.readouterr().out
         assert "Missing error handling" in out
         assert "degraded" not in out.lower()
+
+
+class TestDefaultSystemPromptPresetLine:
+    """#85: the -vv appendix says the recorded prompt is only the appended part."""
+
+    _PRESET_MARKER = "claude_code"
+
+    def _result(self, *, preset_used: bool) -> ReviewResult:
+        result = _make_result_no_findings()
+        result.system_prompt = "Review the diff."
+        result.user_prompt = "diff"
+        result.default_system_prompt_preset_used = preset_used
+        return result
+
+    def test_preset_line_present_when_preset_was_used(self) -> None:
+        md = format_review_markdown(self._result(preset_used=True), SLICE_INFO)
+
+        assert self._PRESET_MARKER in md
+        # It must annotate the recorded prompt, not float somewhere else.
+        assert md.index("### System Prompt") < md.index(self._PRESET_MARKER)
+        assert md.index(self._PRESET_MARKER) < md.index("Review the diff.")
+
+    def test_no_preset_line_when_preset_was_not_used(self) -> None:
+        md = format_review_markdown(self._result(preset_used=False), SLICE_INFO)
+
+        assert self._PRESET_MARKER not in md
+        assert "Review the diff." in md
+
+    def test_no_appendix_means_no_preset_line(self) -> None:
+        """A run below -vv captures no prompt, so there is nothing to annotate."""
+        result = _make_result_no_findings()
+        result.default_system_prompt_preset_used = True
+
+        md = format_review_markdown(result, SLICE_INFO)
+
+        assert self._PRESET_MARKER not in md

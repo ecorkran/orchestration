@@ -289,6 +289,14 @@ def format_review_markdown(
         lines.append("")
         lines.append("### System Prompt")
         lines.append("")
+        if result.default_system_prompt_preset_used:
+            # The CLI's preset text is not squadron's to capture, so say what the
+            # recorded text actually is rather than letting it read as the whole prompt.
+            lines.append(
+                "_Sent with the Claude Code `claude_code` system-prompt preset; the text "
+                "below is the appended part._"
+            )
+            lines.append("")
         lines.append(result.system_prompt)
         lines.append("")
         lines.append("### User Prompt")

@@ -18,6 +18,7 @@ from pathlib import Path
 from squadron.config.manager import get_config
 from squadron.core.models import SDK_RESULT_TYPE, AgentConfig, Message, MessageType
 from squadron.models.aliases import model_allows_tools as _alias_allows_tools
+from squadron.providers.base import ProviderType
 from squadron.providers.loader import ensure_provider_loaded
 from squadron.providers.profiles import get_profile
 from squadron.providers.registry import get_provider
@@ -166,6 +167,12 @@ async def run_review_with_profile(
         )
         print(f"[DEBUG] Prompt log: {log_path}", file=sys.stderr)
 
+    # #85: on the SDK the template prompt rode alone as the entire system prompt,
+    # replacing the CLI's own and with it the tool-use discipline a review depends on.
+    # The flag makes the provider send the preset with the template appended. Non-SDK
+    # providers never read it; setting it False there keeps the intent explicit.
+    uses_preset = provider_profile.provider == ProviderType.SDK
+
     # Build agent config from profile and template settings
     config = AgentConfig(
         name=f"review-{template.name}",
@@ -173,6 +180,7 @@ async def run_review_with_profile(
         provider=provider_profile.provider,
         model=resolved_model,
         instructions=system_prompt,
+        use_default_system_prompt=uses_preset,
         api_key=None,
         base_url=provider_profile.base_url,
         cwd=inputs.get("cwd"),
@@ -258,6 +266,7 @@ async def run_review_with_profile(
         result.system_prompt = system_prompt
         result.user_prompt = prompt
         result.rules_content_used = rules_content
+        result.default_system_prompt_preset_used = uses_preset
 
     return result
 
