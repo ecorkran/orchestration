@@ -369,7 +369,14 @@ another.
   - [ ] Record the `Tools:` line and the artifact's `toolsGiven` /
     `toolCallsMade` values. If calls are zero, the warning form and a stderr
     WARNING must both appear.
-  - [ ] **Success:** SC5 observed live; values transcribed.
+  - [ ] Also open a real degraded artifact (F004): find or produce one with
+    resolved verdict UNKNOWN or `fallback_used` (re-running the review that
+    produced #84 in T26 is a likely source), and confirm `### Raw Response`
+    appears exactly once at verbosity 0 and exactly once at `-vv`. If no
+    degraded artifact arises from any Part E run, say so under `Observed:`
+    and rely on T17.
+  - [ ] **Success:** SC5 observed live; values transcribed; degraded-artifact
+    check recorded.
   - Effort: 1/5
 
 - [ ] **T23. Walkthrough §2a — SDK before/after** *(live)*
@@ -426,10 +433,13 @@ another.
     unset → no `max_tokens` kwarg on the request; set → the value is sent.
   - [ ] Re-run T26's command with the derived value in
     `~/.config/squadron/config.toml` and record the outcome on #84.
-  - [ ] If T26 showed any other cause or no recurrence: mark this task `[x]`
-    with a note "not needed — see #84", per the checkbox rule for dropped
-    items. Do not add the key.
-  - [ ] **Success:** SC8 (a) or (b) satisfied, and the design's §6 says which.
+  - [ ] If T26 showed any other cause or no recurrence: do not add the key.
+    Write an `Observed:` line under the design's §6 stating the observed
+    `finish_reason` (or "did not recur") and that no key was added, then mark
+    this task `[x]` with the note "not needed — see #84".
+  - [ ] **Success:** the design's §6 carries an `Observed:` line naming which
+    SC8 branch was taken; branch (a) additionally has the key, tests, and the
+    re-run result on #84.
   - Effort: 2/5
 
 - [ ] **T28. Close #68** *(live)*
@@ -468,3 +478,18 @@ another.
   - [ ] Merge the slice branch into `main`; do not delete the branch.
   - [ ] **Success:** DEVLOG entry present; slice plan reads 7/7; issues closed.
   - Effort: 1/5
+
+---
+
+## Task Review
+
+**Round 1 — 20260907, `sq review tasks 267 --model kimi3`, verdict CONCERNS.**
+Artifact: `reviews/267-review.tasks.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md`
+(reviewedSha `6aaa75b`, 8 tool calls).
+
+| Finding | Disposition |
+|---|---|
+| F001–F003 (PASS) | No action. |
+| F004 (CONCERN) — no live check of a degraded artifact | **Addressed.** T22 opens a real degraded artifact and confirms `### Raw Response` once at each verbosity. |
+| F005 (CONCERN) — T27's negative exit had no artifact | **Addressed.** Both exits now write an `Observed:` line under the design's §6. |
+| F006 (NOTE) — grounding anchors unverifiable from the jail | **Not a task gap.** The reviewer's jail was `project-documents/user` (#86); anchors were verified from the repo root. |
