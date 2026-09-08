@@ -7,12 +7,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from squadron.core.models import Message
+from squadron.core.models import AgentConfig, Message
 from squadron.pipeline.actions.dispatch import DispatchAction
 from squadron.pipeline.actions.protocol import Action
 from squadron.pipeline.models import ActionContext
 from squadron.pipeline.resolver import ModelResolutionError, ResolvedModel
 from squadron.providers.base import ProfileName
+from squadron.providers.errors import ProviderError
 from squadron.providers.profiles import ProviderProfile
 
 _P = "squadron.pipeline.actions.dispatch"
@@ -519,8 +520,13 @@ async def test_sdk_session_path_rejects_allowed_tools(action: DispatchAction) ->
 
 
 @pytest.mark.asyncio
-async def test_sdk_profile_one_shot_rejects_allowed_tools(action: DispatchAction) -> None:
-    """Finding 1 (one-shot variant): registry tool names are not SDK vocabulary."""
+async def test_sdk_profile_one_shot_accepts_allowed_tools(action: DispatchAction) -> None:
+    """Slice 267 (#75): the one-shot guard is gone — canonical names reach the config.
+
+    Slice 265 put ``translate_tool_names`` inside ``ClaudeSDKProvider.create_agent`` for
+    every config that sets ``allowed_tools``, which is what made the guard obsolete: the
+    vocabulary mismatch it protected against is now handled one layer down.
+    """
     ctx = _make_context(params={"prompt": "test", "allowed_tools": ["read_file"]})
     mock_registry = _make_registry(_make_agent_mock("ok"))
 
@@ -531,9 +537,105 @@ async def test_sdk_profile_one_shot_rejects_allowed_tools(action: DispatchAction
     ):
         result = await action.execute(ctx)
 
-    assert result.success is False
-    assert "allowed_tools" in (result.error or "")
-    mock_registry.spawn.assert_not_called()
+    assert result.success is True
+    config = mock_registry.spawn.call_args[0][0]
+    assert config.allowed_tools == ["read_file"]
+
+
+@pytest.mark.asyncio
+async def test_sdk_provider_translates_dispatched_tool_names() -> None:
+    """The other half of #75: the canonical name arrives as SDK vocabulary."""
+    from squadron.providers.sdk.provider import ClaudeSDKProvider
+
+    config = AgentConfig(
+        name="dispatch-generate",
+        agent_type="sdk",
+        provider="sdk",
+        model="claude-sonnet-4-20250514",
+        allowed_tools=["read_file"],
+    )
+    agent = await ClaudeSDKProvider().create_agent(config)
+
+    assert agent._options.allowed_tools == ["Read"]  # pyright: ignore[reportPrivateUsage]
+
+
+@pytest.mark.asyncio
+async def test_sdk_provider_raises_on_unmapped_dispatched_tool_name() -> None:
+    """An unmapped canonical name still fails loudly, just one layer lower."""
+    from squadron.providers.sdk.provider import ClaudeSDKProvider
+
+    config = AgentConfig(
+        name="dispatch-generate",
+        agent_type="sdk",
+        provider="sdk",
+        model="claude-sonnet-4-20250514",
+        allowed_tools=["definitely_not_a_tool"],
+    )
+    with pytest.raises(ProviderError, match="definitely_not_a_tool"):
+        await ClaudeSDKProvider().create_agent(config)
+
+
+@pytest.mark.asyncio
+async def test_sdk_one_shot_without_prompt_uses_default_system_prompt(
+    action: DispatchAction,
+) -> None:
+    """SC7 first half (#40): an SDK step with no system_prompt gets the CLI's own."""
+    ctx = _make_context(params={"prompt": "test"})
+    mock_registry = _make_registry(_make_agent_mock("ok"))
+
+    with (
+        patch(f"{_P}.get_registry", return_value=mock_registry),
+        patch(f"{_P}.get_profile", return_value=_sdk_profile()),
+        patch(f"{_P}.ensure_provider_loaded"),
+    ):
+        await action.execute(ctx)
+
+    config = mock_registry.spawn.call_args[0][0]
+    assert config.use_default_system_prompt is True
+    assert config.instructions is None
+
+
+@pytest.mark.asyncio
+async def test_sdk_one_shot_explicit_system_prompt_wins(action: DispatchAction) -> None:
+    """SC7: an explicit system_prompt still beats the default."""
+    ctx = _make_context(params={"prompt": "test", "system_prompt": "Be terse."})
+    mock_registry = _make_registry(_make_agent_mock("ok"))
+
+    with (
+        patch(f"{_P}.get_registry", return_value=mock_registry),
+        patch(f"{_P}.get_profile", return_value=_sdk_profile()),
+        patch(f"{_P}.ensure_provider_loaded"),
+    ):
+        await action.execute(ctx)
+
+    config = mock_registry.spawn.call_args[0][0]
+    assert config.use_default_system_prompt is False
+    assert config.instructions == "Be terse."
+
+
+@pytest.mark.asyncio
+async def test_non_sdk_one_shot_without_prompt_sends_no_system_message(
+    action: DispatchAction,
+) -> None:
+    """SC7 second half: no system_prompt on a non-SDK step means no system message.
+
+    An empty string would be sent as an actual empty system message; ``None`` means the
+    agent appends none at all, leaving the guidance block as the whole prompt when the
+    step declares tools.
+    """
+    ctx = _make_context(params={"prompt": "test"})
+    mock_registry = _make_registry(_make_agent_mock("ok"))
+
+    with (
+        patch(f"{_P}.get_registry", return_value=mock_registry),
+        patch(f"{_P}.get_profile", return_value=_openrouter_profile()),
+        patch(f"{_P}.ensure_provider_loaded"),
+    ):
+        await action.execute(ctx)
+
+    config = mock_registry.spawn.call_args[0][0]
+    assert config.instructions is None
+    assert config.use_default_system_prompt is False
 
 
 @pytest.mark.asyncio
