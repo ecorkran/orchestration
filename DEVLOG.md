@@ -14,6 +14,30 @@ A lightweight, append-only record of development activity. Newest entries first.
 
 ## 20260907
 
+### Slice 267: Phase 5 Task Breakdown Complete
+
+30 tasks in one file (`267-tasks.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md`,
+470 lines — inside the split tolerance). Sequencing: branch (T0); the guidance block and its
+composition at the agent (Part A, T1-T4); dispatch parity and both #40 angles (Part B, T5-T8);
+SDK preset + `append` for #85 (Part C, T9-T12); diagnosability — UNKNOWN debug log, degraded
+artifacts embedding the raw response, the `Tools:` line (Part D, T14-T19); then the live
+walkthrough steps including the #84 evidence loop and the SC10 A/B (Part E, T21-T28); gates and
+close-out (Part F).
+
+Commit cadence departs from per-task in one respect: Parts A and C change prompts, and the PM's
+standing rule is that prompt-affecting changes are confirmed live before their commits are
+final. They stay on the slice branch until Part E's live steps are transcribed.
+
+Two existing tests are rewritten rather than deleted, and the task file names them so the
+implementer does not treat their failure as a regression: `test_sdk_profile_one_shot_rejects_allowed_tools`
+(asserts the guard #75 removes) and `test_default_system_prompt_wins_over_instructions` (asserts
+the preset-discards-instructions behavior #85 replaces). T27 (`agent.max_output_tokens`) is
+conditional on T26 observing `finish_reason=length`; if not, it is marked `[x]` with a note per
+the dropped-item checkbox rule. The `-k` selectors in the walkthrough are echoed into the task
+names so each selector collects tests (266's lesson).
+
+---
+
 ### Slice 267: Tool-Use Discipline and Diagnosability for Non-SDK Agents — Design Complete
 
 Phase 4 on `main` (no integration branch configured). Design at
