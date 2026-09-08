@@ -156,9 +156,6 @@ class OpenAICompatibleAgent:
             else _int_key_default("agent.max_tool_result_chars")
         )
 
-        if system_prompt is not None:
-            self._append_history({"role": "system", "content": system_prompt})
-
         requested_tools = allowed_tools or []
         if requested_tools and cwd is None:
             raise ProviderError(
@@ -192,6 +189,13 @@ class OpenAICompatibleAgent:
             self._tool_executors = tools.materialize(known_names, cwd)
             descriptors = [d for n in known_names if (d := tools.lookup(n)) is not None]
             self._tool_schemas = translation.build_tool_schemas(descriptors)
+
+        # Composed after tool resolution so the block names the tools the agent actually
+        # holds, and composed here rather than at the four call sites (design D1) so no
+        # tool-passing caller can skip it. Built once; the turn loop never rebuilds it.
+        composed_prompt = tools.compose_system_prompt(system_prompt, self._tools_given)
+        if composed_prompt is not None:
+            self._append_history({"role": "system", "content": composed_prompt})
 
     @property
     def name(self) -> str:
