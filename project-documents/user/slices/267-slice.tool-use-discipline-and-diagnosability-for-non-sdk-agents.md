@@ -13,8 +13,8 @@ interfaces:
       when no tools are offered. Called from exactly one place, OpenAICompatibleAgent's
       constructor, so no tool-passing caller can skip it.
 dateCreated: 20260907
-dateUpdated: 20260907
-status: not_started
+dateUpdated: 20260908
+status: in_progress
 ---
 
 # Slice Design: Tool-Use Discipline and Diagnosability for Non-SDK Agents

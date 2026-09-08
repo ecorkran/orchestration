@@ -10,8 +10,8 @@ projectState: >
   261-266 shipped the non-SDK tool stack; 267 is the close-out slice of
   initiative 260 and owns #40, #61, #68, #75, #82, #84, #85.
 dateCreated: 20260907
-dateUpdated: 20260907
-status: not_started
+dateUpdated: 20260908
+status: in_progress
 ---
 
 ## Context Summary
@@ -90,176 +90,177 @@ are suite-provable and commit normally.
 
 ## Part 0 — Branch
 
-- [ ] **T0. Create the slice branch**
-  - [ ] `cf config get git.integration_branch` is empty, so the target is `main`.
-  - [ ] `git checkout -b 267-slice.tool-use-discipline-and-diagnosability-for-non-sdk-agents main`
-  - [ ] Set the slice design's `status` to `in_progress`.
-  - [ ] **Success:** on the new branch, working tree clean.
+- [x] **T0. Create the slice branch**
+  - [x] `cf config get git.integration_branch` is empty, so the target is `main`.
+  - [x] `git checkout -b 267-slice.tool-use-discipline-and-diagnosability-for-non-sdk-agents main`
+  - [x] Set the slice design's `status` to `in_progress`.
+  - [x] **Success:** on the new branch, working tree clean.
   - Effort: 1/5
 
 ---
 
 ## Part A — The guidance block (D1, D2)
 
-- [ ] **T1. Write `squadron/tools/guidance.py`**
-  - [ ] New module owning the block text and
+- [x] **T1. Write `squadron/tools/guidance.py`**
+  - [x] New module owning the block text and
     `compose_system_prompt(instructions: str | None, tools: list[str] | None) -> str | None`.
-  - [ ] Empty or `None` `tools` → return `instructions` unchanged (including
+  - [x] Empty or `None` `tools` → return `instructions` unchanged (including
     `None`). Non-empty → `instructions` followed by a blank line and the block
     under a `## Tool Use` heading; `None`/`""` instructions yield the block alone.
-  - [ ] Render the effective tool names into the block, comma-separated, so
+  - [x] Render the effective tool names into the block, comma-separated, so
     the model sees what it has. Do not name specific tools in the prose; the
     same block serves reviews and design dispatch.
-  - [ ] Substance, per the design's "The guidance block" section: a diff is
+  - [x] Substance, per the design's "The guidance block" section: a diff is
     partial context and cannot prove absence; before asserting something is
     missing, undefined, unhandled, unnarrowed, or unjustified, open the file
     with the tools or say "unverified"; use a tool only when a claim depends on
     unseen code; if the task asks for a file to be created or changed, do it
     with the tools. Keep it short; tool-call count is not a goal (#82).
-  - [ ] Export `compose_system_prompt` from `squadron.tools` (`__init__.py`).
-  - [ ] **Success:** module under ~80 lines; the four substance points are all
+  - [x] Export `compose_system_prompt` from `squadron.tools` (`__init__.py`).
+  - [x] **Success:** module under ~80 lines; the four substance points are all
     present; no tool name appears in the prose body.
   - Effort: 2/5
 
-- [ ] **T2. Test `compose_system_prompt`** *(test-with T1)*
-  - [ ] New `tests/tools/test_guidance.py`.
-  - [ ] Cases: `(None, None)` → `None`; `("x", [])` → `"x"`; `("x", None)` →
+- [x] **T2. Test `compose_system_prompt`** *(test-with T1)*
+  - [x] New `tests/tools/test_guidance.py`.
+  - [x] Cases: `(None, None)` → `None`; `("x", [])` → `"x"`; `("x", None)` →
     `"x"`; `("x", ["read_file", "grep"])` starts with `"x"`, contains
     `## Tool Use`, contains both tool names, and the heading comes after `"x"`;
     `(None, ["read_file"])` → block alone, no leading blank line.
-  - [ ] **Success:** tests pass; SC2's "instructions precede the block" is
+  - [x] **Success:** tests pass; SC2's "instructions precede the block" is
     asserted by position, not by substring presence alone.
   - Effort: 1/5
 
-- [ ] **T3. Compose in `OpenAICompatibleAgent.__init__`**
-  - [ ] Give the constructor access to the effective tool list (whatever form
+- [x] **T3. Compose in `OpenAICompatibleAgent.__init__`**
+  - [x] Give the constructor access to the effective tool list (whatever form
     the provider already passes — do not add a second source of truth) and
     replace the direct `system_prompt` append at agent.py:159-160 with
     `compose_system_prompt(system_prompt, <effective tools>)`.
-  - [ ] The system message is built once at construction; nothing in the turn
+  - [x] The system message is built once at construction; nothing in the turn
     loop changes.
-  - [ ] Do not touch `resolve_effective_tools` or its four call sites; the
+  - [x] Do not touch `resolve_effective_tools` or its four call sites; the
     SC1a enumeration test in `tests/tools/test_effective_tools.py` stays as is.
-  - [ ] **Success:** `history[0]` is the composed prompt when tools are
+  - [x] **Success:** `history[0]` is the composed prompt when tools are
     non-empty; unchanged behavior when tools are empty; no system message when
     both are absent.
   - Effort: 2/5
 
-- [ ] **T4. Test composition at the agent** *(test-with T3)*
-  - [ ] In `tests/providers/openai/test_agent.py`, beside
+- [x] **T4. Test composition at the agent** *(test-with T3)*
+  - [x] In `tests/providers/openai/test_agent.py`, beside
     `test_system_prompt_prepended_to_history`: an agent built with
     `allowed_tools=[read_file, grep]` has a system message ending in the block
     naming both, preceded by the caller's instructions; an agent with
     `allowed_tools=[]` and `tools_suppressed_reason="run-suppressed"` has the
     caller's instructions only; an agent with neither has an empty history.
-  - [ ] One test goes through `OpenAICompatibleProvider.create_agent` with an
+  - [x] One test goes through `OpenAICompatibleProvider.create_agent` with an
     `AgentConfig`, not the constructor directly, so the provider's plumbing is
     covered.
-  - [ ] Run `uv run pytest tests/tools/test_effective_tools.py` and confirm it
+  - [x] Run `uv run pytest tests/tools/test_effective_tools.py` and confirm it
     is untouched and green.
-  - [ ] **Success:** SC1 and SC2 hold at the agent; SC1a test unchanged.
+  - [x] **Success:** SC1 and SC2 hold at the agent; SC1a test unchanged.
   - Effort: 2/5
 
 ---
 
 ## Part B — Dispatch parity and #40 (D6)
 
-- [ ] **T5. Non-SDK dispatch sends no empty system message**
-  - [ ] In `one_shot_dispatch_with_telemetry`, when the profile is non-SDK and
+- [x] **T5. Non-SDK dispatch sends no empty system message**
+  - [x] In `one_shot_dispatch_with_telemetry`, when the profile is non-SDK and
     `system_prompt` is empty, pass `instructions=None` (dispatch.py:136). With
     tools, the guidance block then becomes the whole system prompt via T3.
-  - [ ] **Success:** a non-SDK step with no `system_prompt` and no tools builds
+  - [x] **Success:** a non-SDK step with no `system_prompt` and no tools builds
     an `AgentConfig` with `instructions=None` (SC7, second half).
   - Effort: 1/5
 
-- [ ] **T6. SDK one-shot dispatch uses the default system prompt**
-  - [ ] Same function: when the profile is SDK and no explicit `system_prompt`
+- [x] **T6. SDK one-shot dispatch uses the default system prompt**
+  - [x] Same function: when the profile is SDK and no explicit `system_prompt`
     was supplied, set `use_default_system_prompt=True`. An explicit
     `system_prompt` still wins (flag stays `False`).
-  - [ ] Confirm the `executor.py` / `run.py` precedent the design cites before
+  - [x] Confirm the `executor.py` / `run.py` precedent the design cites before
     copying its condition; if the precedent differs from the design, stop and
     report.
-  - [ ] **Success:** SC7, first half.
+  - [x] **Precedent:** metrology/audit.py:634 sets `use_default_system_prompt=True`; confirmed as the real precedent and implemented as designed.
+  - [x] **Success:** SC7, first half.
   - Effort: 1/5
 
-- [ ] **T7. Remove the SDK `allowed_tools` guard; reword the session message**
-  - [ ] Delete the `ValueError` block at dispatch.py:122-127 and its comment.
+- [x] **T7. Remove the SDK `allowed_tools` guard; reword the session message**
+  - [x] Delete the `ValueError` block at dispatch.py:122-127 and its comment.
     The canonical names reach `AgentConfig.allowed_tools`;
     `ClaudeSDKProvider.create_agent` translates or raises on an unmapped name.
-  - [ ] Session path (dispatch.py:277-286): keep the rejection; change the
+  - [x] Session path (dispatch.py:277-286): keep the rejection; change the
     message from "does not yet support them" to the reason — a persistent
     session's tool set is fixed when it connects. Update the comment above it
     to match (it currently says slice 265 owns the wiring).
-  - [ ] **Success:** no SDK guard in the one-shot path; session message states
+  - [x] **Success:** no SDK guard in the one-shot path; session message states
     the fixed-at-connect reason.
   - Effort: 1/5
 
-- [ ] **T8. Dispatch tests** *(test-with T5-T7)*
-  - [ ] Rewrite `test_sdk_profile_one_shot_rejects_allowed_tools` into a test
+- [x] **T8. Dispatch tests** *(test-with T5-T7)*
+  - [x] Rewrite `test_sdk_profile_one_shot_rejects_allowed_tools` into a test
     that a step with `allowed_tools: [read_file]` on an SDK profile builds an
     `AgentConfig` carrying the canonical name, and that the SDK provider
     receives `["Read"]` (mock `create_agent` and inspect the options, or reuse
     the pattern `tests/providers/sdk/test_translation.py` uses).
-  - [ ] Add: an unmapped canonical name still raises from the provider.
-  - [ ] Add: SDK one-shot with no `system_prompt` → `use_default_system_prompt`
+  - [x] Add: an unmapped canonical name still raises from the provider.
+  - [x] Add: SDK one-shot with no `system_prompt` → `use_default_system_prompt`
     is `True`; with explicit `system_prompt` → `False` and `instructions` set.
-  - [ ] Add: non-SDK one-shot with empty `system_prompt` → `instructions is None`.
-  - [ ] Update `test_sdk_session_path_rejects_allowed_tools` (test_dispatch.py:501)
+  - [x] Add: non-SDK one-shot with empty `system_prompt` → `instructions is None`.
+  - [x] Update `test_sdk_session_path_rejects_allowed_tools` (test_dispatch.py:501)
     to the reworded message if it asserts on text.
-  - [ ] **Success:** SC6 and SC7 asserted; `uv run pytest tests/pipeline/actions -q` green.
+  - [x] **Success:** SC6 and SC7 asserted; `uv run pytest tests/pipeline/actions` (1255 passed, 2 skipped) green.
   - Effort: 2/5
 
 ---
 
 ## Part C — SDK reviews carry the CLI prompt (#85, D2a)
 
-- [ ] **T9. Preset carries `append` when instructions are present**
-  - [ ] In `ClaudeSDKProvider.create_agent` (sdk/provider.py:51-54): when
+- [x] **T9. Preset carries `append` when instructions are present**
+  - [x] In `ClaudeSDKProvider.create_agent` (sdk/provider.py:51-54): when
     `use_default_system_prompt` is set and `instructions` is a non-empty
     string, send `{"type": "preset", "preset": "claude_code", "append": instructions}`.
     `None` or `""` instructions keep the bare preset (audit row unchanged).
-  - [ ] Update the `use_default_system_prompt` docstring in `core/models.py:52`
+  - [x] Update the `use_default_system_prompt` docstring in `core/models.py:52`
     to the design's four-row truth table.
-  - [ ] **Success:** the four rows of the table are each reachable and produce
+  - [x] **Success:** the four rows of the table are each reachable and produce
     the stated shape.
   - Effort: 1/5
 
-- [ ] **T10. SDK provider tests** *(test-with T9)*
-  - [ ] Rewrite `test_default_system_prompt_wins_over_instructions`
+- [x] **T10. SDK provider tests** *(test-with T9)*
+  - [x] Rewrite `test_default_system_prompt_wins_over_instructions`
     (test_provider.py:108) to assert preset + `append`.
-  - [ ] Add a test for each remaining row: `False/None` → no `system_prompt`
+  - [x] Add a test for each remaining row: `False/None` → no `system_prompt`
     kwarg; `False/str` → the string; `True/None` and `True/""` → bare preset
     with no `append` key.
-  - [ ] **Success:** SC7a's shape assertions; `test_default_system_prompt_uses_preset`
+  - [x] **Success:** SC7a's shape assertions; `test_default_system_prompt_uses_preset`
     still passes unchanged.
   - Effort: 1/5
 
-- [ ] **T11. Review client sets the flag; appendix notes the preset**
-  - [ ] In `run_review_with_profile` (review_client.py:170), set
+- [x] **T11. Review client sets the flag; appendix notes the preset**
+  - [x] In `run_review_with_profile` (review_client.py:170), set
     `use_default_system_prompt=True` on the review `AgentConfig` when the
     provider is SDK. Non-SDK providers never read the flag; leave it `False`
     there so the intent is explicit in the config.
-  - [ ] Carry a "preset used" fact onto `ReviewResult` (one boolean, populated
+  - [x] Carry a "preset used" fact onto `ReviewResult` (one boolean, populated
     with the other prompt-capture fields at verbosity ≥ 2) and have
     `format_review_markdown`'s `### System Prompt` section print one line
     stating the `claude_code` preset was used and the recorded text is the
     appended part.
-  - [ ] Confirm `metrology/audit.py:625-634` is untouched.
-  - [ ] **Success:** SDK review config has the flag; non-SDK review config does
+  - [x] Confirm `metrology/audit.py:625-634` is untouched.
+  - [x] **Success:** SDK review config has the flag; non-SDK review config does
     not; `-vv` artifact of an SDK review carries the preset line.
   - Effort: 2/5
 
-- [ ] **T12. Review client tests** *(test-with T11)*
-  - [ ] In `tests/review/test_review_client.py`: SDK profile → the `AgentConfig`
+- [x] **T12. Review client tests** *(test-with T11)*
+  - [x] In `tests/review/test_review_client.py`: SDK profile → the `AgentConfig`
     handed to `create_agent` has `use_default_system_prompt=True` and
     `instructions` equal to the composed template prompt; non-SDK profile →
     flag `False`, `instructions` unchanged from today's assertion.
-  - [ ] In `tests/review/test_persistence.py`: the preset line appears in the
+  - [x] In `tests/review/test_persistence.py`: the preset line appears in the
     appendix only when the boolean is set.
-  - [ ] Run the design's §2a selector and confirm it matches tests:
+  - [x] Run the design's §2a selector and confirm it matches tests:
     `uv run pytest tests/providers/sdk/test_provider.py tests/review/test_review_client.py -k "preset or default_system_prompt" -v`.
     Name new tests so the selector catches them.
-  - [ ] **Success:** SC7a fully asserted; selector reports collected tests > 0.
+  - [x] **Success:** SC7a fully asserted; selector reports collected tests > 0.
   - Effort: 1/5
 
 - [ ] **T13. Commit Parts A-C** as separate commits per part, on the slice
@@ -270,79 +271,79 @@ are suite-provable and commit normally.
 
 ## Part D — Diagnosability (#61, D3)
 
-- [ ] **T14. Parser UNKNOWN branch writes the debug log**
-  - [ ] In the `elif verdict is Verdict.UNKNOWN:` branch (parsers.py:503), call
+- [x] **T14. Parser UNKNOWN branch writes the debug log**
+  - [x] In the `elif verdict is Verdict.UNKNOWN:` branch (parsers.py:503), call
     `_write_debug_log(..., findings_parsed=0, fallback_used=True, raw_output=raw_output)`
     after the existing warning, matching the two sibling branches.
-  - [ ] Do not set the result's `fallback_used` from this branch unless the
+  - [x] Do not set the result's `fallback_used` from this branch unless the
     siblings do — check before changing the return value.
-  - [ ] **Success:** UNKNOWN-with-no-findings writes an entry at every verbosity.
+  - [x] **Success:** UNKNOWN-with-no-findings writes an entry at every verbosity.
   - Effort: 1/5
 
-- [ ] **T15. Parser test** *(test-with T14)*
-  - [ ] In `tests/review/test_parsers.py`, find how the sibling branches' debug
+- [x] **T15. Parser test** *(test-with T14)*
+  - [x] In `tests/review/test_parsers.py`, find how the sibling branches' debug
     log is asserted (patch `_DEBUG_LOG_PATH` to `tmp_path`) and add the UNKNOWN
     case: raw output with no `## Summary` verdict and no findings produces an
     entry containing the raw output.
-  - [ ] Name it so `-k "unknown"` matches (walkthrough §4).
-  - [ ] **Success:** SC3.
+  - [x] Name it so `-k "unknown"` matches (walkthrough §4).
+  - [x] **Success:** SC3.
   - Effort: 1/5
 
-- [ ] **T16. Degraded artifacts embed the raw response; fix the `-vv` promise**
-  - [ ] In `format_review_markdown`: when the *resolved* verdict is UNKNOWN or
+- [x] **T16. Degraded artifacts embed the raw response; fix the `-vv` promise**
+  - [x] In `format_review_markdown`: when the *resolved* verdict is UNKNOWN or
     `result.fallback_used`, add a `### Raw Response` section carrying
     `result.raw_output` at every verbosity. Compute the resolved verdict the
     same way the frontmatter does (verdict override / score-derived), not from
     the raw parse — a judge with a score must not embed.
-  - [ ] When the `-vv` appendix is also present, render the raw response once:
+  - [x] When the `-vv` appendix is also present, render the raw response once:
     the appendix's own `### Raw Response` is skipped when the degraded section
     already printed it (or vice versa — pick one and comment why).
-  - [ ] Replace the "present when the review ran at `-vv` or higher" sentence
+  - [x] Replace the "present when the review ran at `-vv` or higher" sentence
     (persistence.py:274-278) with text that is true: the raw response is in
     this artifact.
-  - [ ] Add a body section for the UNKNOWN case too — today an UNKNOWN with no
+  - [x] Add a body section for the UNKNOWN case too — today an UNKNOWN with no
     findings falls through to "No specific findings.", which is the misleading
     line D3 names.
-  - [ ] **Success:** a clean PASS artifact is byte-identical to before; an
+  - [x] **Success:** a clean PASS artifact is byte-identical to before; an
     UNKNOWN or `fallback_used` artifact contains the raw response once at
     verbosity 0 and once at verbosity 2.
   - Effort: 2/5
 
-- [ ] **T17. Persistence tests** *(test-with T16)*
-  - [ ] In `tests/review/test_persistence.py`: (1) UNKNOWN result at verbosity 0
+- [x] **T17. Persistence tests** *(test-with T16)*
+  - [x] In `tests/review/test_persistence.py`: (1) UNKNOWN result at verbosity 0
     contains the raw response; (2) `fallback_used` result contains it; (3) a
     clean PASS's markdown equals a snapshot captured *before* T16 (take the
     snapshot first, on the T13 commit); (4) a judge result with a score and raw
     parse UNKNOWN does not contain its raw response; (5) degraded result with
     `system_prompt` set contains `### Raw Response` exactly once.
-  - [ ] Name tests so `-k "raw_response or degraded"` matches (walkthrough §4).
-  - [ ] **Success:** SC4; both §4 selectors report collected tests > 0.
+  - [x] Name tests so `-k "raw_response or degraded"` matches (walkthrough §4).
+  - [x] **Success:** SC4; both §4 selectors report collected tests > 0.
   - Effort: 2/5
 
-- [ ] **T18. `Tools:` line at `-v`; client WARNING; hint corrected**
-  - [ ] In `_display_terminal` (review.py:108), after the verdict panel and
+- [x] **T18. `Tools:` line at `-v`; client WARNING; hint corrected**
+  - [x] In `_display_terminal` (review.py:108), after the verdict panel and
     only at `verbosity >= 1`, print one line when the result carries tool
     telemetry, in the three forms from the design's table: names + count;
     names + `0 calls (offered, none used)` in warning style (`bold yellow`,
     matching the degraded line); `suppressed (reason=...)`. A result with no
     telemetry at all prints nothing.
-  - [ ] Replace the "re-run with -vv to capture it" hint (review.py:134-136)
+  - [x] Replace the "re-run with -vv to capture it" hint (review.py:134-136)
     with text pointing at the artifact's raw response section.
-  - [ ] In `run_review_with_profile` after `result.tool_calls_made` is set
+  - [x] In `run_review_with_profile` after `result.tool_calls_made` is set
     (review_client.py:253): `_logger.warning` when `tools_given` is non-empty
     and `tool_calls_made == 0`.
-  - [ ] **Success:** three distinct lines; no line at verbosity 0; WARNING on
+  - [x] **Success:** three distinct lines; no line at verbosity 0; WARNING on
     zero calls.
   - Effort: 2/5
 
-- [ ] **T19. CLI and client tests** *(test-with T18)*
-  - [ ] In `tests/review/test_cli_review.py` or `tests/cli/test_review_format.py`
+- [x] **T19. CLI and client tests** *(test-with T18)*
+  - [x] In `tests/review/test_cli_review.py` or `tests/cli/test_review_format.py`
     (whichever already drives `_display_terminal` with a captured console):
     one test per form, plus verbosity 0 prints no `Tools:` line, plus a
     telemetry-less result prints none at `-v`.
-  - [ ] In `tests/review/test_review_client.py`: `caplog` asserts the WARNING
+  - [x] In `tests/review/test_review_client.py`: `caplog` asserts the WARNING
     on tools-given-zero-calls and its absence when calls > 0.
-  - [ ] **Success:** SC5 asserted; the zero-call test checks the style, not
+  - [x] **Success:** SC5 asserted; the zero-call test checks the style, not
     only the text.
   - Effort: 1/5
 
