@@ -261,6 +261,18 @@ async def run_review_with_profile(
     result.tool_calls_made = tool_calls_made
     result.tools_suppressed_reason = tools_suppressed_reason or suppressed_reason_seen
 
+    # A review that was handed tools and called none produces a verdict from a model
+    # that read nothing beyond the prompt — indistinguishable from a healthy review in
+    # every other signal, so it gets its own observable one.
+    if tools_given and not tool_calls_made:
+        _logger.warning(
+            "%s review (model=%s) was given tools %s but made no tool calls; its verdict "
+            "rests on the prompt alone.",
+            template.name,
+            resolved_model or "(default)",
+            ", ".join(tools_given),
+        )
+
     # Populate prompt capture fields at verbosity >= 2
     if verbosity >= 2:
         result.system_prompt = system_prompt

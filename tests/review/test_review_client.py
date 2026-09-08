@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -688,6 +689,22 @@ class TestReviewResultToolTelemetry:
 
         assert result.tools_given is None
         assert result.tool_calls_made is None
+
+    @pytest.mark.asyncio
+    async def test_zero_calls_logs_a_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """The failure mode is silent otherwise: a verdict from a model that read nothing."""
+        with caplog.at_level(logging.WARNING, logger="squadron.review.review_client"):
+            await self._run({"tools_given": ["read_file"], "tool_calls_made": 0})
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("no tool calls" in r.getMessage() for r in warnings)
+
+    @pytest.mark.asyncio
+    async def test_calls_made_logs_no_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.WARNING, logger="squadron.review.review_client"):
+            await self._run({"tools_given": ["read_file"], "tool_calls_made": 4})
+
+        assert not [r for r in caplog.records if "no tool calls" in r.getMessage()]
 
 
 class TestEmptyDiffRefusesToRun:

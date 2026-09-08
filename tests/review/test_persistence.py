@@ -720,3 +720,106 @@ class TestFormatReviewMarkdownSuppressionReason:
         suppressed.tools_suppressed_reason = SuppressionReason.RUN_SUPPRESSED.value
         assert suppressed.to_dict()["tools_suppressed_reason"] == SuppressionReason.RUN_SUPPRESSED.value
         assert "tools_suppressed_reason" not in _make_result().to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Degraded artifacts embed the raw response (#61, design D3)
+# ---------------------------------------------------------------------------
+
+
+class TestDegradedRawResponse:
+    """A degraded review's artifact is often the only surviving record of the output.
+
+    Before this, the raw response reached the artifact only inside the ``-vv`` prompt
+    appendix, so a degraded review run at the default verbosity kept nothing.
+    """
+
+    _RAW = "The model rambled without a summary or findings."
+
+    def _degraded_unknown(self) -> ReviewResult:
+        return ReviewResult(
+            verdict=Verdict.UNKNOWN,
+            findings=[],
+            raw_output=self._RAW,
+            template_name="code",
+            input_files={"input": "file.md"},
+            timestamp=datetime(2026, 4, 1, 12, 0, 0),
+            model="claude-opus-4-5",
+        )
+
+    def _fallback_used(self) -> ReviewResult:
+        result = self._degraded_unknown()
+        result.verdict = Verdict.CONCERNS
+        result.fallback_used = True
+        return result
+
+    def test_unknown_verdict_embeds_raw_response_at_verbosity_zero(self) -> None:
+        md = format_review_markdown(self._degraded_unknown(), "code", _make_slice_info())
+
+        assert "### Raw Response" in md.splitlines()
+        assert self._RAW in md
+
+    def test_fallback_used_embeds_raw_response_at_verbosity_zero(self) -> None:
+        md = format_review_markdown(self._fallback_used(), "code", _make_slice_info())
+
+        assert "### Raw Response" in md.splitlines()
+        assert self._RAW in md
+
+    def test_degraded_artifact_renders_raw_response_exactly_once(self) -> None:
+        """With the -vv appendix present, both sections must not each print it."""
+        result = self._degraded_unknown()
+        result.system_prompt = "Review the diff."
+        result.user_prompt = "diff"
+
+        md = format_review_markdown(result, "code", _make_slice_info())
+
+        # Count real section headings, not the backticked reference in the body prose.
+        headings = [line for line in md.splitlines() if line == "### Raw Response"]
+        assert len(headings) == 1
+        assert md.count(self._RAW) == 1
+
+    def test_judge_with_score_does_not_embed_its_raw_response(self) -> None:
+        """A judge's raw parse is always UNKNOWN; its verdict arrives as an override.
+
+        Keying on the raw parse would embed every judge's response in every artifact.
+        """
+        result = self._degraded_unknown()
+        result.score = 8.5
+
+        md = format_review_markdown(result, "judge", _make_slice_info(), verdict_override="PASS")
+
+        assert "### Raw Response" not in md.splitlines()
+        assert self._RAW not in md
+
+    def test_unknown_verdict_does_not_claim_no_specific_findings(self) -> None:
+        md = format_review_markdown(self._degraded_unknown(), "code", _make_slice_info())
+
+        assert "No specific findings." not in md
+        assert "## Findings Not Parsed" in md
+
+    def test_degraded_body_no_longer_promises_vv(self) -> None:
+        """The old text pointed at a section only a -vv run produced — it was false."""
+        md = format_review_markdown(self._fallback_used(), "code", _make_slice_info())
+
+        assert "-vv" not in md
+
+    def test_clean_pass_artifact_is_byte_identical_to_the_pre_change_snapshot(self) -> None:
+        """SC4's other half: a non-degraded artifact must not shift by one byte.
+
+        The fixture was generated from the module as it stood before the degraded-path
+        change, so any drift in the clean path fails here.
+        """
+        result = ReviewResult(
+            verdict=Verdict.PASS,
+            findings=[],
+            raw_output="The model said the code is clean.",
+            template_name="code",
+            input_files={"input": "file.md"},
+            timestamp=datetime(2026, 4, 1, 12, 0, 0),
+            model="claude-opus-4-5",
+        )
+
+        md = format_review_markdown(result, "code", _make_slice_info())
+
+        snapshot = Path(__file__).parent / "fixtures" / "clean_pass_artifact.md"
+        assert md == snapshot.read_text()

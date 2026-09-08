@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -247,3 +248,70 @@ class TestDefaultSystemPromptPresetLine:
         md = format_review_markdown(result, SLICE_INFO)
 
         assert self._PRESET_MARKER not in md
+
+
+class TestTerminalToolTelemetry:
+    """SC5: the three tool-use states stay distinct on the terminal, not just on disk."""
+
+    @staticmethod
+    def _result(
+        *,
+        tools_given: list[str] | None = None,
+        tool_calls_made: int | None = None,
+        suppressed_reason: str | None = None,
+    ) -> ReviewResult:
+        result = _make_result_no_findings()
+        result.tools_given = tools_given
+        result.tool_calls_made = tool_calls_made
+        result.tools_suppressed_reason = suppressed_reason
+        return result
+
+    @staticmethod
+    def _styles(result: ReviewResult, verbosity: int) -> list[tuple[str, object]]:
+        """Return (text, style) for each console.print call, so style is assertable."""
+        calls: list[tuple[str, object]] = []
+
+        class _RecordingConsole:
+            def print(self, *args: object, **kwargs: object) -> None:
+                text = str(args[0]) if args else ""
+                calls.append((text, kwargs.get("style")))
+
+        with patch("squadron.cli.commands.review.Console", _RecordingConsole):
+            _display_terminal(result, verbosity=verbosity)
+        return calls
+
+    def _tools_line(self, result: ReviewResult, verbosity: int = 1) -> tuple[str, object] | None:
+        return next((call for call in self._styles(result, verbosity) if "Tools:" in call[0]), None)
+
+    def test_tools_used_line_names_tools_and_count(self) -> None:
+        line = self._tools_line(self._result(tools_given=["read_file", "grep"], tool_calls_made=12))
+
+        assert line is not None
+        assert "read_file, grep" in line[0]
+        assert "12 calls" in line[0]
+
+    def test_zero_calls_line_is_visibly_distinct(self) -> None:
+        """The state that yields a confident verdict from a model that read nothing."""
+        line = self._tools_line(self._result(tools_given=["read_file", "grep"], tool_calls_made=0))
+
+        assert line is not None
+        assert "offered, none used" in line[0]
+        # Style, not only text: a dim line here reads as routine.
+        assert line[1] == "bold yellow"
+
+    def test_suppressed_line_states_the_reason(self) -> None:
+        line = self._tools_line(self._result(suppressed_reason="run-suppressed"))
+
+        assert line is not None
+        assert "suppressed" in line[0]
+        assert "run-suppressed" in line[0]
+
+    def test_no_tools_line_at_verbosity_zero(self) -> None:
+        assert (
+            self._tools_line(self._result(tools_given=["read_file"], tool_calls_made=3), verbosity=0)
+            is None
+        )
+
+    def test_no_tools_line_when_the_run_carried_no_telemetry(self) -> None:
+        """Tools were never part of the run — say nothing rather than assert an absence."""
+        assert self._tools_line(self._result()) is None

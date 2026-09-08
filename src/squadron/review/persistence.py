@@ -13,7 +13,7 @@ from typing import Any, Protocol, TypedDict
 
 from squadron.documents.schema import DocType, DocumentStatus
 from squadron.review.git_utils import run_git
-from squadron.review.models import ReviewResult
+from squadron.review.models import ReviewResult, Verdict
 
 _logger = logging.getLogger(__name__)
 
@@ -173,6 +173,10 @@ def format_review_markdown(
     today = result.timestamp.strftime("%Y%m%d")
     resolved_model = model or result.model or "unknown"
     resolved_verdict = verdict_override or result.verdict.value
+    # Keyed on the *resolved* verdict deliberately (design D3): a judge template's raw
+    # parse is always UNKNOWN because its verdict is score-derived and arrives as an
+    # override, so keying on result.verdict would embed every judge's raw response.
+    degraded = resolved_verdict == Verdict.UNKNOWN.value or result.fallback_used
 
     # Source document resolution
     if source_document is None and slice_info is not None:
@@ -273,12 +277,35 @@ def format_review_markdown(
         lines.append("")
         lines.append(
             "**The model's actual findings are not lost:** read the `### Raw Response` "
-            "section below (present when the review ran at `-vv` or higher). Do not read "
-            "this review as clean."
+            "section below, which this artifact always carries when a review is "
+            "degraded. Do not read this review as clean."
+        )
+        lines.append("")
+    elif degraded:
+        # An UNKNOWN verdict with nothing parsed used to fall through to "No specific
+        # findings." — the same false claim of cleanliness issue #72 fixed for the
+        # fallback case, reached by the other door (#61).
+        lines.append("## Findings Not Parsed")
+        lines.append("")
+        lines.append(
+            "**This review is degraded.** No verdict and no findings could be extracted "
+            "from the model's response, so the verdict is left UNKNOWN rather than "
+            "assumed. Read the `### Raw Response` section below for what the model "
+            "actually said. Do not read this review as clean."
         )
         lines.append("")
     else:
         lines.append("No specific findings.")
+        lines.append("")
+
+    # A degraded review's raw response is evidence, not verbosity-gated output (design
+    # D3): the artifact is often the only surviving record of what the model said. The
+    # -vv appendix below renders it too, so it is emitted here only when that appendix
+    # is absent — one copy either way.
+    if degraded and result.system_prompt is None:
+        lines.append("### Raw Response")
+        lines.append("")
+        lines.append(result.raw_output)
         lines.append("")
 
     # Debug appendix — included when prompt capture fields are populated
