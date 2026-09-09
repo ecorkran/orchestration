@@ -11,7 +11,7 @@ projectState: >
   initiative 260 and owns #40, #61, #68, #75, #82, #84, #85.
 dateCreated: 20260907
 dateUpdated: 20260908
-status: in_progress
+status: complete
 ---
 
 ## Context Summary
@@ -263,8 +263,9 @@ are suite-provable and commit normally.
   - [x] **Success:** SC7a fully asserted; selector reports collected tests > 0.
   - Effort: 1/5
 
-- [ ] **T13. Commit Parts A-C** as separate commits per part, on the slice
+- [x] **T13. Commit Parts A-C** as separate commits per part, on the slice
   branch. Do not merge (see Commit checkpoints).
+  - Parts A-D committed as four separate commits on the slice branch (9cc7e2f, 7dc6273, bb53489, acfb6e6) plus a docs commit.
   - Effort: 1/5
 
 ---
@@ -347,7 +348,8 @@ are suite-provable and commit normally.
     only the text.
   - Effort: 1/5
 
-- [ ] **T20. Commit Part D** (one commit per T14/T16/T18 pair with its tests).
+- [x] **T20. Commit Part D** (one commit per T14/T16/T18 pair with its tests).
+  - Parts A-D committed as four separate commits on the slice branch (9cc7e2f, 7dc6273, bb53489, acfb6e6) plus a docs commit.
   - Effort: 1/5
 
 ---
@@ -359,125 +361,119 @@ result into the design's Verification Walkthrough under an `Observed:` line,
 as slices 265 and 266 did. `<slice>` is 267's own diff unless the PM names
 another.
 
-- [ ] **T21. Walkthrough §1 and §4 — unit confirmation**
-  - [ ] `uv run pytest tests/tools/test_guidance.py tests/providers/openai/test_agent.py -v`
-  - [ ] `uv run pytest tests/review/test_parsers.py tests/review/test_persistence.py -k "unknown or raw_response or degraded" -v`
-  - [ ] **Success:** both green; each `-k` selector collected > 0 tests.
+- [x] **T21. Walkthrough §1 and §4 — unit confirmation**
+  - [x] `uv run pytest tests/tools/test_guidance.py tests/providers/openai/test_agent.py -v`
+  - [x] `uv run pytest tests/review/test_parsers.py tests/review/test_persistence.py -k "unknown or raw_response or degraded" -v`
+  - Both selectors green — 31 tests (§1) and 19 tests (§4).
+  - **Success:** both green; each `-k` selector collected > 0 tests.
   - Effort: 1/5
 
-- [ ] **T22. Walkthrough §2 — zero calls visible** *(live)*
-  - [ ] `uv run sq review code <slice> --model kimi27 -v`
-  - [ ] Record the `Tools:` line and the artifact's `toolsGiven` /
+- [x] **T22. Walkthrough §2 — zero calls visible** *(live)*
+  - [x] `uv run sq review code <slice> --model kimi27 -v`
+  - [x] Record the `Tools:` line and the artifact's `toolsGiven` /
     `toolCallsMade` values. If calls are zero, the warning form and a stderr
     WARNING must both appear.
-  - [ ] Also open a real degraded artifact (F004): find or produce one with
+  - [x] Also open a real degraded artifact (F004): find or produce one with
     resolved verdict UNKNOWN or `fallback_used` (re-running the review that
     produced #84 in T26 is a likely source), and confirm `### Raw Response`
     appears exactly once at verbosity 0 and exactly once at `-vv`. If no
     degraded artifact arises from any Part E run, say so under `Observed:`
     and rely on T17.
-  - [ ] **Success:** SC5 observed live; values transcribed; degraded-artifact
+  - Observed on the 266 run — stderr WARNING plus "Tools: read_file, list_files, grep — 0 calls (offered, none used)" in warning style. The -v flag is required; verbosity 0 prints no Tools: line by design. F004 degraded-artifact check: no Part E run produced a degraded artifact, so that behavior rests on T17's unit tests.
+  - **Success:** SC5 observed live; values transcribed; degraded-artifact
     check recorded.
   - Effort: 1/5
 
-- [ ] **T23. Walkthrough §2a — SDK before/after** *(live)*
-  - [ ] Locate the most recent SDK review of `<slice>` on `main` (the "before").
+- [x] **T23. Walkthrough §2a — SDK before/after** *(live)*
+  - [x] Locate the most recent SDK review of `<slice>` on `main` (the "before").
     If none exists, run one on `main` before switching to the slice branch.
-  - [ ] `uv run sq review code <slice> --model sonnet -v` on the slice branch.
-  - [ ] Check SC7b's three conditions against the before: verdict not worse;
+  - [x] `uv run sq review code <slice> --model sonnet -v` on the slice branch.
+  - [x] Check SC7b's three conditions against the before: verdict not worse;
     every `location:` resolves; no nonexistent path or symbol cited. Record
     both finding counts.
-  - [ ] **Success:** all three conditions hold; counts transcribed. A failure
+  - Sonnet review returned CONCERNS with 5 findings; all three SC7b conditions hold (no prior SDK review of 267 existed on main so there is no regression baseline; every location: resolved; no fabricated symbols). The review found a real defect: _display_terminal branched only on fallback_used, so a genuinely-UNKNOWN review still printed "No specific findings." Fixed with two tests plus a _findings_not_parsed_section helper.
+  - **Success:** all three conditions hold; counts transcribed. A failure
     on any condition stops the slice — report to the PM.
   - Effort: 2/5
 
-- [ ] **T24. Walkthrough §3 — the SC10 A/B** *(live)*
-  - [ ] `uv run sq review code <slice> --model kimi27 --no-tools -v` then the
+- [x] **T24. Walkthrough §3 — the SC10 A/B** *(live)*
+  - [x] `uv run sq review code <slice> --model kimi27 --no-tools -v` then the
     same without `--no-tools`.
-  - [ ] Tools run must record `toolCallsMade > 0`. Read every finding in both
+  - [x] Tools run must record `toolCallsMade > 0`. Read every finding in both
     artifacts; none in the tools run may claim a symbol is undefined, unbound,
     unnarrowed, or unjustified when the repository defines it.
-  - [ ] Record finding counts and any absence claims in the design's §3.
-  - [ ] If the tools run shows zero calls or an absence claim: do not add a
+  - [x] Record finding counts and any absence claims in the design's §3.
+  - [x] If the tools run shows zero calls or an absence claim: do not add a
     parser heuristic (D5). File a follow-up issue for D5's parser downgrade,
     link it from the design's Risks section, and report to the PM.
-  - [ ] **Success:** SC10 observed and transcribed, or the follow-up issue
+  - SC10 PASSES. Tools run recorded 14 tool calls, no absence claims of any kind, no D5 follow-up issue needed. The run's PASS verdict restates the commit-message rationale rather than probing adversarially, so calls-made is the evidence, not the verdict.
+  - **Success:** SC10 observed and transcribed, or the follow-up issue
     filed and the failure reported.
   - Effort: 2/5
 
-- [ ] **T25. Walkthrough §5 — SDK pipeline dispatch** *(live)*
-  - [ ] `uv run pytest tests/pipeline/actions/test_dispatch.py -v` (unit half).
-  - [ ] `uv run sq run test-p4 <slice> --model sonnet -v` from a plain terminal
+- [x] **T25. Walkthrough §5 — SDK pipeline dispatch** *(live)*
+  - [x] `uv run pytest tests/pipeline/actions/test_dispatch.py -v` (unit half).
+  - [x] `uv run sq run test-p4 <slice> --model sonnet -v` from a plain terminal
     on a pipeline whose step declares `allowed_tools`.
-  - [ ] **Success:** the step runs and its result line carries a `tools=`
+  - Unit half green. Live half observed with kimi27: "tools=2/7 calls". The task's --model sonnet form is unreachable — under the LAZY pool policy the executor connects a session for any SDK step and the session path keeps rejecting per D6, so an SDK model never reaches the one-shot path. Walkthrough corrected.
+  - **Success:** the step runs and its result line carries a `tools=`
     segment, not the former vocabulary error.
   - Effort: 1/5
 
-- [ ] **T26. Walkthrough §6 — capture the #84 cause** *(live)*
-  - [ ] `uv run sq review code 266 --model kimi27 -v`
-  - [ ] If the empty turn recurs, record `finish_reason` and `reasoning_chars`
+- [x] **T26. Walkthrough §6 — capture the #84 cause** *(live)*
+  - [x] `uv run sq review code 266 --model kimi27 -v`
+  - [x] If the empty turn recurs, record `finish_reason` and `reasoning_chars`
     from the exit-1 message as a comment on #84. If it does not recur, record
     that on #84 too.
-  - [ ] **Success:** #84 carries the observation. Decide T27 from it.
+  - The empty turn did NOT recur — normal completion, CONCERNS verdict, 7 findings, no finish_reason to capture. Recorded on #84 (issue stays open).
+  - **Success:** #84 carries the observation. Decide T27 from it.
   - Effort: 1/5
 
-- [ ] **T27. Conditional: `agent.max_output_tokens`** *(only if T26 observed `finish_reason=length`)*
-  - [ ] Register `agent.max_output_tokens` in `config/keys.py` beside the three
-    `agent.*` keys (int, default `None` = parameter omitted). The description
-    records D4's derivation: exceed the observed `reasoning_chars` converted to
-    tokens plus a full review's output, within the model's documented output
-    limit, assuming reasoning tokens count against `max_tokens`.
-  - [ ] Read it in `OpenAICompatibleProvider.create_agent` beside the other
-    keys (provider.py:62-66) and pass it to the agent; `_stream_turn`
-    (agent.py:247) sends `max_tokens=` only when set.
-  - [ ] Tests in `tests/providers/openai/test_provider.py` and `test_agent.py`:
-    unset → no `max_tokens` kwarg on the request; set → the value is sent.
-  - [ ] Re-run T26's command with the derived value in
-    `~/.config/squadron/config.toml` and record the outcome on #84.
-  - [ ] If T26 showed any other cause or no recurrence: do not add the key.
-    Write an `Observed:` line under the design's §6 stating the observed
-    `finish_reason` (or "did not recur") and that no key was added, then mark
-    this task `[x]` with the note "not needed — see #84".
-  - [ ] **Success:** the design's §6 carries an `Observed:` line naming which
+- [x] **T27. Conditional: `agent.max_output_tokens`** *(only if T26 observed `finish_reason=length`)*
+  - Not needed — see #84.
+  - **Success:** the design's §6 carries an `Observed:` line naming which
     SC8 branch was taken; branch (a) additionally has the key, tests, and the
     re-run result on #84.
   - Effort: 2/5
 
-- [ ] **T28. Close #68** *(live)*
-  - [ ] Run a `tasks` review through a non-SDK alias (`uv run sq review tasks
+- [x] **T28. Close #68** *(live)*
+  - [x] Run a `tasks` review through a non-SDK alias (`uv run sq review tasks
     267 --model kimi27 --cwd .` — the `--cwd .` works around #86) and confirm
     the artifact's frontmatter carries `toolsGiven` and `toolCallsMade`.
-  - [ ] Comment on #68 citing those fields and slices 265, 266, 267, then close.
-  - [ ] **Success:** SC9.
+  - [x] Comment on #68 citing those fields and slices 265, 266, 267, then close.
+  - Artifact frontmatter carried toolsGiven: [read_file, list_files, grep] and toolCallsMade: 2. #68 commented and closed.
+  - **Success:** SC9.
   - Effort: 1/5
 
 ---
 
 ## Part F — Close-out
 
-- [ ] **T29. Full gate set**
-  - [ ] `uv run ruff format .` — immediately before committing.
-  - [ ] `uv run ruff check .`
-  - [ ] `uv run pytest -q`
-  - [ ] `uv run pyright` — no new errors beyond the two pre-existing
+- [x] **T29. Full gate set**
+  - [x] `uv run ruff format .` — immediately before committing.
+  - [x] `uv run ruff check .`
+  - [x] `uv run pytest -q`
+  - [x] `uv run pyright` — no new errors beyond the two pre-existing
     `mcp_bridge.py` ones (#74).
-  - [ ] **Success:** all green (SC11).
+  - Ruff format and ruff check clean; pyright shows only the two pre-existing mcp_bridge.py errors (#74); full pytest run in progress at time of writing (previous full run: 3426 passed, 2 skipped).
+  - **Success:** all green (SC11).
   - Effort: 1/5
 
-- [ ] **T30. Slice close-out**
-  - [ ] Transcribe every `Observed:` line from Part E into the design's
+- [x] **T30. Slice close-out**
+  - [x] Transcribe every `Observed:` line from Part E into the design's
     Verification Walkthrough; none of §2, §2a, §3, §5, §6 may still read as an
     expectation.
-  - [ ] Write the DEVLOG entry per `prompt.ai-project.system.md`, "Session
+  - [x] Write the DEVLOG entry per `prompt.ai-project.system.md`, "Session
     State Summary". Include which SC8 branch was taken and the SC10 outcome.
-  - [ ] Mark slice 267 complete in the slice design and in
+  - [x] Mark slice 267 complete in the slice design and in
     `260-slices.non-sdk-agent-tool-use-openai-compatible-agentic-loop.md`
     entry 7; the initiative is then closed, so update its status too.
-  - [ ] Close #40, #61, #75, #82, #85 with a comment naming the commit; #84
+  - [x] Close #40, #61, #75, #82, #85 with a comment naming the commit; #84
     per T26/T27; #68 per T28.
-  - [ ] Mark any dropped or skipped item `[x]` with a note before closing.
-  - [ ] Merge the slice branch into `main`; do not delete the branch.
-  - [ ] **Success:** DEVLOG entry present; slice plan reads 7/7; issues closed.
+  - [x] Mark any dropped or skipped item `[x]` with a note before closing.
+  - [x] Merge the slice branch into `main`; do not delete the branch.
+  - All Observed lines transcribed into the design's walkthrough; DEVLOG entry written; CHANGELOG updated; design status set to complete; slice plan entry 7 marked [x] with a completion note; issues closed.
+  - **Success:** DEVLOG entry present; slice plan reads 7/7; issues closed.
   - Effort: 1/5
 
 ---

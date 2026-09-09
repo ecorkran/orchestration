@@ -6,73 +6,46 @@ slice: tool-use-discipline-and-diagnosability-for-non-sdk-agents
 project: squadron
 verdict: CONCERNS
 sourceDocument: project-documents/user/tasks/267-tasks.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md
-aiModel: moonshotai/kimi-k3
+aiModel: moonshotai/kimi-k2.7-code
 status: complete
-dateCreated: 20260907
-dateUpdated: 20260907
-reviewedSha: 6aaa75b880d1f32f4d9aa3d344cbc2e689950d03
+dateCreated: 20260908
+dateUpdated: 20260908
+reviewedSha: 495f0b3e30b73482a4f2903b9ef515590ed7171c
 toolsGiven: [read_file, list_files, grep]
-toolCallsMade: 8
+toolCallsMade: 2
 findings:
   - id: F001
-    severity: pass
-    category: traceability
-    summary: "All success criteria are traced to at least one task"
-    location: "tasks/267-tasks.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md"
-  - id: F002
-    severity: pass
+    severity: concern
     category: sequencing
-    summary: "Test-with pattern and sequencing are correct"
-    location: "tasks/267-tasks.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md"
-  - id: F003
-    severity: pass
-    category: nfr-load
-    summary: "No NFR restatement; no load-test or CI-wiring obligation"
-    location: "slices/267-slice.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md"
-  - id: F004
-    severity: concern
-    category: verifiability
-    summary: "T16 has no independent live/unit verification step in Part E"
-    location: "tasks/267-tasks.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md:291"
-  - id: F005
-    severity: concern
-    category: task-sizing
-    summary: "T27 conditional branch is well-specified but its \"not needed\" exit has no explicit success artifact beyond a checkbox"
-    location: "tasks/267-tasks.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md:416"
-  - id: F006
+    summary: "T13 commits prompt-affecting Parts A and C before their live verification"
+    location: "project-documents/user/tasks/267-tasks.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md"
+  - id: F002
     severity: note
-    category: grounding
-    summary: "Grounding notes cite code anchors I could not re-verify from this working directory"
-    location: "unverified"
+    category: sequencing
+    summary: "T22 references a degraded artifact produced by the later T26"
+    location: "project-documents/user/tasks/267-tasks.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md"
+  - id: F003
+    severity: note
+    category: scoping
+    summary: "T27 bundles implementation, wiring, and tests in one conditional task"
+    location: "project-documents/user/tasks/267-tasks.tool-use-discipline-and-diagnosability-for-non-sdk-agents.md"
 ---
 
 # Review: tasks — slice 267
 
 **Verdict:** CONCERNS
-**Model:** moonshotai/kimi-k3
+**Model:** moonshotai/kimi-k2.7-code
 
 ## Findings
 
-### [PASS] All success criteria are traced to at least one task
+### [CONCERN] T13 commits prompt-affecting Parts A and C before their live verification
 
-Every SC in the slice design maps to one or more tasks, and no task is orphaned from the criteria. SC1→T3/T4; SC2→T1/T2/T4; SC3→T14/T15; SC4→T16/T17; SC5→T18/T19 (+T22 live); SC6→T7/T8; SC7→T5/T6/T8; SC7a→T9/T10/T11/T12; SC7b→T23; SC8→T26/T27; SC9→T28; SC10→T24; SC11→T29. No gaps and no scope-creep tasks were found.
+The Context Summary's Commit checkpoints explicitly state: "prompt-affecting changes (Parts A and C) are confirmed by a live run before their commits are treated as final, so keep them on the slice branch and do not merge until Part E's live steps are recorded. Parts B and D are suite-provable and commit normally." Yet T13 is placed immediately after Part C and instructs: "Commit Parts A-C as separate commits per part, on the slice branch." This would commit Part A before the SC10 A/B live run (T24) and Part C before the SC7b SDK before/after live run (T23), defeating the PM's standing preference. The task should be restructured so Part B commits after T8, Part C commits after T23, and Part A commits after T24.
 
-### [PASS] Test-with pattern and sequencing are correct
+### [NOTE] T22 references a degraded artifact produced by the later T26
 
-Every implementation task is immediately followed by its test task (T1→T2, T3→T4, T5–T7→T8, T9→T10, T11→T12, T14→T15, T16→T17, T18→T19). Dependencies flow strictly forward: T3 builds on T1's module; Part E (T21–T28) consumes only artifacts produced by Parts A–D. No circular dependencies. Commit checkpoints (T13, T20) are distributed mid-stream rather than batched at the end, and T17's snapshot is explicitly sequenced "before T16."
+T22 suggests using the review that produced #84 in T26 as a source for a degraded artifact, but T26 occurs later in the task order. The fallback ("If no degraded artifact arises from any Part E run, say so under Observed: and rely on T17") prevents this from being blocking, but the forward reference is confusing. Consider rewording to list all Part E runs as candidate sources without singling out a later task.
 
-### [PASS] No NFR restatement; no load-test or CI-wiring obligation
+### [NOTE] T27 bundles implementation, wiring, and tests in one conditional task
 
-The slice design restates no NFR and declares no performance/throughput/latency criterion — all criteria are functional or behavioral (live A/B). Therefore the "if the parent slice restates an NFR, a load test task exists in `tests/load/`" rule does not trigger, and no CI-gating task is required. This is correctly absent rather than a gap.
-
-### [CONCERN] T16 has no independent live/unit verification step in Part E
-
-T16 changes `format_review_markdown` to embed the raw response and to fix the `-vv` promise text. It is suite-tested by T17, but Part E (the live-verification part) has no step that exercises the degraded-artifact path against a real run — T21 (§1/§4 unit) covers parsers and persistence selectors, and T22/T24 exercise the `Tools:` line and A/B, but nothing re-opens a real UNKNOWN/degraded artifact to confirm the raw response renders once at verbosity 0 and once at `-vv`. SC4 is provable by suite, so this is not a hard gap; however, given that D3 is a user-facing diagnosability promise and slice 266's lesson was "a selector matching nothing reports success for a suite it never ran," a cheap live or fixture-driven spot-check of an actual persisted degraded artifact would close the loop. Recommend adding a small verification bullet to T22 or T24 to open the produced artifact and confirm `### Raw Response` presence.
-
-### [CONCERN] T27 conditional branch is well-specified but its "not needed" exit has no explicit success artifact beyond a checkbox
-
-T27 is correctly gated on T26's observed `finish_reason=length` (matching D4's evidence-first rule) and includes tests plus a config re-run — good. However, the negative branch ("If T26 showed any other cause or no recurrence: mark this task `[x]` with a note") is weaker than the positive branch: it produces a checkbox note but SC8(b) requires "the observation is recorded on #84 and no key was added." T26 already records the observation on #84, so SC8(b) is arguably covered there — but T27's own "Success" line says "SC8 (a) or (b) satisfied, and the design's §6 says which," which conflates the two. A junior AI could mark T27 `[x]` without confirming §6 of the design actually records which branch was taken. This is a minor clarity issue, not a correctness one; tightening T27's success wording to point at the design's §6 (as T30 later does) would remove the ambiguity.
-
-### [NOTE] Grounding notes cite code anchors I could not re-verify from this working directory
-
-The task file's grounding notes reference specific line anchors (e.g., `dispatch.py:122-127`, `parsers.py:503-513`, `review.py:134-136`, `sdk/provider.py:51-54`, `agent.py:117-160`). These live outside the `project-documents/user` working directory available to me, so I could not confirm the anchors are current. They are internally consistent and were marked "verified against the code 20260907," so I treat them as reliable; flagging only so the executor re-confirms anchors at implementation time, which several tasks (T3, T6, T14, T18) already instruct.
+T27 includes registering `agent.max_output_tokens` in `config/keys.py`, reading it in the provider, passing it through the agent, and writing tests across two test files. The rest of the breakdown rigorously splits implementation and tests (e.g., T9/T10, T11/T12, T16/T17). Splitting T27 into an implementation task and a test-with task would be more consistent, even though the task is conditional.

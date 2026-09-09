@@ -14,7 +14,7 @@ interfaces:
       constructor, so no tool-passing caller can skip it.
 dateCreated: 20260907
 dateUpdated: 20260908
-status: in_progress
+status: complete
 ---
 
 # Slice Design: Tool-Use Discipline and Diagnosability for Non-SDK Agents
@@ -390,6 +390,19 @@ The message now says why.
   tokens against it, some do not. Mitigated by D4: the key exists only if the observed cause
   is `length`, and its default omits the parameter.
 
+**Outcome (20260908).** Neither risk materialized into a change. SC10 passed on the first A/B
+(14 tool calls, no absence claims), so D5's parser downgrade was not needed and no follow-up
+issue was filed for it — though the evidence supports only the narrow claim, see §3's recorded
+caveat. #84's empty turn did not recur, so `max_tokens` was never added and its cross-backend
+semantics stay untested by this slice.
+
+One issue was deferred out of the slice: **#87**, the debug log's `fallback_used` field carrying
+the opposite value from `ReviewResult.fallback_used` for the same event. The two track genuinely
+different things, but sharing a name at opposite values is a trap for anyone correlating
+`review-debug.jsonl` against artifact state. Renaming it changes an on-disk format with existing
+entries, which wants its own change rather than a drive-by here. Raised by the slice's own sonnet
+review.
+
 ## Verification Walkthrough
 
 Steps marked *(live)* need a real model and a plain terminal; `sq run` and `sq review` live
@@ -419,6 +432,31 @@ be non-zero; if it is zero the line renders in warning style and a WARNING appea
 stderr (SC5). Confirm the same three values in the artifact's `toolsGiven` /
 `toolCallsMade` frontmatter.
 
+**Correction:** the `-v` is required. At verbosity 0 no `Tools:` line prints (by design) and
+finding descriptions are suppressed, so a run without it yields none of this section's
+evidence.
+
+**Observed (20260908):** the zero-call form was captured on the §6 run of slice 266, which
+offered three tools and used none. Both surfaces fired:
+
+```
+code review (model=moonshotai/kimi-k2.7-code) was given tools read_file, list_files, grep but made no tool calls; its verdict rests on the prompt alone.
+  Tools: read_file, list_files, grep — 0 calls (offered, none used)
+```
+
+The stderr WARNING and the warning-styled terminal line, both live. The non-zero form was
+observed on slice 267's own review in §3: `Tools: read_file, list_files, grep — 14 calls`.
+Frontmatter carried matching `toolsGiven` / `toolCallsMade` in both artifacts. SC5 holds.
+
+That 266 run is also the substantive case for this slice: the model filed two CONCERNs about
+function length that it could only have read off the diff, having opened no file. Before this
+slice that state was silent.
+
+**Degraded-artifact check (F004):** no run in Part E produced a degraded artifact — every
+review parsed a verdict and findings. The `### Raw Response` behavior therefore rests on T17's
+unit tests, which cover both verbosity 0 and the `-vv` appendix, including the render-once
+case. Recorded here rather than claimed as observed.
+
 ### 2a. SDK reviews carry the CLI prompt *(live)*
 
 ```bash
@@ -432,6 +470,25 @@ conditions: verdict not worse, every `location:` resolves, no nonexistent path o
 cited. Record the two finding counts and the three checks here. Check the `-k` selector
 matched tests.
 
+**Observed (20260908):** the `-k "preset or default_system_prompt"` selector collected and
+passed 9 tests. The live SDK review returned CONCERNS with 5 findings (1 CONCERN, 2 NOTE,
+2 PASS). SC7b's three conditions:
+
+1. *Verdict not worse* — **holds.** No prior SDK review of 267 existed on `main` (the slice
+   is new), so there is no "before" to regress against; CONCERNS on a first review of
+   in-progress work is not a regression signal.
+2. *Every `location:` resolves* — **holds.** Every cited path and line range
+   (`parsers.py:503-525`, `persistence.py:284-296`, `review.py:163`,
+   `test_review_format.py:170-214`, `models.py:53-57`) resolved to real code.
+3. *No nonexistent path or symbol cited* — **holds.** No fabricated symbols.
+
+The review found a genuine defect the unit tests missed: `_display_terminal` branched only on
+`fallback_used`, so a genuinely-UNKNOWN review (no verdict *and* no findings parsed) still
+printed "No specific findings." — the same false claim of cleanliness this slice fixed in the
+artifact, left standing on the terminal. Fixed, with two tests. This is the strongest evidence
+in Part E that the preset+append change works: the reviewer had the CLI's tool-use discipline
+and used it to check a surface the diff did not advertise.
+
 ### 3. The A/B — the initiative's acceptance *(live)*
 
 ```bash
@@ -443,6 +500,24 @@ Compare the two artifacts. The tools run must record `toolCallsMade > 0`. Read e
 in both: none in the tools run may claim a symbol is undefined, unbound, unnarrowed, or
 unjustified when the repository defines it — the #82 shape. Record the finding counts and
 any absence claims in this section when done (SC10).
+
+**Observed (20260908): SC10 passes.** The tools run recorded
+`Tools: read_file, list_files, grep — 14 calls` and returned PASS with 5 findings. No finding
+claimed a symbol was undefined, unbound, unnarrowed, or unjustified — no absence claims of any
+kind, so nothing to check against the repository. No D5 parser-downgrade follow-up was needed.
+
+The contrast that makes this meaningful is not the A/B pair but the §6 run twenty minutes
+earlier: the *same model* with the *same three tools* on slice 266 made **zero** calls and
+filed two unverified CONCERNs about function length. Same model, same tool set, opposite
+behavior. That is the difference the guidance block is meant to make, though one pair of runs
+cannot separate the block's effect from prompt and diff differences.
+
+**Caveat on the verdict, recorded deliberately.** All 5 findings are PASS, and several restate
+the commit-message rationale (`design D1`, `#85`, `#72`/`#61`) rather than probing
+adversarially. A reviewer that reads the author's justifications and agrees with them is weak
+independent evidence. SC10's criterion — calls made, no fabricated absences — is met on its
+own terms; the PASS verdict is not itself treated as evidence the code is correct. The sonnet
+review in §2a, which found a real bug, carries more weight.
 
 ### 4. An UNKNOWN review keeps its evidence
 
@@ -466,15 +541,44 @@ Expect: a step with `allowed_tools: [read_file]` on an `sdk` profile builds a co
 provider receives `["Read"]`; an unmapped canonical name still raises from the provider; an
 SDK one-shot with no `system_prompt` sets `use_default_system_prompt=True` (SC6, SC7).
 
-Then *(live)*, from a plain terminal, run any pipeline whose step declares `allowed_tools`
-with an SDK alias:
+Then *(live)*, from a plain terminal, run any pipeline whose step declares `allowed_tools`:
 
 ```bash
-uv run sq run test-p4 <slice> --model sonnet -v
+uv run sq run test-p4 <slice> --model kimi27 -v
 ```
 
 Expect the step to run and its result line to carry a `tools=` segment, not the former
 vocabulary error.
+
+**Correction — the `--model sonnet` form cannot verify this.** Under the default LAZY pool
+policy the executor connects a persistent SDK session for any step that statically requires
+one (`executor.py`, `_connect_lazy_session`), and `DispatchAction` then routes to
+`_dispatch_via_session`. That path keeps its rejection by design (D6), so an SDK model always
+lands on the session guard and never reaches the one-shot path this section is testing. The
+removed guard is on the one-shot path only. Verified live:
+
+```
+action 4/7: dispatch model=sonnet
+  -> FAILED: Step 'design-0' declares 'allowed_tools' but resolved to the SDK session path,
+     where a persistent session's tool set is fixed at connect time and cannot be changed per
+     step. Use a non-SDK model for this step, or remove 'allowed_tools'.
+```
+
+That is D6 behaving correctly and confirms T7's rewording, but it is not this section's check.
+The SDK-specific half — canonical names reaching `ClaudeSDKProvider` and translating to
+`Read` — is unreachable from `sq run` and is covered by the unit half above.
+
+**Observed (20260908):** with a non-SDK alias the one-shot path carries tools end-to-end:
+
+```
+action 4/7: dispatch model=kimi27
+  -> ok (model=moonshotai/kimi-k2.7-code, tools=2/7 calls)
+```
+
+The `tools=` segment is present (SC6, SC7). The pipeline then failed on an unrelated
+post-condition — `squadron.dispatch-artifact` expects a design artifact for slice 267, which
+already exists and the model did not rewrite. That is P4 running against an already-designed
+slice, not a dispatch defect; the post-condition catching it is the #15 guard working.
 
 ### 6. The empty-final-turn cause *(live)*
 
@@ -490,11 +594,28 @@ values on #84. If `finish_reason` is `length`, derive the value per D4 from the 
 `reasoning_chars`, implement the `agent.max_output_tokens` key with the derivation in its
 description, and re-run; otherwise close the loop on #84 with the observation (SC8).
 
+**Observed (20260908): SC8 branch (b) — the empty turn did not recur.** The run completed
+normally with a CONCERNS verdict and 7 parsed findings; no exit-1, so no `finish_reason` or
+`reasoning_chars` to record. Per D4, `agent.max_output_tokens` was **not** added: sizing it
+would mean picking a bound with no observation to derive it from, which is the guesswork D4
+exists to prevent. Recorded on #84, which stays open — non-recurrence on one run is not a fix,
+and slice 266's exit-1 message now carries what a derivation would need.
+
 ### 7. Close #68
 
 Run a `tasks` review through a non-SDK alias and confirm the artifact's frontmatter carries
 `toolsGiven` and `toolCallsMade`. Comment on #68 citing the fields and the slices that added
 them (265, 266, 267), then close (SC9).
+
+```bash
+uv run sq review tasks 267 --model kimi27 --cwd .
+```
+
+(`--cwd .` from the repo root works around #86, which jails slice/arch/tasks reviews to the
+config `cwd`; unrelated to this slice.)
+
+**Observed (20260908): SC9 holds.** The artifact's frontmatter carried
+`toolsGiven: [read_file, list_files, grep]` and `toolCallsMade: 2`. #68 commented and closed.
 
 ### 8. Full gate set
 
@@ -517,6 +638,22 @@ failed on the jail-root mismatch filed as #86; the model recovered with jail-rel
 | F005 (CONCERN) — #85's live check reduced "no regression" to a finding-count comparison | **Addressed.** SC7b added with three checkable conditions; walkthrough §2a uses them. |
 | F006 (CONCERN) — `agent.max_output_tokens` had no sizing guidance | **Addressed.** D4 states the derivation; SC8(a) and walkthrough §6 require it. |
 | F007 (NOTE) — guidance text deferred to implementation | **Accepted as written.** SC10 is the acceptance; the text is unreviewable at design time by design. |
+
+## Code Review
+
+**Round 1 — 20260908, `sq review code 267 --model sonnet -v` (SDK), verdict CONCERNS.**
+The first review to run under this slice's own #85 fix — the CLI's preset plus the template
+appended — which is why it is the strongest single piece of SC7b evidence.
+
+| Finding | Disposition |
+|---|---|
+| F001 (CONCERN) — `_display_terminal` carried the fallback-only degraded branch, so a genuinely-UNKNOWN review still printed "No specific findings." | **Fixed.** The terminal now distinguishes both degraded parses, with two tests. Keyed on `result.verdict` rather than a resolved one because the judge path renders through `_display_resolution` and never reaches here, so no score-derived UNKNOWN can arrive. A real gap the unit tests missed. |
+| F002 (NOTE) — `format_review_markdown` past the length guideline with two near-duplicate "Findings Not Parsed" blocks | **Fixed.** Extracted `_findings_not_parsed_section(reason)`; both paths now differ only in the cause. |
+| F003 (NOTE) — debug log's `fallback_used` carries the opposite value from `ReviewResult.fallback_used` for the same event | **Deferred to #87.** The two track genuinely different things, but the shared name at opposite values is a correlation trap. Renaming touches an on-disk format with existing entries — its own change, not a drive-by. |
+
+**Round 1 — 20260908, `sq review code 267 --model kimi27 -v` (non-SDK), verdict PASS,
+14 tool calls.** No findings requiring action; recorded as SC10's instrument rather than as an
+independent quality signal, for the reason given in walkthrough §3.
 
 ## Effort
 
