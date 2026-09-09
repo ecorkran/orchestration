@@ -7,8 +7,8 @@ project: squadron
 parent: ../project-guides/001-initiative-plan.squadron.md
 dependencies: [100, 140, 240]
 dateCreated: 20260505
-dateUpdated: 20260826
-status: not_started
+dateUpdated: 20260908
+status: complete
 ---
 
 # Architecture: Non-SDK Agent Tool Use (OpenAI-Compatible Agentic Loop)
