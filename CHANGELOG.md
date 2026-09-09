@@ -15,7 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 20260908
+
 ### Added
+- A model can now be marked as unable to use tools. Set `tool_use = false` on an alias in
+  `models.toml` and that model is never offered tool schemas, on any path — reviews, pipeline
+  dispatch, summaries, and metrology audits alike. Aliases without the field are unaffected,
+  so nothing changes for existing setups. Useful for models whose tool calling is unreliable
+  enough that offering tools makes their output worse.
+- `sq review` accepts `--no-tools` to run a single review without tools, even when the
+  template declares them — a one-off A/B without editing any config.
+- A review that ran without tools now records *why* in the saved review file
+  (`toolsSuppressedReason` in the frontmatter, and in the JSON output). A suppressed run used
+  to be indistinguishable from one whose template simply declared no tools.
 - Internal groundwork for letting non-Claude models read files, write files, and run commands
   during a run: a tool registry and the first three tools (`read_file`, `write_file`, `bash`),
   each confined to the working directory. Nothing uses them yet — no change to how any command
@@ -66,6 +78,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   asks just two questions about the engagement plus one confirm-or-correct on the derived
   description. Both questions are skippable, and a skipped answer is recorded as an explicit gap
   rather than guessed at. An existing concept document is never overwritten.
+- `sq review -v` now prints a `Tools:` line saying which tools the run offered and how many
+  calls the model made. Tools offered and never used is highlighted, because the review's
+  verdict then rests on the prompt alone — previously indistinguishable from a normal run.
+- Non-Claude models given tools are now told how to use them: a short block appended to the
+  system prompt saying a diff cannot prove something is absent, to open the file before
+  claiming a symbol is missing or say so explicitly, and to read only what a claim depends on.
+
+### Fixed
+- `grep` and `list_files` could follow a symlink out of the working directory they are confined
+  to. A link inside the directory pointing outside it read as an ordinary file, so its contents
+  could be searched and its path listed. Both now re-check every entry they find and skip
+  anything that resolves outside, logging a warning.
+- `grep` no longer reports "no match" for a file it only partly read. Files above the read cap
+  were searched to that point and a match past it was silently invisible; the result now names
+  each file that was only partly searched.
+- `grep` rejects an over-long pattern instead of handing it to the regex engine.
+- A single oversized tool result can no longer exhaust a run's conversation budget on its own —
+  it is truncated, with a visible marker, before it enters the model's history.
+- `agent.max_history_chars` now defaults to 1,000,000 (was 400,000). A tool result can be up
+  to 64,000 characters, so the old budget was exhausted after a handful of searches and
+  long tool-using reviews were cut short.
+- `list_files` stops walking at a fixed number of entries instead of traversing an entire
+  directory tree before trimming the output. A listing cut short says so.
+- A degraded review no longer reads as a clean one. When the model's response could not be
+  parsed, the saved review now says so and carries the model's actual response — at any
+  verbosity, not only under `-vv`. Two messages that told you to re-run with `-vv` to see it
+  were wrong and have been corrected.
+- Pipeline steps declaring `allowed_tools` now work with Claude models on the one-shot path,
+  instead of failing with a tool-vocabulary error. (A step routed to a persistent Claude
+  session still can't change tools mid-run, and now says that's the reason.)
+- Claude reviews get the CLI's own system prompt again, with the review template added to it
+  rather than replacing it. Reviews were losing the tool-use discipline the CLI normally
+  supplies.
+- A pipeline step with no system prompt of its own no longer sends an empty one: Claude steps
+  fall back to the CLI's default, and other models send none at all.
 
 ## [0.11.0] - 20260819
 
@@ -85,22 +132,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tells you what the analysis never looked at, so you can judge how much it leaves out.
 - Every section now states the graph fields it was written from, in the section itself, so any claim
   can be traced without opening the skill.
-- A model can now be marked as unable to use tools. Set `tool_use = false` on an alias in
-  `models.toml` and that model is never offered tool schemas, on any path — reviews, pipeline
-  dispatch, summaries, and metrology audits alike. Aliases without the field are unaffected,
-  so nothing changes for existing setups. Useful for models whose tool calling is unreliable
-  enough that offering tools makes their output worse.
-- `sq review` accepts `--no-tools` to run a single review without tools, even when the
-  template declares them — a one-off A/B without editing any config.
-- A review that ran without tools now records *why* in the saved review file
-  (`toolsSuppressedReason` in the frontmatter, and in the JSON output). A suppressed run used
-  to be indistinguishable from one whose template simply declared no tools.
-- `sq review -v` now prints a `Tools:` line saying which tools the run offered and how many
-  calls the model made. Tools offered and never used is highlighted, because the review's
-  verdict then rests on the prompt alone — previously indistinguishable from a normal run.
-- Non-Claude models given tools are now told how to use them: a short block appended to the
-  system prompt saying a diff cannot prove something is absent, to open the file before
-  claiming a symbol is missing or say so explicitly, and to read only what a claim depends on.
 
 ### Changed
 - README rewritten around what you actually do with squadron — workflows first, with the install
@@ -109,33 +140,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   place of the previous "Multi-agent squadron framework".
 
 ### Fixed
-- A degraded review no longer reads as a clean one. When the model's response could not be
-  parsed, the saved review now says so and carries the model's actual response — at any
-  verbosity, not only under `-vv`. Two messages that told you to re-run with `-vv` to see it
-  were wrong and have been corrected.
-- Pipeline steps declaring `allowed_tools` now work with Claude models on the one-shot path,
-  instead of failing with a tool-vocabulary error. (A step routed to a persistent Claude
-  session still can't change tools mid-run, and now says that's the reason.)
-- Claude reviews get the CLI's own system prompt again, with the review template added to it
-  rather than replacing it. Reviews were losing the tool-use discipline the CLI normally
-  supplies.
-- A pipeline step with no system prompt of its own no longer sends an empty one: Claude steps
-  fall back to the CLI's default, and other models send none at all.
-- `grep` and `list_files` could follow a symlink out of the working directory they are confined
-  to. A link inside the directory pointing outside it read as an ordinary file, so its contents
-  could be searched and its path listed. Both now re-check every entry they find and skip
-  anything that resolves outside, logging a warning.
-- `grep` no longer reports "no match" for a file it only partly read. Files above the read cap
-  were searched to that point and a match past it was silently invisible; the result now names
-  each file that was only partly searched.
-- `grep` rejects an over-long pattern instead of handing it to the regex engine.
-- A single oversized tool result can no longer exhaust a run's conversation budget on its own —
-  it is truncated, with a visible marker, before it enters the model's history.
-- `agent.max_history_chars` now defaults to 1,000,000 (was 400,000). A tool result can be up
-  to 64,000 characters, so the old budget was exhausted after a handful of searches and
-  long tool-using reviews were cut short.
-- `list_files` stops walking at a fixed number of entries instead of traversing an entire
-  directory tree before trimming the output. A listing cut short says so.
 - Layer file counts were wrong for layers holding YAML or TOML files. Packaged Declarative Content
   reported 1 file instead of 34, and Project Configuration 2 instead of 6.
 - Analysis silently skipped 37 real files — every review template, every pipeline definition, and
