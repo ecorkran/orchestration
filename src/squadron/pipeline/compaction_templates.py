@@ -65,7 +65,7 @@ def load_compaction_template(
 
 def _parse_template(path: Path) -> CompactionTemplate:
     """Parse a compaction template YAML file."""
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
     if not isinstance(raw, dict):

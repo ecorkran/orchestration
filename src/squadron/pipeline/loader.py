@@ -42,7 +42,7 @@ def _load_yaml(path: Path) -> PipelineDefinition:
     Raises FileNotFoundError if the file doesn't exist.
     Raises pydantic.ValidationError on structural validation failure.
     """
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
     schema = PipelineSchema.model_validate(raw)
@@ -129,7 +129,7 @@ def discover_pipelines(
             continue
         for yaml_path in sorted(directory.glob("*.yaml")):
             try:
-                with open(yaml_path) as f:
+                with open(yaml_path, encoding="utf-8") as f:
                     raw = yaml.safe_load(f)
                 schema = PipelineSchema.model_validate(raw)
                 pipeline_name = schema.name.lower()

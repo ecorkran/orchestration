@@ -104,7 +104,7 @@ def load_manifest(
             plugins=(), bindings=DEFAULT_BINDINGS, disabled=frozenset(), manifest_path=None
         )
 
-    with open(manifest_path) as f:
+    with open(manifest_path, encoding="utf-8") as f:
         loaded: Any = yaml.safe_load(f) or {}
 
     try:
