@@ -2,7 +2,7 @@
 docType: devlog
 project: squadron
 dateCreated: 20260218
-dateUpdated: 20260908
+dateUpdated: 20260909
 
 ---
 
@@ -11,6 +11,25 @@ dateUpdated: 20260908
 A lightweight, append-only record of development activity. Newest entries first.
 
 ---
+
+## 20260909
+
+### Contributor PRs merged, 0.12.1
+
+Three external PRs, all squash-merged to `main` with no review round-trips; gaps closed by
+follow-up commits rather than change requests.
+
+- **#83** (mikemikimike): partial-evidence sentence in the code-review builder's diff branch,
+  plus UTF-8 template loading. The sentence complements slice 267's guidance block rather than
+  duplicating it: 267 composes only in `OpenAICompatibleAgent`, so SDK reviews had no such
+  language. The encoding fix covered one of five text-mode YAML opens; `3c3dad7` extends it to
+  the pipeline loader, compaction templates, and events manifest.
+- **#66** (jakez-gh): `Path.rename` to `Path.replace` in `StateManager` and `MetrologyStore`.
+- **#64** (jakez-gh): `_render_prompt_only_step` boundary in `run.py`, closing the last
+  traceback path slice 913 left open. Merged after rebasing onto current `main` and running the
+  CLI and pipeline suites.
+
+Open from the same contributor: #63 (subprocess encoding, 15 sites) and #65 (audit findings).
 
 ## 20260908
 

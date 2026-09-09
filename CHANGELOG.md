@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 20260909
+
+### Added
+- Diff-scoped code reviews now tell the reviewer the diff is partial evidence and to open the file before claiming something is missing (contributed, #83)
+
+### Fixed
+- Review templates, pipeline definitions, compaction templates, and event manifests load as UTF-8 on Windows locales (#83, follow-up)
+- Pipeline state and metrology writes no longer fail on Windows after the first write (contributed, #66)
+- `sq run --prompt-only` prints a one-line error instead of a traceback when a step's model or pool does not resolve (contributed, #64)
+
 ## [0.12.0] - 20260908
 
 ### Added
