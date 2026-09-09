@@ -33,6 +33,11 @@ def code_review_prompt(inputs: dict[str, str]) -> str:
                 f"Run `git diff {diff}` to identify changed files, "
                 "then review those files for quality and correctness."
             )
+        sections.append(
+            "Treat the diff as partial evidence, not a complete snapshot of the file. "
+            "Do not make confident claims about code outside the shown hunk unless you "
+            "inspect the underlying file or other supporting evidence first."
+        )
     if files:
         sections.append(f"Focus your review on files matching the pattern: {files}")
     if not diff and not files:
