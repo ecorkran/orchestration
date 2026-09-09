@@ -135,6 +135,25 @@ def resolve_reviewed_sha(cwd: str) -> str | None:
     return sha
 
 
+def _findings_not_parsed_section(reason: str) -> list[str]:
+    """Body lines for a degraded review, differing only in why it degraded.
+
+    Both degraded paths — a verdict without findings, and neither — must say the same
+    two things: this is not a clean review, and the model's own words are below. Only
+    the cause differs, so only the cause is a parameter.
+    """
+    return [
+        "## Findings Not Parsed",
+        "",
+        f"**This review is degraded.** {reason}",
+        "",
+        "**The model's actual response is not lost:** read the `### Raw Response` "
+        "section below, which this artifact always carries when a review is degraded. "
+        "Do not read this review as clean.",
+        "",
+    ]
+
+
 def format_review_markdown(
     result: ReviewResult,
     review_type: str,
@@ -262,38 +281,28 @@ def format_review_markdown(
                 lines.append(f"\n-> {finding.file_ref}")
             lines.append("")
     elif result.fallback_used:
-        # A degraded parse must never render as a clean review. The findings
-        # exist in the model's output; squadron could not parse them into the
-        # required '### [SEVERITY] Title' form, and saying "No specific
-        # findings." here asserts the opposite of what happened (issue #72).
-        lines.append("## Findings Not Parsed")
-        lines.append("")
-        lines.append(
-            f"**This review is degraded.** A verdict of {resolved_verdict} was parsed, "
-            "but no findings could be extracted from the model's response — most often "
-            "because it did not follow the required `### [SEVERITY] Title` format. "
-            "Findings are left empty rather than fabricated from unstructured text."
+        # A degraded parse must never render as a clean review. The findings exist in
+        # the model's output; squadron could not parse them into the required
+        # '### [SEVERITY] Title' form, and saying "No specific findings." here asserts
+        # the opposite of what happened (issue #72).
+        lines.extend(
+            _findings_not_parsed_section(
+                f"A verdict of {resolved_verdict} was parsed, but no findings could be "
+                "extracted from the model's response — most often because it did not "
+                "follow the required `### [SEVERITY] Title` format. Findings are left "
+                "empty rather than fabricated from unstructured text."
+            )
         )
-        lines.append("")
-        lines.append(
-            "**The model's actual findings are not lost:** read the `### Raw Response` "
-            "section below, which this artifact always carries when a review is "
-            "degraded. Do not read this review as clean."
-        )
-        lines.append("")
     elif degraded:
         # An UNKNOWN verdict with nothing parsed used to fall through to "No specific
         # findings." — the same false claim of cleanliness issue #72 fixed for the
         # fallback case, reached by the other door (#61).
-        lines.append("## Findings Not Parsed")
-        lines.append("")
-        lines.append(
-            "**This review is degraded.** No verdict and no findings could be extracted "
-            "from the model's response, so the verdict is left UNKNOWN rather than "
-            "assumed. Read the `### Raw Response` section below for what the model "
-            "actually said. Do not read this review as clean."
+        lines.extend(
+            _findings_not_parsed_section(
+                "No verdict and no findings could be extracted from the model's "
+                "response, so the verdict is left UNKNOWN rather than assumed."
+            )
         )
-        lines.append("")
     else:
         lines.append("No specific findings.")
         lines.append("")

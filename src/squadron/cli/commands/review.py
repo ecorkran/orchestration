@@ -160,15 +160,28 @@ def _display_terminal(result: ReviewResult, verbosity: int = 0) -> None:
         _display_tool_telemetry(console, result)
 
     if not result.findings:
+        # Two distinct degraded parses, both of which used to print as clean. A verdict
+        # that parsed with no findings (#72), and a parse that recovered neither (#61) —
+        # the artifact distinguishes them, so the terminal does too. Keyed on
+        # result.verdict rather than a resolved one because the judge path renders
+        # through _display_resolution and never reaches here, so no score-derived
+        # UNKNOWN can arrive.
         if result.fallback_used:
-            # Same defect as the rendered artifact: a degraded parse must not
-            # be reported as a clean review (issue #72).
             console.print(
                 "  Review degraded: verdict parsed, findings did not.",
                 style="bold yellow",
             )
             console.print(
                 "  The model's findings are in the saved review's `### Raw Response` section.",
+                style="dim",
+            )
+        elif result.verdict is Verdict.UNKNOWN:
+            console.print(
+                "  Review degraded: no verdict and no findings could be parsed.",
+                style="bold yellow",
+            )
+            console.print(
+                "  The model's response is in the saved review's `### Raw Response` section.",
                 style="dim",
             )
         else:

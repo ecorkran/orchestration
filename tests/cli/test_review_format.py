@@ -213,6 +213,38 @@ class TestTerminalDegradedOutput:
         assert "Missing error handling" in out
         assert "degraded" not in out.lower()
 
+    @staticmethod
+    def _unknown_result() -> ReviewResult:
+        """The other degraded parse: no verdict *and* no findings recovered.
+
+        fallback_used stays False here — nothing was derived — so branching on it
+        alone printed "No specific findings." for a review that parsed nothing.
+        """
+        return ReviewResult(
+            verdict=Verdict.UNKNOWN,
+            findings=[],
+            raw_output="the model's unstructured prose",
+            template_name="code",
+            input_files={},
+            timestamp=datetime(2026, 3, 30, 12, 0, 0),
+            model="opus",
+            fallback_used=False,
+        )
+
+    def test_genuinely_unknown_review_does_not_claim_no_findings(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _display_terminal(self._unknown_result())
+        out = capsys.readouterr().out
+        assert "No specific findings" not in out
+        assert "degraded" in out.lower()
+
+    def test_genuinely_unknown_review_points_at_the_raw_response(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _display_terminal(self._unknown_result())
+        assert "raw response" in capsys.readouterr().out.lower()
+
 
 class TestDefaultSystemPromptPresetLine:
     """#85: the -vv appendix says the recorded prompt is only the appended part."""
