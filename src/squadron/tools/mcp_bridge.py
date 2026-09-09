@@ -23,7 +23,9 @@ from mcp.types import CallToolResult, TextContent
 try:  # mcp < 2.0
     from mcp.shared.exceptions import McpError as MCPProtocolError
 except ImportError:  # mcp >= 2.0 renamed the class
-    from mcp.shared.exceptions import MCPError as MCPProtocolError
+    from mcp.shared.exceptions import (
+        MCPError as MCPProtocolError,  # pyright: ignore[reportAttributeAccessIssue, reportUnknownVariableType]
+    )
 
 from squadron.tools.models import ToolResult
 
