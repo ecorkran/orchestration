@@ -2,13 +2,77 @@
 docType: devlog
 project: squadron
 dateCreated: 20260218
-dateUpdated: 20260907
+dateUpdated: 20260908
 
 ---
 
 # Development Log
 
 A lightweight, append-only record of development activity. Newest entries first.
+
+---
+
+## 20260908
+
+### Slice 267: Phase 6 Complete — initiative 260 closes
+
+Four code parts plus live verification. Parts A-D landed as separate commits on the slice
+branch; Parts A and C stayed uncommitted-to-`main` until Part E confirmed them live, per the
+standing rule for prompt-affecting changes.
+
+**Part A** — `squadron/tools/guidance.py` owns one block, composed in
+`OpenAICompatibleAgent.__init__` after tool resolution so it names the *effective* tools and no
+tool-passing caller can skip it (D1). The existing system-message append moved below the tool
+block to make that ordering possible.
+
+**Part B** — the SDK `allowed_tools` guard came out of the one-shot dispatch path; slice 265's
+`translate_tool_names` inside `ClaudeSDKProvider.create_agent` already handles the vocabulary
+mismatch it protected against, and an unmapped name still raises there. SDK one-shot with no
+`system_prompt` sets `use_default_system_prompt`; non-SDK sends `instructions=None` rather than
+`""`. **Design correction:** the design cites `executor.py` and `run.py` as the precedent for
+that flag, but neither constructs an `AgentConfig` — `dispatch.py:131` is the only one in the
+pipeline, and `metrology/audit.py:634` is the real precedent under an identical condition.
+
+**Part C** — `use_default_system_prompt` stops meaning "preset, discard instructions"; the
+installed SDK's `SystemPromptPreset.append` carries the template alongside the CLI's prompt
+(#85). The four-row truth table went into `AgentConfig`'s docstring and each row got a test.
+
+**Part D** — the parser's UNKNOWN branch now writes the debug log like its two siblings; the
+result's own `fallback_used` stays `False`, because nothing was derived. `format_review_markdown`
+embeds the raw response whenever the *resolved* verdict is UNKNOWN or `fallback_used` — resolved,
+so a judge's score-derived verdict does not embed every response — and renders it once when the
+`-vv` appendix also applies. A clean PASS is byte-identical, asserted against a snapshot
+generated from the pre-change module via `git show`.
+
+**What the live runs found.** The sonnet review (§2a) caught a real defect the unit tests missed:
+`_display_terminal` branched only on `fallback_used`, so a genuinely-UNKNOWN review still printed
+"No specific findings." — the same false claim of cleanliness this slice fixed in the artifact,
+left standing on the terminal. Fixed with two tests, plus a `_findings_not_parsed_section` helper
+removing the near-duplicate prose the same review flagged. That review is the best evidence Part C
+works: the reviewer had the CLI's discipline and checked a surface the diff did not advertise.
+
+**SC8 branch (b):** the #84 empty turn did not recur, so `agent.max_output_tokens` was **not**
+added — sizing it without an observation is the guesswork D4 exists to prevent. Recorded on #84,
+which stays open.
+
+**SC10 passes:** 14 tool calls, no fabricated absence claims, no D5 follow-up needed. The sharper
+signal is the contrast with the §6 run twenty minutes earlier — same model, same three tools, zero
+calls, and two CONCERNs about function length read straight off the diff. Slice 267 is what made
+that state visible. Recorded honestly in the walkthrough: the 267 run's PASS verdict restates the
+commit-message rationale rather than probing, so calls-made is treated as the evidence, not the
+verdict.
+
+**Two walkthrough corrections**, both from live runs. §2 needs `-v` (verbosity 0 prints no
+`Tools:` line by design). §5's `--model sonnet` form is unreachable: under the LAZY pool policy
+the executor connects a session for any SDK step, and the session path keeps rejecting per D6, so
+an SDK model never reaches the one-shot path the section tests. Re-run with `kimi27`, which gave
+`tools=2/7 calls`.
+
+Issues closed: #40, #61, #68, #75, #82, #85. #84 stays open (non-recurrence is not a fix); #87
+filed for the debug-log `fallback_used` field name colliding with `ReviewResult.fallback_used` at
+opposite values for the same event — an on-disk format change, out of scope here.
+
+Initiative 260 closes at 7/7.
 
 ---
 

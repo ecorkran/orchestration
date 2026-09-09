@@ -48,8 +48,15 @@ class ClaudeSDKProvider:
         # prompt: the SDK emits no --system-prompt flag for it, so the CLI
         # falls back to its own. A str (including "") or None both send
         # --system-prompt "", which is an *empty* prompt, not the default.
+        # ``append`` carries the caller's instructions *alongside* the preset
+        # rather than replacing it (#85): a review template sent as the entire
+        # system prompt discards the CLI's tool-use discipline, which is the
+        # whole reason the preset is used here.
         if config.use_default_system_prompt:
-            kwargs["system_prompt"] = {"type": "preset", "preset": "claude_code"}
+            preset: dict[str, str] = {"type": "preset", "preset": "claude_code"}
+            if config.instructions:
+                preset["append"] = config.instructions
+            kwargs["system_prompt"] = preset
         elif config.instructions is not None:
             kwargs["system_prompt"] = config.instructions
         if config.model is not None:

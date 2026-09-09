@@ -105,14 +105,43 @@ class TestCreateAgent:
             assert opts.system_prompt == {"type": "preset", "preset": "claude_code"}
 
     @pytest.mark.asyncio
-    async def test_default_system_prompt_wins_over_instructions(
+    async def test_default_system_prompt_appends_instructions(
         self, provider: ClaudeSDKProvider
     ) -> None:
+        """#85: instructions ride the preset's ``append`` instead of being discarded.
+
+        Before this, a review template sent with the flag set was thrown away entirely;
+        without the flag it *replaced* the CLI's prompt. Neither gives a review both the
+        CLI's tool-use discipline and its own instructions.
+        """
+        config = AgentConfig(
+            name="review",
+            agent_type="sdk",
+            provider="sdk",
+            instructions="Review the diff.",
+            use_default_system_prompt=True,
+        )
+        with patch(_AGENT_PATCH, create=True) as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await provider.create_agent(config)
+
+            opts = mock_cls.call_args.kwargs["options"]
+            assert opts.system_prompt == {
+                "type": "preset",
+                "preset": "claude_code",
+                "append": "Review the diff.",
+            }
+
+    @pytest.mark.asyncio
+    async def test_default_system_prompt_empty_instructions_stay_bare_preset(
+        self, provider: ClaudeSDKProvider
+    ) -> None:
+        """Row 3 of the table: "" is not something to append. Keeps the audit row fixed."""
         config = AgentConfig(
             name="audit",
             agent_type="sdk",
             provider="sdk",
-            instructions="ignored",
+            instructions="",
             use_default_system_prompt=True,
         )
         with patch(_AGENT_PATCH, create=True) as mock_cls:
@@ -121,6 +150,45 @@ class TestCreateAgent:
 
             opts = mock_cls.call_args.kwargs["options"]
             assert opts.system_prompt == {"type": "preset", "preset": "claude_code"}
+            assert "append" not in opts.system_prompt
+
+    @pytest.mark.asyncio
+    async def test_no_default_system_prompt_no_instructions_omits_the_kwarg(
+        self, provider: ClaudeSDKProvider
+    ) -> None:
+        """Row 1: nothing set means no ``system_prompt`` key reaches the options."""
+        config = AgentConfig(
+            name="plain",
+            agent_type="sdk",
+            provider="sdk",
+            instructions=None,
+            use_default_system_prompt=False,
+        )
+        with patch(_AGENT_PATCH, create=True) as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await provider.create_agent(config)
+
+            opts = mock_cls.call_args.kwargs["options"]
+            assert opts.system_prompt is None
+
+    @pytest.mark.asyncio
+    async def test_no_default_system_prompt_sends_instructions_verbatim(
+        self, provider: ClaudeSDKProvider
+    ) -> None:
+        """Row 2: unchanged behavior — the string replaces the CLI's prompt."""
+        config = AgentConfig(
+            name="plain",
+            agent_type="sdk",
+            provider="sdk",
+            instructions="Be terse.",
+            use_default_system_prompt=False,
+        )
+        with patch(_AGENT_PATCH, create=True) as mock_cls:
+            mock_cls.return_value = MagicMock()
+            await provider.create_agent(config)
+
+            opts = mock_cls.call_args.kwargs["options"]
+            assert opts.system_prompt == "Be terse."
 
     @pytest.mark.asyncio
     async def test_rate_limit_overrides_reach_the_agent(self, provider: ClaudeSDKProvider) -> None:

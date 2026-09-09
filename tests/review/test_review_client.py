@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -689,6 +690,22 @@ class TestReviewResultToolTelemetry:
         assert result.tools_given is None
         assert result.tool_calls_made is None
 
+    @pytest.mark.asyncio
+    async def test_zero_calls_logs_a_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """The failure mode is silent otherwise: a verdict from a model that read nothing."""
+        with caplog.at_level(logging.WARNING, logger="squadron.review.review_client"):
+            await self._run({"tools_given": ["read_file"], "tool_calls_made": 0})
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("no tool calls" in r.getMessage() for r in warnings)
+
+    @pytest.mark.asyncio
+    async def test_calls_made_logs_no_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.WARNING, logger="squadron.review.review_client"):
+            await self._run({"tools_given": ["read_file"], "tool_calls_made": 4})
+
+        assert not [r for r in caplog.records if "no tool calls" in r.getMessage()]
+
 
 class TestEmptyDiffRefusesToRun:
     """A diff-based review with no changed files must not reach the model (#73)."""
@@ -756,3 +773,105 @@ class TestEmptyDiffRefusesToRun:
             )
 
         assert isinstance(result, ReviewResult)
+
+
+class TestDefaultSystemPromptPreset:
+    """#85: an SDK review rides the CLI's preset instead of replacing its prompt."""
+
+    @pytest.mark.asyncio
+    async def test_sdk_review_sets_default_system_prompt_flag(self) -> None:
+        template = _make_template()
+        mock_provider = _make_mock_provider(can_read_files=True)
+
+        with (
+            patch(f"{_P}.get_profile") as mock_get_profile,
+            patch(f"{_P}.get_provider", return_value=mock_provider),
+            patch(f"{_P}.ensure_provider_loaded"),
+        ):
+            from squadron.providers.base import AuthType, ProfileName, ProviderType
+            from squadron.providers.profiles import ProviderProfile
+
+            mock_get_profile.return_value = ProviderProfile(
+                name=ProfileName.SDK,
+                provider=ProviderType.SDK,
+                auth_type=AuthType.SESSION,
+            )
+            await run_review_with_profile(template, {"input": "file.md"}, profile="sdk")
+
+        config = mock_provider.create_agent.call_args[0][0]
+        assert config.use_default_system_prompt is True
+        # The template prompt is unchanged — it now rides `append` rather than replacing.
+        assert config.instructions is not None
+        assert template.system_prompt in config.instructions
+
+    @pytest.mark.asyncio
+    async def test_non_sdk_review_leaves_preset_flag_off(self) -> None:
+        template = _make_template()
+        mock_provider = _make_mock_provider()
+
+        with (
+            patch(f"{_P}.get_profile") as mock_get_profile,
+            patch(f"{_P}.get_provider", return_value=mock_provider),
+            patch(f"{_P}.ensure_provider_loaded"),
+        ):
+            from squadron.providers.profiles import ProviderProfile
+
+            mock_get_profile.return_value = ProviderProfile(
+                name="openai",
+                provider="openai",
+                api_key_env="OPENAI_API_KEY",
+            )
+            await run_review_with_profile(
+                template, {"input": "file.md"}, profile="openai", model="gpt-4o"
+            )
+
+        config = mock_provider.create_agent.call_args[0][0]
+        assert config.use_default_system_prompt is False
+        assert config.instructions is not None
+
+    @pytest.mark.asyncio
+    async def test_sdk_review_records_preset_used_at_verbosity_2(self) -> None:
+        template = _make_template()
+        mock_provider = _make_mock_provider(can_read_files=True)
+
+        with (
+            patch(f"{_P}.get_profile") as mock_get_profile,
+            patch(f"{_P}.get_provider", return_value=mock_provider),
+            patch(f"{_P}.ensure_provider_loaded"),
+        ):
+            from squadron.providers.base import AuthType, ProfileName, ProviderType
+            from squadron.providers.profiles import ProviderProfile
+
+            mock_get_profile.return_value = ProviderProfile(
+                name=ProfileName.SDK,
+                provider=ProviderType.SDK,
+                auth_type=AuthType.SESSION,
+            )
+            result = await run_review_with_profile(
+                template, {"input": "file.md"}, profile="sdk", verbosity=2
+            )
+
+        assert result.default_system_prompt_preset_used is True
+
+    @pytest.mark.asyncio
+    async def test_non_sdk_review_records_no_preset_used(self) -> None:
+        template = _make_template()
+        mock_provider = _make_mock_provider()
+
+        with (
+            patch(f"{_P}.get_profile") as mock_get_profile,
+            patch(f"{_P}.get_provider", return_value=mock_provider),
+            patch(f"{_P}.ensure_provider_loaded"),
+        ):
+            from squadron.providers.profiles import ProviderProfile
+
+            mock_get_profile.return_value = ProviderProfile(
+                name="openai",
+                provider="openai",
+                api_key_env="OPENAI_API_KEY",
+            )
+            result = await run_review_with_profile(
+                template, {"input": "file.md"}, profile="openai", model="gpt-4o", verbosity=2
+            )
+
+        assert result.default_system_prompt_preset_used is False

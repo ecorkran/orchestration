@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -211,3 +212,138 @@ class TestTerminalDegradedOutput:
         out = capsys.readouterr().out
         assert "Missing error handling" in out
         assert "degraded" not in out.lower()
+
+    @staticmethod
+    def _unknown_result() -> ReviewResult:
+        """The other degraded parse: no verdict *and* no findings recovered.
+
+        fallback_used stays False here — nothing was derived — so branching on it
+        alone printed "No specific findings." for a review that parsed nothing.
+        """
+        return ReviewResult(
+            verdict=Verdict.UNKNOWN,
+            findings=[],
+            raw_output="the model's unstructured prose",
+            template_name="code",
+            input_files={},
+            timestamp=datetime(2026, 3, 30, 12, 0, 0),
+            model="opus",
+            fallback_used=False,
+        )
+
+    def test_genuinely_unknown_review_does_not_claim_no_findings(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _display_terminal(self._unknown_result())
+        out = capsys.readouterr().out
+        assert "No specific findings" not in out
+        assert "degraded" in out.lower()
+
+    def test_genuinely_unknown_review_points_at_the_raw_response(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _display_terminal(self._unknown_result())
+        assert "raw response" in capsys.readouterr().out.lower()
+
+
+class TestDefaultSystemPromptPresetLine:
+    """#85: the -vv appendix says the recorded prompt is only the appended part."""
+
+    _PRESET_MARKER = "claude_code"
+
+    def _result(self, *, preset_used: bool) -> ReviewResult:
+        result = _make_result_no_findings()
+        result.system_prompt = "Review the diff."
+        result.user_prompt = "diff"
+        result.default_system_prompt_preset_used = preset_used
+        return result
+
+    def test_preset_line_present_when_preset_was_used(self) -> None:
+        md = format_review_markdown(self._result(preset_used=True), SLICE_INFO)
+
+        assert self._PRESET_MARKER in md
+        # It must annotate the recorded prompt, not float somewhere else.
+        assert md.index("### System Prompt") < md.index(self._PRESET_MARKER)
+        assert md.index(self._PRESET_MARKER) < md.index("Review the diff.")
+
+    def test_no_preset_line_when_preset_was_not_used(self) -> None:
+        md = format_review_markdown(self._result(preset_used=False), SLICE_INFO)
+
+        assert self._PRESET_MARKER not in md
+        assert "Review the diff." in md
+
+    def test_no_appendix_means_no_preset_line(self) -> None:
+        """A run below -vv captures no prompt, so there is nothing to annotate."""
+        result = _make_result_no_findings()
+        result.default_system_prompt_preset_used = True
+
+        md = format_review_markdown(result, SLICE_INFO)
+
+        assert self._PRESET_MARKER not in md
+
+
+class TestTerminalToolTelemetry:
+    """SC5: the three tool-use states stay distinct on the terminal, not just on disk."""
+
+    @staticmethod
+    def _result(
+        *,
+        tools_given: list[str] | None = None,
+        tool_calls_made: int | None = None,
+        suppressed_reason: str | None = None,
+    ) -> ReviewResult:
+        result = _make_result_no_findings()
+        result.tools_given = tools_given
+        result.tool_calls_made = tool_calls_made
+        result.tools_suppressed_reason = suppressed_reason
+        return result
+
+    @staticmethod
+    def _styles(result: ReviewResult, verbosity: int) -> list[tuple[str, object]]:
+        """Return (text, style) for each console.print call, so style is assertable."""
+        calls: list[tuple[str, object]] = []
+
+        class _RecordingConsole:
+            def print(self, *args: object, **kwargs: object) -> None:
+                text = str(args[0]) if args else ""
+                calls.append((text, kwargs.get("style")))
+
+        with patch("squadron.cli.commands.review.Console", _RecordingConsole):
+            _display_terminal(result, verbosity=verbosity)
+        return calls
+
+    def _tools_line(self, result: ReviewResult, verbosity: int = 1) -> tuple[str, object] | None:
+        return next((call for call in self._styles(result, verbosity) if "Tools:" in call[0]), None)
+
+    def test_tools_used_line_names_tools_and_count(self) -> None:
+        line = self._tools_line(self._result(tools_given=["read_file", "grep"], tool_calls_made=12))
+
+        assert line is not None
+        assert "read_file, grep" in line[0]
+        assert "12 calls" in line[0]
+
+    def test_zero_calls_line_is_visibly_distinct(self) -> None:
+        """The state that yields a confident verdict from a model that read nothing."""
+        line = self._tools_line(self._result(tools_given=["read_file", "grep"], tool_calls_made=0))
+
+        assert line is not None
+        assert "offered, none used" in line[0]
+        # Style, not only text: a dim line here reads as routine.
+        assert line[1] == "bold yellow"
+
+    def test_suppressed_line_states_the_reason(self) -> None:
+        line = self._tools_line(self._result(suppressed_reason="run-suppressed"))
+
+        assert line is not None
+        assert "suppressed" in line[0]
+        assert "run-suppressed" in line[0]
+
+    def test_no_tools_line_at_verbosity_zero(self) -> None:
+        assert (
+            self._tools_line(self._result(tools_given=["read_file"], tool_calls_made=3), verbosity=0)
+            is None
+        )
+
+    def test_no_tools_line_when_the_run_carried_no_telemetry(self) -> None:
+        """Tools were never part of the run — say nothing rather than assert an absence."""
+        assert self._tools_line(self._result()) is None

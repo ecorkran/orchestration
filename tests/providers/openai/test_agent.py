@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import openai
@@ -17,6 +17,7 @@ from squadron.providers.errors import (
     ProviderTimeoutError,
 )
 from squadron.providers.openai.agent import OpenAICompatibleAgent
+from squadron.tools.guidance import TOOL_USE_HEADING
 
 from .conftest import text_chunk, tool_chunk
 
@@ -258,3 +259,95 @@ class TestUnknownToolNamePolicy:
 
         executors = agent._tool_executors  # pyright: ignore[reportPrivateUsage]
         assert sorted(executors) == ["grep", "list_files", "read_file"]
+
+
+class TestToolUseGuidanceComposition:
+    """Slice 267 SC1/SC2: the guidance block is composed once, at the agent.
+
+    Composing here rather than at the four call sites (design D1) means no caller that
+    passes tools can ship an agent without the discipline block.
+    """
+
+    def _agent(
+        self,
+        *,
+        system_prompt: str | None,
+        allowed_tools: list[str] | None,
+        cwd: str | None = None,
+        tools_suppressed_reason: str | None = None,
+    ) -> OpenAICompatibleAgent:
+        client = MagicMock()
+        client.chat.completions.create = AsyncMock()
+        client.close = AsyncMock()
+        return OpenAICompatibleAgent(
+            name="bot",
+            client=client,
+            model=_MODEL,
+            system_prompt=system_prompt,
+            allowed_tools=allowed_tools,
+            tools_suppressed_reason=tools_suppressed_reason,
+            cwd=cwd,
+        )
+
+    def test_tools_append_block_after_instructions(self, tmp_path: Any) -> None:
+        agent = self._agent(
+            system_prompt="Be helpful.",
+            allowed_tools=["read_file", "grep"],
+            cwd=str(tmp_path),
+        )
+
+        content = agent._history[0]["content"]  # pyright: ignore[reportPrivateUsage]
+        assert agent._history[0]["role"] == "system"  # pyright: ignore[reportPrivateUsage]
+        assert content.startswith("Be helpful.")
+        assert content.index("Be helpful.") < content.index(TOOL_USE_HEADING)
+        assert "read_file" in content
+        assert "grep" in content
+
+    def test_suppressed_tools_leave_instructions_alone(self, tmp_path: Any) -> None:
+        # A suppressed run reaches the agent with an empty allowed_tools plus a reason;
+        # the block must not claim tools the agent does not hold.
+        agent = self._agent(
+            system_prompt="Be helpful.",
+            allowed_tools=[],
+            cwd=str(tmp_path),
+            tools_suppressed_reason="run-suppressed",
+        )
+
+        content = agent._history[0]["content"]  # pyright: ignore[reportPrivateUsage]
+        assert content == "Be helpful."
+
+    def test_no_instructions_no_tools_leaves_history_empty(self) -> None:
+        agent = self._agent(system_prompt=None, allowed_tools=None)
+
+        assert agent._history == []  # pyright: ignore[reportPrivateUsage]
+
+    def test_tools_without_instructions_make_the_block_the_whole_prompt(self, tmp_path: Any) -> None:
+        agent = self._agent(system_prompt=None, allowed_tools=["read_file"], cwd=str(tmp_path))
+
+        content = agent._history[0]["content"]  # pyright: ignore[reportPrivateUsage]
+        assert content.startswith(TOOL_USE_HEADING)
+
+    @pytest.mark.asyncio
+    async def test_composition_survives_the_provider_plumbing(self, tmp_path: Any) -> None:
+        """Through create_agent, not the constructor: the provider must pass tools too."""
+        from squadron.core.models import AgentConfig
+        from squadron.providers.openai.provider import OpenAICompatibleProvider
+
+        config = AgentConfig(
+            name="agent",
+            agent_type="api",
+            provider="openai",
+            model=_MODEL,
+            api_key="sk-config",
+            instructions="Review the diff.",
+            allowed_tools=["read_file"],
+            cwd=str(tmp_path),
+        )
+        with patch("squadron.providers.openai.provider.AsyncOpenAI") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            agent = await OpenAICompatibleProvider().create_agent(config)
+
+        content = agent._history[0]["content"]  # pyright: ignore[reportPrivateUsage]
+        assert content.startswith("Review the diff.")
+        assert TOOL_USE_HEADING in content
+        assert "read_file" in content

@@ -95,6 +95,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A review that ran without tools now records *why* in the saved review file
   (`toolsSuppressedReason` in the frontmatter, and in the JSON output). A suppressed run used
   to be indistinguishable from one whose template simply declared no tools.
+- `sq review -v` now prints a `Tools:` line saying which tools the run offered and how many
+  calls the model made. Tools offered and never used is highlighted, because the review's
+  verdict then rests on the prompt alone — previously indistinguishable from a normal run.
+- Non-Claude models given tools are now told how to use them: a short block appended to the
+  system prompt saying a diff cannot prove something is absent, to open the file before
+  claiming a symbol is missing or say so explicitly, and to read only what a claim depends on.
 
 ### Changed
 - README rewritten around what you actually do with squadron — workflows first, with the install
@@ -103,6 +109,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   place of the previous "Multi-agent squadron framework".
 
 ### Fixed
+- A degraded review no longer reads as a clean one. When the model's response could not be
+  parsed, the saved review now says so and carries the model's actual response — at any
+  verbosity, not only under `-vv`. Two messages that told you to re-run with `-vv` to see it
+  were wrong and have been corrected.
+- Pipeline steps declaring `allowed_tools` now work with Claude models on the one-shot path,
+  instead of failing with a tool-vocabulary error. (A step routed to a persistent Claude
+  session still can't change tools mid-run, and now says that's the reason.)
+- Claude reviews get the CLI's own system prompt again, with the review template added to it
+  rather than replacing it. Reviews were losing the tool-use discipline the CLI normally
+  supplies.
+- A pipeline step with no system prompt of its own no longer sends an empty one: Claude steps
+  fall back to the CLI's default, and other models send none at all.
 - `grep` and `list_files` could follow a symlink out of the working directory they are confined
   to. A link inside the directory pointing outside it read as an ordinary file, so its contents
   could be searched and its path listed. Both now re-check every entry they find and skip

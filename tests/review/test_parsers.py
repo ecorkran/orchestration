@@ -339,6 +339,42 @@ class TestDiagnosticLogging:
         assert entries[0]["template"] == "slice"
         assert entries[0]["model"] == "minimax"
 
+    def test_debug_log_written_on_unknown_verdict(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """UNKNOWN + no findings → log file written (#61).
+
+        This branch kept no evidence while both its siblings did, so the one parse
+        failure with nothing else to reconstruct from was the least recoverable.
+        """
+        log_file = tmp_path / "review-debug.jsonl"
+        monkeypatch.setattr("squadron.review.parsers._DEBUG_LOG_PATH", log_file)
+        raw = "The model rambled without a summary section or any findings.\n"
+
+        parse_review_output(raw, "slice", {}, model="minimax")
+
+        assert log_file.exists()
+        import json
+
+        entries = [json.loads(line) for line in log_file.read_text().splitlines()]
+        assert len(entries) == 1
+        assert entries[0]["verdict"] == "UNKNOWN"
+        assert entries[0]["findings_parsed"] == 0
+        # The point of the entry: the model's actual words survive the failed parse.
+        assert raw.strip() in entries[0]["raw_output"]
+
+    def test_unknown_verdict_result_does_not_claim_fallback(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Nothing was derived or fabricated, so the result's own flag stays False."""
+        log_file = tmp_path / "review-debug.jsonl"
+        monkeypatch.setattr("squadron.review.parsers._DEBUG_LOG_PATH", log_file)
+
+        result = parse_review_output("no summary, no findings\n", "slice", {})
+
+        assert result.verdict is Verdict.UNKNOWN
+        assert result.fallback_used is False
+
     def test_debug_log_not_written_on_clean_pass(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -105,6 +105,36 @@ def display_result(
             raise typer.Exit(code=1)
 
 
+def _display_tool_telemetry(console: Console, result: ReviewResult) -> None:
+    """Print one ``Tools:`` line describing this review's tool use, or nothing.
+
+    Three forms for the three states slices 265/266 record. "Offered but never called"
+    gets warning styling because it looks identical to a healthy review otherwise, and
+    it is the state that produces a confident verdict from a model that read nothing.
+    A result carrying no telemetry at all (tools were never part of the run) prints
+    nothing rather than a line asserting an absence.
+    """
+    if result.tools_suppressed_reason is not None:
+        console.print(
+            f"  Tools: suppressed (reason={result.tools_suppressed_reason})",
+            style="dim",
+        )
+        return
+
+    if not result.tools_given:
+        return
+
+    names = ", ".join(result.tools_given)
+    calls = result.tool_calls_made or 0
+    if calls == 0:
+        console.print(
+            f"  Tools: {names} — 0 calls (offered, none used)",
+            style="bold yellow",
+        )
+    else:
+        console.print(f"  Tools: {names} — {calls} calls", style="dim")
+
+
 def _display_terminal(result: ReviewResult, verbosity: int = 0) -> None:
     """Rich-formatted terminal output with verbosity levels.
 
@@ -123,16 +153,35 @@ def _display_terminal(result: ReviewResult, verbosity: int = 0) -> None:
 
     console.print(Panel(header, expand=False))
 
+    # Printed before the early return below so a findings-less review still reports its
+    # tool use. Slices 265/266 made the three states distinct in the artifact; without
+    # this they collapse on the terminal, where most reviews are actually read.
+    if verbosity >= 1:
+        _display_tool_telemetry(console, result)
+
     if not result.findings:
+        # Two distinct degraded parses, both of which used to print as clean. A verdict
+        # that parsed with no findings (#72), and a parse that recovered neither (#61) —
+        # the artifact distinguishes them, so the terminal does too. Keyed on
+        # result.verdict rather than a resolved one because the judge path renders
+        # through _display_resolution and never reaches here, so no score-derived
+        # UNKNOWN can arrive.
         if result.fallback_used:
-            # Same defect as the rendered artifact: a degraded parse must not
-            # be reported as a clean review (issue #72).
             console.print(
                 "  Review degraded: verdict parsed, findings did not.",
                 style="bold yellow",
             )
             console.print(
-                "  The model's findings are in its raw response; re-run with -vv to capture it.",
+                "  The model's findings are in the saved review's `### Raw Response` section.",
+                style="dim",
+            )
+        elif result.verdict is Verdict.UNKNOWN:
+            console.print(
+                "  Review degraded: no verdict and no findings could be parsed.",
+                style="bold yellow",
+            )
+            console.print(
+                "  The model's response is in the saved review's `### Raw Response` section.",
                 style="dim",
             )
         else:

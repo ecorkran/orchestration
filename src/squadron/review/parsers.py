@@ -511,6 +511,18 @@ def parse_review_output(
             template_name,
             model,
         )
+        # The two sibling branches retain the raw output here; this one did not, so the
+        # one case with nothing else to go on was the one that kept no evidence (#61).
+        # The result's own fallback_used stays False — nothing was derived or fabricated;
+        # the artifact keys its degraded rendering on the UNKNOWN verdict instead.
+        _write_debug_log(
+            template=template_name,
+            model=model,
+            verdict=verdict,
+            findings_parsed=0,
+            fallback_used=True,
+            raw_output=raw_output,
+        )
 
     mismatch = verdict in (Verdict.CONCERNS, Verdict.FAIL) and not findings
     if mismatch:

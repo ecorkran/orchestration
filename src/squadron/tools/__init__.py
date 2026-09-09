@@ -15,6 +15,7 @@ from squadron.tools import (
 )
 from squadron.tools.effective import SuppressionReason, resolve_effective_tools
 from squadron.tools.errors import ToolNotRegisteredError
+from squadron.tools.guidance import compose_system_prompt
 from squadron.tools.models import ToolDescriptor, ToolExecutor, ToolFactory, ToolResult
 from squadron.tools.registry import list_tools, lookup, materialize, register
 
@@ -25,6 +26,7 @@ __all__ = [
     "ToolFactory",
     "ToolNotRegisteredError",
     "ToolResult",
+    "compose_system_prompt",
     "list_tools",
     "lookup",
     "materialize",

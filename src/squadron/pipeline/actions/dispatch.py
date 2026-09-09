@@ -114,18 +114,17 @@ async def one_shot_dispatch_with_telemetry(
             model_id,
             tools_suppressed_reason,
         )
-    # Slice 265 built the canonical -> Claude mapping and wired it for review/summary, but
-    # deliberately left this dispatch path alone: lifting the restriction changes dispatch's
-    # runtime behavior and is out of this slice's scope. Until then a silent drop here would
-    # be the exact no-op-with-prose failure this path exists to prevent, so it still fails
-    # loudly. Tracked for follow-up.
-    if allowed_tools and profile.provider == ProviderType.SDK:
-        raise ValueError(
-            f"Step '{step_name}' declares allowed_tools {allowed_tools!r} but profile "
-            f"'{profile_name}' routes to the Claude Code SDK, whose tool vocabulary differs "
-            "from the squadron tool registry. Use a non-SDK model, or remove 'allowed_tools'."
-        )
     ensure_provider_loaded(profile.provider)
+
+    is_sdk = profile.provider == ProviderType.SDK
+    # #40: what baseline should an agent get when the step supplies no system prompt?
+    # On the SDK side the answer is the CLI's own prompt, matching metrology/audit.py —
+    # an empty system prompt there strips the tool-use discipline the CLI ships with. On
+    # the non-SDK side an empty prompt becomes no system message at all, so with tools the
+    # guidance block (composed in the agent, slice 267 D1) is the whole system prompt.
+    has_explicit_prompt = bool(system_prompt)
+    use_default_system_prompt = is_sdk and not has_explicit_prompt
+    instructions = system_prompt if has_explicit_prompt else None
 
     branch_suffix = f"-b{branch_idx}" if branch_idx is not None else ""
     config = AgentConfig(
@@ -133,9 +132,10 @@ async def one_shot_dispatch_with_telemetry(
         agent_type=profile.provider,
         provider=profile.provider,
         model=model_id,
-        instructions=system_prompt,
+        instructions=instructions,
+        use_default_system_prompt=use_default_system_prompt,
         base_url=profile.base_url,
-        cwd=None if profile.provider == ProviderType.SDK else cwd,
+        cwd=None if is_sdk else cwd,
         allowed_tools=allowed_tools,
         tools_suppressed_reason=tools_suppressed_reason,
         credentials={
@@ -269,11 +269,12 @@ class DispatchAction:
         ``stdout`` as the prompt.  This is the normal flow for phase steps:
         cf-op(build_context) produces the context text, dispatch sends it.
         """
-        # The SDK session path does not carry allowed_tools (slice 265 owns that
-        # wiring). Failing here is deliberate: running the step tool-less would
-        # return success with the model describing a file it never wrote — the
-        # exact silent no-op this slice exists to prevent. Load-time validation
-        # cannot catch it, because the routing decision is made at runtime.
+        # A persistent SDK session fixes its tool set when it connects, so a per-step
+        # allowed_tools cannot take effect on this path (design D6). Failing here is
+        # deliberate: running the step tool-less would return success with the model
+        # describing a file it never wrote — the exact silent no-op this guard exists to
+        # prevent. Load-time validation cannot catch it, because the routing decision is
+        # made at runtime.
         if resolve_allowed_tools(context, self.action_type):
             return ActionResult(
                 success=False,
@@ -281,8 +282,9 @@ class DispatchAction:
                 outputs={},
                 error=(
                     f"Step '{context.step_name}' declares 'allowed_tools' but resolved to the "
-                    "SDK session path, which does not yet support them. Use a non-SDK model "
-                    "for this step, or remove 'allowed_tools'."
+                    "SDK session path, where a persistent session's tool set is fixed at "
+                    "connect time and cannot be changed per step. Use a non-SDK model for "
+                    "this step, or remove 'allowed_tools'."
                 ),
             )
 

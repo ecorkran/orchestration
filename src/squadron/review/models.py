@@ -83,6 +83,10 @@ class ReviewResult:
     system_prompt: str | None = None
     user_prompt: str | None = None
     rules_content_used: str | None = None
+    # True when the SDK's claude_code preset carried system_prompt as its appended part
+    # (#85). Without this a reader of the -vv appendix would take the recorded text for
+    # the whole system prompt; the CLI's preset text is not squadron's to capture.
+    default_system_prompt_preset_used: bool = False
 
     def to_dict(self, verdict_override: str | None = None) -> dict[str, object]:
         """Serialize for JSON output.
