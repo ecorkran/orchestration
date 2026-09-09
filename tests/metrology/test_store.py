@@ -41,7 +41,7 @@ class TestAtomicWrite:
         store = MetrologyStore(store_dir=tmp_path)
         sample = make_sample_verdict(sample_id="sample-20260722-cccc3333")
         # Simulate a rename failure mid-publish.
-        with patch.object(Path, "rename", side_effect=OSError("disk full")):
+        with patch.object(Path, "replace", side_effect=OSError("disk full")):
             with pytest.raises(MetrologyStoreError):
                 store.write_sample(sample)
         final = tmp_path / "sample-20260722-cccc3333.json"

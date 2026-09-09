@@ -309,7 +309,7 @@ class TestFailureModes:
         with patch("squadron.cli.commands.metrology.resolve_store_dir", return_value=store_dir):
             with (
                 _budget(10),
-                patch.object(Path, "rename", side_effect=OSError("read-only")),
+                patch.object(Path, "replace", side_effect=OSError("read-only")),
             ):
                 result = runner.invoke(
                     app,
