@@ -17,6 +17,7 @@ from pathlib import Path
 
 from squadron.config.manager import get_config
 from squadron.core.models import SDK_RESULT_TYPE, AgentConfig, Message, MessageType
+from squadron.core.subprocess_text import TEXT_DECODING
 from squadron.models.aliases import model_allows_tools as _alias_allows_tools
 from squadron.providers.base import ProviderType
 from squadron.providers.loader import ensure_provider_loaded
@@ -449,6 +450,7 @@ def _run_git_diff_filenames(
             cmd,
             capture_output=True,
             text=True,
+            **TEXT_DECODING,
             cwd=cwd,
             check=False,
         )
@@ -482,6 +484,7 @@ def _run_git_diff(
             cmd,
             capture_output=True,
             text=True,
+            **TEXT_DECODING,
             cwd=cwd,
             check=False,
         )

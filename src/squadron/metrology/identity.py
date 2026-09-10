@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import cast
 
 from squadron.config.manager import get_config
+from squadron.core.subprocess_text import TEXT_DECODING
 from squadron.documents.frontmatter import read_frontmatter
 from squadron.metrology.errors import MetrologyIdentityError, MetrologyTargetError
 from squadron.metrology.models import (
@@ -75,6 +76,7 @@ def _read_git_remote_url(cwd: str) -> str | None:
             ["git", "config", "--get", "remote.origin.url"],
             capture_output=True,
             text=True,
+            **TEXT_DECODING,
             cwd=cwd,
             check=False,
             timeout=_GIT_REMOTE_TIMEOUT_S,

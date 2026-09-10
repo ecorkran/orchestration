@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import subprocess
 
+from squadron.core.subprocess_text import TEXT_DECODING
+
 _logger = logging.getLogger(__name__)
 
 #: The diff base used when no integration branch is configured. Slice branches
@@ -22,13 +24,18 @@ def run_git(args: list[str], *, cwd: str) -> subprocess.CompletedProcess[str] | 
     ``None`` means git could not be invoked at all (missing binary, bad cwd);
     a non-zero ``returncode`` on the returned process means git ran and
     refused. Callers must distinguish the two — they are different failures.
+
+    Every git call in this module goes through here so the UTF-8 decoding
+    pin (issue #63) is applied once.
     """
     try:
         return subprocess.run(
             ["git", *args],
             capture_output=True,
             text=True,
+            **TEXT_DECODING,
             cwd=cwd,
+            check=False,
         )
     except OSError:
         return None
@@ -65,22 +72,13 @@ def _find_slice_branch(slice_number: int, cwd: str) -> str | None:
 
     Returns the branch name or None if not found.
     """
-    try:
-        result = subprocess.run(
-            ["git", "branch", "--list", f"{slice_number}-slice.*"],
-            capture_output=True,
-            text=True,
-            cwd=cwd,
-            check=False,
-        )
-        if result.returncode != 0:
-            return None
-        for line in result.stdout.splitlines():
-            branch = line.strip().lstrip("* ")
-            if branch:
-                return branch
-    except (FileNotFoundError, OSError):
+    result = run_git(["branch", "--list", f"{slice_number}-slice.*"], cwd=cwd)
+    if result is None or result.returncode != 0:
         return None
+    for line in result.stdout.splitlines():
+        branch = line.strip().lstrip("* ")
+        if branch:
+            return branch
     return None
 
 
@@ -100,17 +98,8 @@ def _resolve_fork_point(branch: str, cwd: str) -> str | None:
     ``git gc`` has expired the entries — so the caller falls through and
     fails loudly rather than guessing.
     """
-    try:
-        result = subprocess.run(
-            ["git", "reflog", "show", "--format=%H %gs", branch],
-            capture_output=True,
-            text=True,
-            cwd=cwd,
-            check=False,
-        )
-    except (FileNotFoundError, OSError):
-        return None
-    if result.returncode != 0:
+    result = run_git(["reflog", "show", "--format=%H %gs", branch], cwd=cwd)
+    if result is None or result.returncode != 0:
         return None
     for line in result.stdout.splitlines():
         sha, _, subject = line.partition(" ")
@@ -134,33 +123,15 @@ def _search_merge_commit(slice_number: int, cwd: str, ref: str) -> str | None:
 
     Returns the commit hash or None if not found.
     """
-    try:
-        grep_pattern = (
-            rf"slice[^0-9]{slice_number}([^0-9]|$)"
-            rf"|(^|[^0-9]){slice_number}-slice"
-        )
-        result = subprocess.run(
-            [
-                "git",
-                "log",
-                "--merges",
-                "--oneline",
-                "--extended-regexp",
-                f"--grep={grep_pattern}",
-                ref,
-                "-1",
-            ],
-            capture_output=True,
-            text=True,
-            cwd=cwd,
-            check=False,
-        )
-        if result.returncode != 0 or not result.stdout.strip():
-            return None
-        # First word is the commit hash
-        return result.stdout.strip().split()[0]
-    except (FileNotFoundError, OSError):
+    grep_pattern = rf"slice[^0-9]{slice_number}([^0-9]|$)|(^|[^0-9]){slice_number}-slice"
+    result = run_git(
+        ["log", "--merges", "--oneline", "--extended-regexp", f"--grep={grep_pattern}", ref, "-1"],
+        cwd=cwd,
+    )
+    if result is None or result.returncode != 0 or not result.stdout.strip():
         return None
+    # First word is the commit hash
+    return result.stdout.strip().split()[0]
 
 
 def _find_merge_commit(slice_number: int, cwd: str, base: str = DEFAULT_DIFF_BASE) -> str | None:
@@ -210,18 +181,9 @@ def find_git_root(cwd: str) -> str | None:
     Returns the absolute path string, or ``None`` if ``cwd`` is not inside
     a git repository or git is unavailable.
     """
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            cwd=cwd,
-            check=False,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    except (FileNotFoundError, OSError):
-        pass
+    result = run_git(["rev-parse", "--show-toplevel"], cwd=cwd)
+    if result is not None and result.returncode == 0 and result.stdout.strip():
+        return result.stdout.strip()
     return None
 
 
@@ -273,18 +235,9 @@ def resolve_diff_base(cwd: str, cf_client: object | None = None) -> str:
 
 def _resolve_rev(ref: str, cwd: str) -> str | None:
     """Resolve a git ref to its full SHA. Returns None on failure."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", ref],
-            capture_output=True,
-            text=True,
-            cwd=cwd,
-            check=False,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    except (FileNotFoundError, OSError):
-        pass
+    result = run_git(["rev-parse", ref], cwd=cwd)
+    if result is not None and result.returncode == 0 and result.stdout.strip():
+        return result.stdout.strip()
     return None
 
 
@@ -322,46 +275,37 @@ def resolve_slice_diff_range(slice_number: int, cwd: str, base: str | None = Non
         # integration branch, or where earlier band work was already
         # promoted, merge-base against main returns the whole accumulated
         # band instead of this slice's own diff.
-        try:
-            mb_result = subprocess.run(
-                ["git", "merge-base", base, branch],
-                capture_output=True,
-                text=True,
-                cwd=cwd,
-                check=False,
-            )
-            if mb_result.returncode == 0 and mb_result.stdout.strip():
-                merge_base = mb_result.stdout.strip()
-                # Check if branch tip equals merge-base — if so,
-                # branch is fully merged and three-dot diff will be
-                # empty. Fall through to merge commit path instead.
-                branch_tip = _resolve_rev(branch, cwd)
-                if branch_tip is None or merge_base != branch_tip:
-                    _logger.debug(
-                        "slice %d: diff range from merge-base(%s, %s)",
-                        slice_number,
-                        base,
-                        branch,
-                    )
-                    return f"{merge_base}...{branch}"
-                # branch_tip == merge_base: the branch is fully contained in
-                # base. A --no-ff merge leaves a merge commit for the path
-                # below, but a fast-forward merge leaves none (issue #54), and
-                # fast-forward is git's default when base has not diverged.
-                # The reflog still records where the branch forked, which is
-                # exact — unlike a commit-message search over base, which
-                # issue #14 removed for silently widening the range.
-                fork_point = _resolve_fork_point(branch, cwd)
-                if fork_point is not None and fork_point != branch_tip:
-                    _logger.debug(
-                        "slice %d: diff range from fork-point(%s, %s)",
-                        slice_number,
-                        base,
-                        branch,
-                    )
-                    return f"{fork_point}..{branch_tip}"
-        except (FileNotFoundError, OSError):
-            pass
+        mb_result = run_git(["merge-base", base, branch], cwd=cwd)
+        if mb_result is not None and mb_result.returncode == 0 and mb_result.stdout.strip():
+            merge_base = mb_result.stdout.strip()
+            # Check if branch tip equals merge-base — if so,
+            # branch is fully merged and three-dot diff will be
+            # empty. Fall through to merge commit path instead.
+            branch_tip = _resolve_rev(branch, cwd)
+            if branch_tip is None or merge_base != branch_tip:
+                _logger.debug(
+                    "slice %d: diff range from merge-base(%s, %s)",
+                    slice_number,
+                    base,
+                    branch,
+                )
+                return f"{merge_base}...{branch}"
+            # branch_tip == merge_base: the branch is fully contained in
+            # base. A --no-ff merge leaves a merge commit for the path
+            # below, but a fast-forward merge leaves none (issue #54), and
+            # fast-forward is git's default when base has not diverged.
+            # The reflog still records where the branch forked, which is
+            # exact — unlike a commit-message search over base, which
+            # issue #14 removed for silently widening the range.
+            fork_point = _resolve_fork_point(branch, cwd)
+            if fork_point is not None and fork_point != branch_tip:
+                _logger.debug(
+                    "slice %d: diff range from fork-point(%s, %s)",
+                    slice_number,
+                    base,
+                    branch,
+                )
+                return f"{fork_point}..{branch_tip}"
         # merge-base failed or branch is merged — fall through
 
     merge_commit = _find_merge_commit(slice_number, cwd, base)

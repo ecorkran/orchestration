@@ -27,6 +27,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from squadron.config.manager import get_config, get_typed_config
+from squadron.core.subprocess_text import TEXT_DECODING
 from squadron.metrology.audit_parse import parse_audit_findings
 from squadron.metrology.errors import (
     AuditBlockMalformedError,
@@ -254,6 +255,7 @@ def _run_git(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
         cwd=cwd,
         capture_output=True,
         text=True,
+        **TEXT_DECODING,
         check=False,
     )
 

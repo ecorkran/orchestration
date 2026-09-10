@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 from squadron.config.manager import get_config
+from squadron.core.subprocess_text import TEXT_DECODING
 
 # Frontmatter YAML block at start of file
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
@@ -208,6 +209,7 @@ def extract_diff_paths(
             cmd,
             capture_output=True,
             text=True,
+            **TEXT_DECODING,
             cwd=cwd,
             check=False,
         )

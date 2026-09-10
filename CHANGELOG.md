@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `sq review code --diff` and every other git, `cf`, and npm call decode output as UTF-8 on Windows locales instead of crashing on non-ASCII characters in a diff (#63)
+
 ## [0.12.1] - 20260909
 
 ### Added

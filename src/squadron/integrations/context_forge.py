@@ -12,6 +12,8 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Any
 
+from squadron.core.subprocess_text import TEXT_DECODING
+
 # ---------------------------------------------------------------------------
 # Exceptions
 # ---------------------------------------------------------------------------
@@ -79,6 +81,7 @@ class ContextForgeClient:
                 ["cf", *args],
                 capture_output=True,
                 text=True,
+                **TEXT_DECODING,
                 check=True,
             )
         except FileNotFoundError as exc:

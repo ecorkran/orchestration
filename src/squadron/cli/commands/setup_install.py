@@ -35,6 +35,7 @@ from squadron.cli.commands.doctor_checks import (
     CONTEXT_FORGE_PACKAGE,
     GIT_HOOKS_PATH,
 )
+from squadron.core.subprocess_text import TEXT_DECODING
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,7 @@ def _run_command(argv: list[str], *, label: str) -> InstallOutcome:
             argv,
             capture_output=True,
             text=True,
+            **TEXT_DECODING,
             timeout=_INSTALL_TIMEOUT_S,
             check=False,
         )
@@ -212,6 +214,7 @@ def _git_stdout(argv: list[str]) -> str | None:
             ["git", *argv],
             capture_output=True,
             text=True,
+            **TEXT_DECODING,
             timeout=30,
             check=False,
         )
