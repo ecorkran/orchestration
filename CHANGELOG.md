@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.2] - 20260909
+
+### Changed
+- Bundled ai-project-guide updated to v0.17.3
+
 ### Fixed
 - `sq review code --diff` and every other git, `cf`, and npm call decode output as UTF-8 on Windows locales instead of crashing on non-ASCII characters in a diff (#63)
 

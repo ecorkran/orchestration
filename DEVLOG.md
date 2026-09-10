@@ -14,6 +14,18 @@ A lightweight, append-only record of development activity. Newest entries first.
 
 ## 20260909
 
+### UTF-8 subprocess decoding, 0.12.2
+
+Closed #63 (jakez-gh): `subprocess.run(text=True)` decoded child output with the locale codec,
+so on Windows (cp1252) an em dash in a diff raised `UnicodeDecodeError` before the model ran.
+Git, `cf` and npm emit UTF-8 everywhere, so the decoding is now defined once in
+`squadron.core.subprocess_text.TEXT_DECODING` (`encoding="utf-8", errors="replace"`) and passed
+at all 15 text-mode call sites. The six inline git calls in `review/git_utils.py` now go through
+the existing `run_git` helper. `tests/test_subprocess_text_decoding.py` walks the package AST and
+fails on any `text=True` call without the pin. Confirmed with the context-forge session that no
+related change exists or is needed on the `cf` side: Node's `execFile` decodes UTF-8 on every
+platform. Release also carries the ai-project-guide v0.17.3 bump.
+
 ### Contributor PRs merged, 0.12.1
 
 Three external PRs, all squash-merged to `main` with no review round-trips; gaps closed by
